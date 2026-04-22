@@ -18,48 +18,84 @@ let knowledgeBase = ''
 try {
   knowledgeBase = readFileSync('./knowledge/base.md', 'utf-8')
   console.log('[startup] Knowledge base loaded:', knowledgeBase.length, 'chars')
-} catch (e) {
-  console.log('[startup] No knowledge/base.md found, using generic assistant')
+} catch {
+  console.log('[startup] No knowledge/base.md, usando info generica')
 }
 
+const SYSTEM_PROMPT = `Sos el asistente de WhatsApp del club cannábico. Tu trabajo es atender a las personas que escriben por primera vez o que tienen consultas.
+
+ESTILO:
+- Español rioplatense natural (vos, dale, genial, claro, etc.)
+- Casual y cercano, pero profesional — como alguien del equipo del club
+- Respuestas cortas para WhatsApp (máx 3-4 líneas)
+- Nunca hagas listas largas ni texto de email
+- Usá emojis con moderación 🌿
+
+CONOCIMIENTO DEL CLUB:
+${knowledgeBase}
+
+CÓMO RESPONDER SEGÚN LA SITUACIÓN:
+
+Si saluda (hola, buenas, etc.):
+→ Saludá con energía y preguntá en qué podés ayudar
+
+Si pregunta por horarios, dirección, ubicación:
+→ Respondé brevemente y cerrá con "¿Necesitás algo más o te interesa conocer el club?"
+
+Si pregunta por genéticas, productos, stock:
+→ Contá brevemente las opciones disponibles y su perfil de efecto
+
+Si quiere afiliarse o ser socio:
+→ Explicá que necesita REPROCANN (el registro de cultivadores) + DNI
+→ Si tiene REPROCANN: "Perfecto! Mandame foto del frente de tu Reprocan"
+→ Si no tiene: "No hay drama, lo podés tramitar online en argentina.gob.ar/reprocann — es gratis"
+
+Si pide hablar con alguien o con una persona:
+→ "Dale, te paso con alguien del club enseguida 👋 Puede demorar un ratito."
+
+Si manda algo raro, fuera de tema, o confuso:
+→ Respondé brevemente y redirigí: "Por acá atendemos todo lo del club, ¿en qué te puedo ayudar?"
+
+Si no sabés algo con certeza:
+→ "Eso es mejor consultarlo directamente con alguien del club, te van a poder dar info precisa."
+
+REGLAS FIJAS:
+- Nunca des una dirección exacta
+- Nunca prometas cosas que no podés asegurar
+- Siempre cerrá con algo que invite a seguir la conversación o avanzar
+- Si ya hablaron antes, recordá el contexto de la conversación`
+
 function log(tag, ...args) {
-  const timestamp = new Date().toISOString()
-  console.log(`[${timestamp}] [${tag}]`, ...args)
+  console.log(`[${new Date().toISOString()}] [${tag}]`, ...args)
 }
 
 async function sendWhatsAppMessage(chatId, message) {
   const url = `${GREEN_URL}/waInstance${GREEN_INSTANCE}/sendMessage/${GREEN_TOKEN}`
   try {
-    log('whatsapp', `Sending to ${chatId}: ${message.substring(0, 50)}...`)
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ chatId, message }),
     })
-    const status = res.status
     const text = await res.text()
-    log('whatsapp', `Send status: ${status}, response: ${text.substring(0, 100)}`)
+    log('whatsapp', `Status: ${res.status} | ${text.substring(0, 80)}`)
   } catch (e) {
-    log('whatsapp', 'Error:', e.message)
+    log('whatsapp', `Error al enviar: ${e.message}`)
   }
 }
 
 async function askClaude(msg, chatId) {
   if (!ANTHROPIC_KEY) {
-    log('claude', 'ERROR: ANTHROPIC_KEY not set!')
-    return 'Error: API key not configured'
+    log('claude', 'ANTHROPIC_KEY no configurada!')
+    return 'Disculpá, estamos teniendo un problema técnico. Probá de nuevo en unos minutos 🙏'
   }
 
   const history = conversationHistory.get(chatId) || []
-  const messages = [...history.slice(-5), { role: 'user', content: msg }]
+  const messages = [...history.slice(-8), { role: 'user', content: msg }]
 
-  log('claude', `Calling Claude with ${messages.length} messages for chat ${chatId}`)
+  log('claude', `Llamando modelo con ${messages.length} mensajes | chat: ${chatId}`)
 
   try {
-    const systemPrompt = knowledgeBase
-      ? `You are a helpful club assistant. Use the knowledge base below to answer questions about the club. Answer briefly in Spanish.\n\n# Knowledge Base\n\n${knowledgeBase}`
-      : 'You are a helpful club assistant. Answer briefly in Spanish.'
-
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -69,99 +105,84 @@ async function askClaude(msg, chatId) {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 1024,
-        system: systemPrompt,
+        max_tokens: 300,
+        system: SYSTEM_PROMPT,
         messages,
       }),
     })
 
-    log('claude', `Response status: ${res.status}`)
+    log('claude', `Status: ${res.status}`)
 
     if (!res.ok) {
-      const error = await res.text()
-      log('claude', `API error: ${error.substring(0, 200)}`)
-      return 'Error: Claude API returned error'
+      const err = await res.text()
+      log('claude', `Error API: ${err.substring(0, 150)}`)
+      return 'Disculpá, tuvimos un problema técnico. Intentá de nuevo en un momento 🙏'
     }
 
     const data = await res.json()
-    const reply = data.content[0].text
+    const reply = data.content[0].text.trim()
 
-    log('claude', `Reply: ${reply.substring(0, 100)}...`)
+    log('claude', `Respuesta: ${reply.substring(0, 100)}`)
 
     const updated = [...history, { role: 'user', content: msg }, { role: 'assistant', content: reply }]
     conversationHistory.set(chatId, updated)
 
     return reply
   } catch (e) {
-    log('claude', `Exception: ${e.message}`)
-    return 'Error: Failed to process request'
+    log('claude', `Excepcion: ${e.message}`)
+    return 'Disculpá, tuvimos un problema técnico. Intentá de nuevo en un momento 🙏'
   }
 }
 
 app.post('/webhook', (req, res) => {
-  const timestamp = new Date().toISOString()
-  log('webhook', `Received POST - responding OK immediately`)
-
   res.send('OK')
 
   process.nextTick(async () => {
     try {
       const body = req.body
+      log('webhook', `Recibido: typeWebhook=${body.typeWebhook}`)
 
-      log('webhook', `typeWebhook: ${body.typeWebhook}`)
-
-      if (body.typeWebhook !== 'incomingMessageReceived') {
-        log('webhook', 'Not incomingMessageReceived, ignoring')
-        return
-      }
+      if (body.typeWebhook !== 'incomingMessageReceived') return
 
       const msgType = body.messageData?.typeMessage
-      log('webhook', `Message type: ${msgType}`)
-
       if (msgType !== 'textMessage') {
-        log('webhook', 'Not textMessage, ignoring')
+        log('webhook', `Tipo no soportado: ${msgType}`)
         return
       }
 
       const chatId = body.senderData?.chatId
-      const message = body.messageData?.textMessageData?.textMessage
+      const message = body.messageData?.textMessageData?.textMessage?.trim()
       const sender = body.senderData?.senderName
 
-      log('webhook', `From: ${sender} (${chatId}) | Message: ${message}`)
+      if (!chatId || !message) return
 
-      if (!chatId || !message) {
-        log('webhook', 'Missing chatId or message, ignoring')
-        return
-      }
+      log('webhook', `De: ${sender} (${chatId}) | "${message}"`)
 
-      log('webhook', `Processing message...`)
       const reply = await askClaude(message, chatId)
-
-      log('webhook', `Sending WhatsApp response...`)
       await sendWhatsAppMessage(chatId, reply)
 
-      log('webhook', `Complete`)
+      log('webhook', `Respuesta enviada a ${chatId}`)
     } catch (e) {
-      log('webhook', `Error in async handler: ${e.message}`)
+      log('webhook', `Error inesperado: ${e.message}`)
     }
   })
 })
 
 app.get('/health', (req, res) => {
-  const uptime = process.uptime()
-  const historySize = conversationHistory.size
   res.json({
     ok: true,
-    uptime: Math.floor(uptime),
-    conversationThreads: historySize,
+    uptime: Math.floor(process.uptime()),
     model: MODEL,
+    threads: conversationHistory.size,
+    knowledgeBase: knowledgeBase.length > 0,
+    anthropicKeySet: !!ANTHROPIC_KEY,
   })
 })
 
 const PORT = process.env.PORT ?? 3000
 app.listen(PORT, () => {
-  log('server', `WhatsApp Bot running on port ${PORT}`)
-  log('server', `GREEN_API: ${GREEN_URL}`)
-  log('server', `MODEL: ${MODEL}`)
-  log('server', `KNOWLEDGE_BASE: ${knowledgeBase.length} chars loaded`)
+  log('server', `Bot corriendo en puerto ${PORT}`)
+  log('server', `Modelo: ${MODEL}`)
+  log('server', `API key configurada: ${!!ANTHROPIC_KEY}`)
+  log('server', `Knowledge base: ${knowledgeBase.length} chars`)
 })
