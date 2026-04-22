@@ -176,7 +176,23 @@ app.get('/health', (req, res) => {
     threads: conversationHistory.size,
     knowledgeBase: knowledgeBase.length > 0,
     anthropicKeySet: !!ANTHROPIC_KEY,
+    anthropicKeyPrefix: ANTHROPIC_KEY ? ANTHROPIC_KEY.substring(0, 20) + '...' : 'NOT SET',
   })
+})
+
+app.get('/test-claude', async (req, res) => {
+  if (!ANTHROPIC_KEY) return res.json({ ok: false, error: 'ANTHROPIC_KEY not set' })
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({ model: MODEL, max_tokens: 30, messages: [{ role: 'user', content: 'hola' }] }),
+    })
+    const data = await r.json()
+    res.json({ ok: r.ok, status: r.status, reply: r.ok ? data.content[0].text : data })
+  } catch (e) {
+    res.json({ ok: false, error: e.message })
+  }
 })
 
 const PORT = process.env.PORT ?? 3000
