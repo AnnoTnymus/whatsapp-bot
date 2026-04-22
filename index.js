@@ -9,7 +9,7 @@ app.use(express.json())
 const GREEN_URL = process.env.GREEN_API_URL ?? 'https://7107.api.greenapi.com'
 const GREEN_INSTANCE = process.env.GREEN_API_INSTANCE_ID ?? '7107588003'
 const GREEN_TOKEN = process.env.GREEN_API_TOKEN ?? '5d7a2dd449bd48deaed916c65ae197c86ceb73a683254677b5'
-const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY?.trim()
+const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY?.replace(/[^\x20-\x7E]/g, '').trim()
 const MODEL = 'claude-opus-4-7'
 
 const conversationHistory = new Map()
@@ -177,6 +177,8 @@ app.get('/health', (req, res) => {
     knowledgeBase: knowledgeBase.length > 0,
     anthropicKeySet: !!ANTHROPIC_KEY,
     anthropicKeyPrefix: ANTHROPIC_KEY ? ANTHROPIC_KEY.substring(0, 20) + '...' : 'NOT SET',
+    anthropicKeyLength: ANTHROPIC_KEY?.length ?? 0,
+    anthropicKeyRaw: process.env.ANTHROPIC_API_KEY ? `len=${process.env.ANTHROPIC_API_KEY.length},codes=${[...process.env.ANTHROPIC_API_KEY.slice(-5)].map(c=>c.charCodeAt(0)).join(',')}` : 'NOT SET',
   })
 })
 
