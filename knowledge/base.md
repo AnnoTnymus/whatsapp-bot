@@ -32,7 +32,7 @@
 - **OG Kush**: concentración de THC, sabor fuerte
 
 ## Métodos de Pago
-- Efectivo (descuento del 5%)
+- Efectivo
 - Transferencia bancaria
 - Débito/Crédito (sujeto a disponibilidad)
 

@@ -13,6 +13,25 @@ const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY?.replace(/[^\x20-\x7E]/g, ''
 const MODEL = 'claude-opus-4-7'
 
 const conversationHistory = new Map()
+const rateLimits = new Map()
+const userState = new Map()
+
+const RATE_LIMIT = 30
+const RATE_WINDOW = 60 * 60 * 1000
+const ADMIN_WHATSAPP = process.env.ADMIN_WHATSAPP
+
+function checkRateLimit(chatId) {
+  const now = Date.now()
+  const entry = rateLimits.get(chatId) || { count: 0, resetAt: now + RATE_WINDOW }
+  if (now > entry.resetAt) {
+    rateLimits.set(chatId, { count: 1, resetAt: now + RATE_WINDOW })
+    return true
+  }
+  if (entry.count >= RATE_LIMIT) return false
+  entry.count++
+  rateLimits.set(chatId, entry)
+  return true
+}
 
 let knowledgeBase = ''
 try {
@@ -63,7 +82,8 @@ REGLAS FIJAS:
 - Nunca des una dirección exacta
 - Nunca prometas cosas que no podés asegurar
 - Siempre cerrá con algo que invite a seguir la conversación o avanzar
-- Si ya hablaron antes, recordá el contexto de la conversación`
+- Si ya hablaron antes, recordá el contexto de la conversación
+- Si tu respuesta no entra en 4 líneas, dividí en dos mensajes — NUNCA cortes una respuesta a mitad de palabra o concepto`
 
 function log(tag, ...args) {
   console.log(`[${new Date().toISOString()}] [${tag}]`, ...args)
@@ -82,6 +102,99 @@ async function sendWhatsAppMessage(chatId, message) {
   } catch (e) {
     log('whatsapp', `Error al enviar: ${e.message}`)
   }
+}
+
+async function downloadImage(idMessage) {
+  const url = `${GREEN_URL}/waInstance${GREEN_INSTANCE}/downloadFile/${GREEN_TOKEN}`
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idMessage }),
+    })
+    const data = await res.json()
+    if (data.result) {
+      log('image', `Descargada: ${idMessage}`)
+      return data.result
+    }
+    log('image', `Error descargando: ${JSON.stringify(data)}`)
+    return null
+  } catch (e) {
+    log('image', `Error al descargar: ${e.message}`)
+    return null
+  }
+}
+
+async function analyzeImageWithClaude(imageUrl, chatId) {
+  if (!ANTHROPIC_KEY) {
+    log('claude', 'ANTHROPIC_KEY no configurada para análisis de imagen')
+    return null
+  }
+
+  const state = userState.get(chatId) || {}
+  const systemMsg = state.step === 'esperando_reprocann'
+    ? 'El usuario ya indicó que tiene REPROCANN. Analizá esta imagen como su certificado REPROCANN. Confirmá la recepción y pedile el DNI.'
+    : state.step === 'esperando_dni'
+    ? 'El usuario ya mandó su REPROCANN. Analizá esta imagen como su DNI. Confirmá que recibiste los documentos y decile que lo contactamos pronto.'
+    : 'El usuario está en proceso de afiliación. Analizá esta imagen: ¿Es un REPROCANN válido o un DNI? Respondé brevemente qué ves.'
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': ANTHROPIC_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 300,
+        system: systemMsg,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: {
+                  type: 'url',
+                  url: imageUrl,
+                },
+              },
+              {
+                type: 'text',
+                text: 'Analizá esta imagen para el flujo de afiliación del club.',
+              },
+            ],
+          },
+        ],
+      }),
+    })
+
+    if (!res.ok) {
+      const err = await res.text()
+      log('claude', `Error analizando imagen: ${err.substring(0, 150)}`)
+      return null
+    }
+
+    const data = await res.json()
+    const reply = data.content[0].text.trim()
+    log('claude', `Análisis de imagen: ${reply.substring(0, 80)}`)
+    return reply
+  } catch (e) {
+    log('claude', `Excepción analizando imagen: ${e.message}`)
+    return null
+  }
+}
+
+async function notifyAdmin(chatId, nombre, docs) {
+  if (!ADMIN_WHATSAPP) {
+    log('admin', 'ADMIN_WHATSAPP no configurada')
+    return
+  }
+  const msg = `📋 Nuevo lead listo:\n👤 ${nombre}\n📱 ${chatId}\n✅ ${docs}`
+  await sendWhatsAppMessage(ADMIN_WHATSAPP, msg)
+  log('admin', `Notificación enviada: ${nombre}`)
 }
 
 async function askClaude(msg, chatId) {
@@ -105,7 +218,7 @@ async function askClaude(msg, chatId) {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 300,
+        max_tokens: 500,
         system: SYSTEM_PROMPT,
         messages,
       }),
@@ -145,23 +258,66 @@ app.post('/webhook', (req, res) => {
       if (body.typeWebhook !== 'incomingMessageReceived') return
 
       const msgType = body.messageData?.typeMessage
-      if (msgType !== 'textMessage') {
-        log('webhook', `Tipo no soportado: ${msgType}`)
-        return
-      }
-
       const chatId = body.senderData?.chatId
-      const message = body.messageData?.textMessageData?.textMessage?.trim()
       const sender = body.senderData?.senderName
 
-      if (!chatId || !message) return
+      if (!chatId) return
 
-      log('webhook', `De: ${sender} (${chatId}) | "${message}"`)
+      if (msgType === 'textMessage') {
+        const message = body.messageData?.textMessageData?.textMessage?.trim()
+        if (!message) return
 
-      const reply = await askClaude(message, chatId)
-      await sendWhatsAppMessage(chatId, reply)
+        log('webhook', `De: ${sender} (${chatId}) | "${message}"`)
 
-      log('webhook', `Respuesta enviada a ${chatId}`)
+        if (!checkRateLimit(chatId)) {
+          log('webhook', `Rate limit exceeded para ${chatId}`)
+          await sendWhatsAppMessage(chatId, 'Recibimos muchos mensajes de este número, intentá en un rato 🙏')
+          return
+        }
+
+        const reply = await askClaude(message, chatId)
+        await sendWhatsAppMessage(chatId, reply)
+        log('webhook', `Respuesta enviada a ${chatId}`)
+      } else if (msgType === 'imageMessage') {
+        const idMessage = body.messageData?.idMessage || body.idMessage
+        if (!idMessage) return
+
+        log('webhook', `Imagen recibida de ${sender} (${chatId})`)
+
+        if (!checkRateLimit(chatId)) {
+          log('webhook', `Rate limit exceeded para ${chatId}`)
+          await sendWhatsAppMessage(chatId, 'Recibimos muchos mensajes de este número, intentá en un rato 🙏')
+          return
+        }
+
+        const imageUrl = await downloadImage(idMessage)
+        if (!imageUrl) {
+          await sendWhatsAppMessage(chatId, 'No pude descargar la imagen, probá de nuevo 🙏')
+          return
+        }
+
+        const analysis = await analyzeImageWithClaude(imageUrl, chatId)
+        if (!analysis) {
+          await sendWhatsAppMessage(chatId, 'Tuvimos un problema analizando la imagen, intentá de nuevo 🙏')
+          return
+        }
+
+        const state = userState.get(chatId) || { step: 'inicio', nombre: sender }
+        if (state.step === 'inicio' || state.step === 'esperando_reprocann') {
+          state.step = 'esperando_dni'
+        } else if (state.step === 'esperando_dni') {
+          state.step = 'completado'
+          if (ADMIN_WHATSAPP) {
+            await notifyAdmin(chatId, state.nombre, 'Reprocann + DNI recibidos')
+          }
+        }
+        userState.set(chatId, state)
+
+        await sendWhatsAppMessage(chatId, analysis)
+        log('webhook', `Análisis enviado a ${chatId}`)
+      } else {
+        log('webhook', `Tipo no soportado: ${msgType}`)
+      }
     } catch (e) {
       log('webhook', `Error inesperado: ${e.message}`)
     }
