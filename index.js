@@ -9,7 +9,7 @@ app.use(express.json())
 const GREEN_URL = process.env.GREEN_API_URL ?? 'https://7107.api.greenapi.com'
 const GREEN_INSTANCE = process.env.GREEN_API_INSTANCE_ID ?? '7107588003'
 const GREEN_TOKEN = process.env.GREEN_API_TOKEN ?? '5d7a2dd449bd48deaed916c65ae197c86ceb73a683254677b5'
-const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY
+const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY?.trim()
 const MODEL = 'claude-opus-4-7'
 
 const conversationHistory = new Map()
