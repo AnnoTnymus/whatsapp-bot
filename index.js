@@ -186,49 +186,75 @@ try {
   console.log('[startup] No knowledge/base.md, usando info generica')
 }
 
-const SYSTEM_PROMPT = `Sos el asistente de WhatsApp del club cannábico. Tu trabajo es atender a las personas que escriben por primera vez o que tienen consultas.
+const SYSTEM_PROMPT = `Sos el asistente de WhatsApp del club cannábico. Tu rol principal es ATENCIÓN AL CLIENTE: responder dudas, informar sobre el club, productos, horarios, REPROCANN.
 
-ESTILO:
-- Español rioplatense natural (vos, dale, genial, claro, etc.)
-- Casual y cercano, pero profesional — como alguien del equipo del club
-- Respuestas cortas para WhatsApp (máx 3-4 líneas)
-- Nunca hagas listas largas ni texto de email
-- Usá emojis con moderación 🌿
+SOLO guiás el proceso de afiliación cuando el usuario lo pide explícitamente.
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TONO (muy importante, seguí al pie de la letra):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Cordial, cálido y profesional. Como un empleado amable del club.
+- Español rioplatense natural — usá "vos", "dale", "genial", "claro".
+- PROHIBIDO: nunca uses "boludo" ni "pibe" ni "loco".
+- "Che" y "dale" solo en respuestas casuales off-topic (stickers, audios, bromas). En consultas reales (horarios, precios, afiliación, REPROCANN) usá tono cordial-informativo SIN "che".
+- Emojis con moderación (1-2 por mensaje máximo).
+- Respuestas cortas para WhatsApp (máx 3-4 líneas).
+- Nunca hagas listas largas ni texto tipo email.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CONOCIMIENTO DEL CLUB:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${knowledgeBase}
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CÓMO RESPONDER SEGÚN LA SITUACIÓN:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Si saluda (hola, buenas, etc.):
-→ Saludá con energía y preguntá en qué podés ayudar
+→ Saludá cordialmente y preguntá en qué podés ayudar. NO pidas documentos. NO menciones afiliación a menos que te pregunten.
 
 Si pregunta por horarios, dirección, ubicación:
-→ Respondé brevemente y cerrá con "¿Necesitás algo más o te interesa conocer el club?"
+→ Respondé brevemente con la info del knowledge base.
 
 Si pregunta por genéticas, productos, stock:
-→ Contá brevemente las opciones disponibles y su perfil de efecto
+→ Contá brevemente las opciones disponibles y su perfil de efecto (indica/sativa/híbrida).
 
-Si quiere afiliarse o ser socio:
-→ Explicá que necesita REPROCANN (el registro de cultivadores) + DNI
-→ Si tiene REPROCANN: "Perfecto! Mandame foto del frente de tu Reprocan"
-→ Si no tiene: "No hay drama, lo podés tramitar online en argentina.gob.ar/reprocann — es gratis"
+Si pregunta por REPROCANN (qué es, cómo tramitarlo):
+→ Explicá que es el registro oficial para uso medicinal, se tramita en argentina.gob.ar/reprocann, es gratis.
 
-Si pide hablar con alguien o con una persona:
+Si pide hablar con una persona:
 → "Dale, te paso con alguien del club enseguida 👋 Puede demorar un ratito."
 
-Si manda algo raro, fuera de tema, o confuso:
-→ Respondé brevemente y redirigí: "Por acá atendemos todo lo del club, ¿en qué te puedo ayudar?"
+Si manda algo raro, fuera de tema (chistes, stickers random, mensajes sin sentido):
+→ Respondé casualmente (acá SÍ podés usar "che") y redirigí cordial: "¿En qué te puedo ayudar con el club?"
 
 Si no sabés algo con certeza:
-→ "Eso es mejor consultarlo directamente con alguien del club, te van a poder dar info precisa."
+→ "Eso es mejor consultarlo directamente con alguien del club."
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INTENCIÓN DE AFILIACIÓN — MARCADOR ESPECIAL:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Si el usuario expresa EXPLÍCITAMENTE que quiere afiliarse, hacerse socio, anotarse, inscribirse, comenzar la membresía, o frases similares:
+
+1. Respondé cordialmente dándole la bienvenida al proceso.
+2. Explicale en 1-2 líneas que vas a necesitar su DNI y certificado REPROCANN.
+3. Al FINAL de tu mensaje (después de todo), agregá en una línea aparte exactamente este marcador: [[AFILIAR]]
+
+El marcador [[AFILIAR]] NO lo ve el usuario — lo procesa el sistema para iniciar el flujo de documentos.
+
+Ejemplo de respuesta correcta ante "quiero afiliarme":
+"¡Bienvenido/a! 🌿 Para afiliarte necesito que me pases tu DNI y el certificado REPROCANN. Arrancamos?
+[[AFILIAR]]"
+
+NO pongas [[AFILIAR]] si el usuario solo pregunta "¿cómo funciona la afiliación?" o "¿qué necesito para ser socio?" sin decir que QUIERE hacerlo ahora. En ese caso solo explicale los requisitos.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REGLAS FIJAS:
-- Nunca des una dirección exacta
-- Nunca prometas cosas que no podés asegurar
-- Siempre cerrá con algo que invite a seguir la conversación o avanzar
-- Si ya hablaron antes, recordá el contexto de la conversación
-- Si tu respuesta no entra en 4 líneas, dividí en dos mensajes — NUNCA cortes una respuesta a mitad de palabra o concepto`
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Nunca des una dirección exacta (solo zona: "Palermo").
+- Nunca prometas cosas que no podés asegurar.
+- Si ya hablaron antes, recordá el contexto.
+- Si tu respuesta no entra en 4 líneas, cortá natural — nunca a mitad de concepto.`
 
 function log(tag, ...args) {
   console.log(`[${new Date().toISOString()}] [${tag}]`, ...args)
@@ -274,17 +300,13 @@ async function downloadImage(idMessage, chatId) {
   }
 }
 
+// Campos críticos del REPROCANN. Si Vision logró extraerlos, no molestamos al usuario.
+// Si falta alguno, lo pedimos por texto con un mensaje específico.
 const REPROCANN_REQUIRED = [
   { key: 'nombre', label: 'tu nombre completo', path: d => d?.nombre },
   { key: 'dni', label: 'tu número de DNI', path: d => d?.dni },
   { key: 'provincia', label: 'tu provincia', path: d => d?.ubicacion?.provincia },
-  { key: 'localidad', label: 'tu localidad', path: d => d?.ubicacion?.localidad },
-  { key: 'direccion', label: 'tu dirección (calle y número)', path: d => d?.ubicacion?.direccion },
-  { key: 'estado', label: 'el estado de autorización', path: d => d?.autorizacion?.estado },
-  { key: 'tipo', label: 'el tipo de paciente (ej: autocultivador)', path: d => d?.autorizacion?.tipo },
-  { key: 'transporte', label: 'el límite de transporte permitido', path: d => d?.autorizacion?.transporte },
-  { key: 'id_tramite', label: 'el número o ID de trámite', path: d => d?.tramite?.id },
-  { key: 'vencimiento', label: 'la fecha de vencimiento', path: d => d?.tramite?.fecha_vencimiento },
+  { key: 'vencimiento', label: 'la fecha de vencimiento de tu REPROCANN', path: d => d?.tramite?.fecha_vencimiento },
 ]
 
 function getMissingFields(reprocannData) {
@@ -318,7 +340,7 @@ async function detectImage(imageUrl) {
               },
               {
                 type: 'text',
-                text: `TAREA CRÍTICA: Detectar si este es un documento ARGENTINO válido.
+                text: `TAREA: Detectar qué tipo de documento es esta imagen.
 Retorna SOLO este JSON, sin explicación, sin markdown:
 {
   "tipo": "DNI" | "REPROCANN" | "DOCUMENTO_EXTRANJERO" | "OTRO",
@@ -327,26 +349,25 @@ Retorna SOLO este JSON, sin explicación, sin markdown:
   "valido": true | false
 }
 
-INSTRUCCIONES ABSOLUTAS (no hay excepciones):
+INSTRUCCIONES:
 
 1. DNI ARGENTINO = color azul, formato RENAPER moderno, escudo + "Ministerio del Interior", tiene CUIT al dorso
-   → tipo="DNI" SOLO si ves estos elementos
-   → CUALQUIER OTRO DNI = rechazar como DOCUMENTO_EXTRANJERO
+   → tipo="DNI", pais="Argentina"
 
-2. CÉDULA URUGUAYA = color marrón/beige, dice "CÉDULA DE IDENTIDAD REPÚBLICA ORIENTAL DEL URUGUAY"
-   → tipo="DOCUMENTO_EXTRANJERO", pais="Uruguay" (ESTO DEBE RECHAZARSE)
+2. CÉDULA URUGUAYA/PARAGUAYA/BRASILEÑA, pasaporte, licencia, visa
+   → tipo="DOCUMENTO_EXTRANJERO"
 
-3. OTROS DOCUMENTOS = pasaporte, licencia, visa, cédula paraguaya, brasileña, etc
-   → tipo="DOCUMENTO_EXTRANJERO" (RECHAZAR TODOS)
+3. REPROCANN = certificado oficial argentino, menciona "REPROCANN" o "AUTORIZACIÓN" + cannabis/medicinal
+   → tipo="REPROCANN"
 
-4. REPROCANN = certificado oficial ANMAT, dice "AUTORIZACIÓN ESPECIAL REPROCANN", tiene datos ANMAT
-   → tipo="REPROCANN" SOLO si es certificado OFICIAL argentino
-   → CUALQUIER OTRO CERTIFICADO = rechazar
+4. Si NO es ninguno de los anteriores (foto de persona, objeto, paisaje, sticker, etc)
+   → tipo="OTRO"
 
-5. valido=true SOLO si la imagen es clara, legible, bien iluminada, NO cortada
-   → valido=false si está borrosa, desenfocada, parcial, ilegible
+5. CAMPO "valido" — MUY IMPORTANTE:
+   → valido=true SIEMPRE que puedas identificar QUÉ TIPO de documento es, AUNQUE esté un poco borroso o con reflejos. El criterio es: ¿puedo leer los datos principales? Si sí → valido=true.
+   → valido=false SOLO si la imagen es tan ilegible que no podés ni identificar el tipo de documento. Sé PERMISIVO — preferí decir "valido=true" si tenés dudas.
 
-6. EN DUDA SIEMPRE RECHAZA = si dudas entre argentino y extranjero → DOCUMENTO_EXTRANJERO`,
+6. Si dudás entre DNI argentino y extranjero por baja calidad, preferí tipo="DNI" (después se verifica al extraer los datos).`,
               },
             ],
           },
@@ -729,18 +750,22 @@ async function askClaude(msg, chatId) {
     }
 
     const data = await res.json()
-    const reply = data.content[0].text.trim()
+    const rawReply = data.content[0].text.trim()
 
-    log('claude', `Respuesta: ${reply.substring(0, 100)}`)
+    // Detectar marker de intent de afiliación
+    const wantsAffiliation = /\[\[AFILIAR\]\]/i.test(rawReply)
+    const reply = rawReply.replace(/\[\[AFILIAR\]\]/gi, '').trim()
+
+    log('claude', `Respuesta: ${reply.substring(0, 100)} | afiliacion=${wantsAffiliation}`)
 
     const updated = [...history, { role: 'user', content: msg }, { role: 'assistant', content: reply }]
     conversationHistory.set(chatId, updated)
-    await saveHistory(chatId, updated)  // v4.0: persist to DB
+    await saveHistory(chatId, updated)
 
-    return reply
+    return { reply, wantsAffiliation }
   } catch (e) {
     log('claude', `Excepcion: ${e.message}`)
-    return 'Disculpá, tuvimos un problema técnico. Intentá de nuevo en un momento 🙏'
+    return { reply: 'Disculpá, tuvimos un problema técnico. Intentá de nuevo en un momento 🙏', wantsAffiliation: false }
   }
 }
 
@@ -786,23 +811,28 @@ async function insertMember(chatId, nombre, reprocannData, collectedData) {
 
 const RESPUESTAS_FUERA_FLUJO = {
   sticker: [
-    'Jaja che 😄 Buen sticker pero necesito tus documentos, no emojis. Dale, mandame el REPROCANN 📄',
-    'Boludo, me encantó 👍 Pero ahora necesito que me pases los papeles che 🤔',
-    'Ey, muy bueno 😂 Pero acá tenemos que laburar. ¿Tus documentos? 📸',
+    'Jaja 😄 Muy bueno. ¿En qué te puedo ayudar con el club?',
+    '¡Me encantó! 👍 Contame, ¿necesitás info de algo?',
+    'Genial 😂 ¿Te puedo ayudar con alguna consulta?',
   ],
   imagen_random: [
-    'Che, linda foto boludo 📸 Pero necesito tu DNI y REPROCANN, no fotos del bolso 😅',
-    'Ey, hermosa la foto 🔥 Pero acá necesitamos el DNI y el certificado che 📋',
-    'Dale boludo, me encanta la onda 🌿 Pero pasame los documentos, anda 👀',
+    'Linda foto 📸 ¿Querías consultarme algo del club?',
+    'Gracias por la imagen 🔥 Contame, ¿en qué te ayudo?',
+    'Buena onda 🌿 ¿Hay algo que quieras saber del club?',
   ],
   solo_emojis: [
-    '🤝 Te entiendo boludo. Ahora anda, mandame los documentos che',
-    '✨ Dale che, eso suena bien. Pero necesito que me pases el REPROCANN 📄',
-    '💯 De acuerdo. Ahora vamos con los documentos che 🚀',
+    '¡Dale! 🤝 ¿Querés preguntarme algo?',
+    '✨ ¡Genial! ¿En qué te puedo ayudar?',
+    '💯 ¿Necesitás info de algo puntual?',
   ],
   reaccion: [
-    'Gracias boludo! 🙏 ¿Me pasas el REPROCANN? 📋',
-    '¡Dale! 💪 ¿Tenés los documentos a mano che?',
+    '¡Gracias! 🙏 ¿Algo en lo que te pueda ayudar?',
+    '¡Dale! 💪 Contame si tenés alguna consulta.',
+  ],
+  audio: [
+    'Che, por ahora no puedo escuchar audios 🙏 ¿Me lo podés escribir?',
+    'Uy, todavía no proceso audios — ¿me lo escribís en un mensajito?',
+    'Disculpá, aún no puedo abrir audios. ¿Me lo pasás por texto?',
   ],
 }
 
@@ -829,7 +859,7 @@ app.post('/webhook', (req, res) => {
 
       if (!chatId) return
 
-      // v4.0: Handle off-flow messages (stickers, emojis, reactions)
+      // v4.1: Handle off-flow messages (stickers, audios, reactions)
       if (msgType === 'stickerMessage') {
         await sendWhatsAppMessage(chatId, randomRespuesta('sticker'))
         return
@@ -837,6 +867,12 @@ app.post('/webhook', (req, res) => {
 
       if (msgType === 'reactionMessage') {
         await sendWhatsAppMessage(chatId, randomRespuesta('reaccion'))
+        return
+      }
+
+      if (msgType === 'audioMessage' || msgType === 'voiceMessage') {
+        log('webhook', `Audio recibido de ${chatId} — respondiendo que no se procesan`)
+        await sendWhatsAppMessage(chatId, randomRespuesta('audio'))
         return
       }
 
@@ -859,27 +895,26 @@ app.post('/webhook', (req, res) => {
           return
         }
 
-        const state = await loadState(chatId)  // v4.0: load from DB
+        const state = await loadState(chatId)
         state.last_message_at = new Date().toISOString()
 
-        // v4.0: Si es la primera vez, solicitar nombre
+        // Paso 1: Primer contacto — pedir nombre para trato direccional
         if (state.step === 'inicio' && !state.nombre) {
           log('webhook', `Primer contacto: solicitando nombre para ${chatId}`)
-          await sendWhatsAppMessage(chatId, `¡Ey! 👋 Bienvenido che. ¿Cuál es tu nombre? 🤔`)
+          await sendWhatsAppMessage(chatId, `¡Hola! 👋 Bienvenido/a al club. ¿Cuál es tu nombre?`)
           state.step = 'solicitando_nombre'
           state.last_greeting_at = new Date().toISOString()
           await saveState(chatId, state)
           return
         }
 
-        // v4.0: Si está en "solicitando_nombre", guardar nombre y continuar
+        // Paso 2: Guardar nombre y pasar a modo conversación
         if (state.step === 'solicitando_nombre') {
           state.nombre = message.trim()
-          state.step = 'recibiendo_documentos'
+          state.step = 'conversando'
           state.last_greeting_at = new Date().toISOString()
           log('webhook', `Nombre registrado: ${state.nombre} para ${chatId}`)
 
-          // Guardar contacto inicial en members (no crítico si falla)
           const { error: memberErr } = await supabase.from('members').insert({
             chat_id: chatId,
             nombre: state.nombre,
@@ -888,12 +923,12 @@ app.post('/webhook', (req, res) => {
             log('supabase', `⚠️ INSERT members falló (no crítico): ${memberErr.message}`)
           }
 
-          await sendWhatsAppMessage(chatId, `¡Dale, ${state.nombre}! 🎉 Gracias por venir.\n\nAhora necesito que me pases dos cosas:\n1️⃣ Tu DNI (frente y dorso) 🪪\n2️⃣ Tu REPROCANN (frente y dorso) 📋\n\nLos mandas en el orden que quieras. Vamos 💪`)
+          await sendWhatsAppMessage(chatId, `¡Un gusto, ${state.nombre}! 🌿 ¿En qué te puedo ayudar?`)
           await saveState(chatId, state)
           return
         }
 
-        // Si está completando datos, guardar la respuesta
+        // Paso 3: Si está completando datos de REPROCANN/DNI por texto, guardar la respuesta
         if (state.step === 'completando_datos' && state.pendingFields && state.pendingFields.length > 0) {
           const currentField = state.pendingFields[0]
           state.collectedData[currentField.key] = message
@@ -903,18 +938,18 @@ app.post('/webhook', (req, res) => {
 
           if (state.pendingFields.length > 0) {
             const nextField = state.pendingFields[0]
-            await sendWhatsAppMessage(chatId, `Boludo, gracias 🙏 Ahora contame ${nextField.label}? 👀`)
+            await sendWhatsAppMessage(chatId, `Gracias 🙏 Ahora contame ${nextField.label}.`)
             await saveState(chatId, state)
             return
           } else {
-            // Completó todos los campos, listo
             state.step = 'completado'
-            await sendWhatsAppMessage(chatId, `✅ ¡Perfecto che! Ya está todo. Te contactamos en un toque 💯`)
+            await sendWhatsAppMessage(chatId, `✅ ¡Perfecto, ${state.nombre}! Ya tenemos todo. Te contactamos pronto 🌿`)
             await saveState(chatId, state)
             return
           }
         }
 
+        // Paso 4: Detectar pedido explícito de humano
         const wantHuman = /hablar.*persona|persona.*atienda|atender.*humano|pasar.*alguien|contactar.*equipo|speak.*human/i.test(message)
         if (wantHuman && ADMIN_WHATSAPP) {
           log('webhook', `User pidió hablar con humano: ${chatId}`)
@@ -924,9 +959,18 @@ app.post('/webhook', (req, res) => {
           return
         }
 
-        const reply = await askClaude(message, chatId)
+        // Paso 5: Modo atención al cliente — Claude responde, detecta intent afiliación
+        const { reply, wantsAffiliation } = await askClaude(message, chatId)
         await sendWhatsAppMessage(chatId, reply)
-        log('webhook', `Respuesta enviada a ${chatId}`)
+        log('webhook', `Respuesta enviada a ${chatId} | wantsAffiliation=${wantsAffiliation}`)
+
+        // Paso 6: Si Claude detectó intent de afiliación, transicionar al flujo de documentos
+        if (wantsAffiliation && state.step !== 'recibiendo_documentos' && state.step !== 'completando_datos' && state.step !== 'completado') {
+          state.step = 'recibiendo_documentos'
+          state.documentos = state.documentos || { dni: { frente: null, dorso: null }, reprocann: { frente: null, dorso: null } }
+          await saveState(chatId, state)
+          log('webhook', `Transición a recibiendo_documentos para ${chatId}`)
+        }
       } else if (msgType === 'imageMessage') {
         log('webhook', `messageData: ${JSON.stringify(body.messageData).substring(0, 300)}`)
 
@@ -967,9 +1011,10 @@ app.post('/webhook', (req, res) => {
           return
         }
 
-        if (state.step === 'inicio') {
+        // Si está en inicio o conversando y manda una imagen, preparar flujo de docs
+        if (state.step === 'inicio' || state.step === 'conversando') {
           state.step = 'recibiendo_documentos'
-          state.documentos = { dni: { frente: null, dorso: null }, reprocann: { frente: null, dorso: null } }
+          state.documentos = state.documentos || { dni: { frente: null, dorso: null }, reprocann: { frente: null, dorso: null } }
         }
 
         // Detectar tipo de imagen
@@ -983,14 +1028,15 @@ app.post('/webhook', (req, res) => {
           return
         }
 
-        // v4.0: Validar documento antes de procesar
-        if (!detected.valido) {
-          await sendWhatsAppMessage(chatId, 'La imagen está muy borrosa o cortada. ¿Podés mandarla de nuevo con mejor luz? 📸')
+        // Solo rechazar si tipo === 'OTRO' (no es un documento identificable)
+        // Ya NO rechazamos por "borrosa" — intentamos extraer datos primero y pedimos los faltantes por texto.
+        if (detected.tipo === 'OTRO') {
+          await sendWhatsAppMessage(chatId, 'No logro identificar un documento en esa imagen 🤔 ¿Podés mandarme tu DNI o REPROCANN?')
           return
         }
 
         if (detected.tipo === 'DOCUMENTO_EXTRANJERO') {
-          await sendWhatsAppMessage(chatId, `Ey che 🛑 Ese documento no es argentino. Necesitamos tu *DNI argentino* 🇦🇷 y el *REPROCANN de acá*. ¿Los tenés? 👀`)
+          await sendWhatsAppMessage(chatId, `Ese documento no parece ser argentino 🛑 Necesitamos tu DNI argentino 🇦🇷 y el REPROCANN de acá. ¿Los tenés?`)
           return
         }
 
@@ -1075,14 +1121,14 @@ app.post('/webhook', (req, res) => {
           state.step = 'completando_datos'
           state.pendingFields = missing
           const firstField = missing[0]
-          await sendWhatsAppMessage(chatId, `Boludo, te falta ${firstField.label} 📝 Contame che 👇`)
+          await sendWhatsAppMessage(chatId, `Me faltó leer ${firstField.label} 📝 ¿Me lo escribís?`)
           await saveState(chatId, state)
           return
         }
 
         // Todos los documentos y campos están completos!
         state.step = 'completado'
-        await sendWhatsAppMessage(chatId, `✅ ¡Listo boludo! 🎉 Ya está todo. Te contactamos en un ratito 💯`)
+        await sendWhatsAppMessage(chatId, `✅ ¡Listo, ${state.nombre}! 🎉 Ya tenemos todo. Te contactamos en un ratito 🌿`)
 
         if (ADMIN_EMAIL) {
           log('webhook', `Enviando email de notificación para ${state.nombre}`)
