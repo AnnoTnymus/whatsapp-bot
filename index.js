@@ -367,20 +367,17 @@ app.post('/webhook', (req, res) => {
         await sendWhatsAppMessage(chatId, reply)
         log('webhook', `Respuesta enviada a ${chatId}`)
       } else if (msgType === 'imageMessage') {
-        const idMessage = body.messageData?.idMessage || body.idMessage
-        if (!idMessage) return
+        const imageUrl = body.messageData?.downloadUrl
+        if (!imageUrl) {
+          log('webhook', `No downloadUrl en imagen`)
+          return
+        }
 
-        log('webhook', `Imagen recibida de ${sender} (${chatId})`)
+        log('webhook', `Imagen recibida de ${sender} (${chatId}) - URL: ${imageUrl.substring(0, 80)}`)
 
         if (!checkRateLimit(chatId)) {
           log('webhook', `Rate limit exceeded para ${chatId}`)
           await sendWhatsAppMessage(chatId, 'Recibimos muchos mensajes de este número, intentá en un rato 🙏')
-          return
-        }
-
-        const imageUrl = await downloadImage(idMessage, chatId)
-        if (!imageUrl) {
-          await sendWhatsAppMessage(chatId, 'No pude descargar la imagen, probá de nuevo 🙏')
           return
         }
 
