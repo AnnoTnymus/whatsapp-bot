@@ -106,18 +106,22 @@ async function sendWhatsAppMessage(chatId, message) {
 
 async function downloadImage(idMessage) {
   const url = `${GREEN_URL}/waInstance${GREEN_INSTANCE}/downloadFile/${GREEN_TOKEN}`
+  log('image', `Intentando descargar: ${idMessage} desde ${url}`)
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ idMessage }),
     })
+    log('image', `Respuesta status: ${res.status}`)
     const data = await res.json()
+    log('image', `Respuesta JSON: ${JSON.stringify(data).substring(0, 200)}`)
+
     if (data.result) {
-      log('image', `Descargada: ${idMessage}`)
+      log('image', `Descargada exitosamente: ${idMessage}`)
       return data.result
     }
-    log('image', `Error descargando: ${JSON.stringify(data)}`)
+    log('image', `Error descargando - respuesta: ${JSON.stringify(data)}`)
     return null
   } catch (e) {
     log('image', `Error al descargar: ${e.message}`)
