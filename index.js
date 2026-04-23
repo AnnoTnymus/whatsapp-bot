@@ -367,9 +367,13 @@ app.post('/webhook', (req, res) => {
         await sendWhatsAppMessage(chatId, reply)
         log('webhook', `Respuesta enviada a ${chatId}`)
       } else if (msgType === 'imageMessage') {
-        const imageUrl = body.messageData?.downloadUrl
+        log('webhook', `messageData: ${JSON.stringify(body.messageData).substring(0, 300)}`)
+
+        const imageUrl = body.messageData?.downloadUrl ||
+                         body.messageData?.fileMessageData?.downloadUrl ||
+                         body.messageData?.imageMessage?.downloadUrl
         if (!imageUrl) {
-          log('webhook', `No downloadUrl en imagen`)
+          log('webhook', `No downloadUrl encontrada. Estructura completa: ${JSON.stringify(body.messageData)}`)
           return
         }
 
