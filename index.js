@@ -785,23 +785,23 @@ async function insertMember(chatId, nombre, reprocannData, collectedData) {
 
 const RESPUESTAS_FUERA_FLUJO = {
   sticker: [
-    'Jaja bueno, pero necesito tus documentos, no stickers 😅 Mandame tu REPROCANN cuando puedas.',
-    'Buen sticker 👍 Ahora sí, ¿me mandás el REPROCANN?',
-    'Me encantó, lo guardo para después. Mientras tanto, ¿tenés el certificado?',
+    'Jaja che 😄 Buen sticker pero necesito tus documentos, no emojis. Dale, mandame el REPROCANN 📄',
+    'Boludo, me encantó 👍 Pero ahora necesito que me pases los papeles che 🤔',
+    'Ey, muy bueno 😂 Pero acá tenemos que laburar. ¿Tus documentos? 📸',
   ],
   imagen_random: [
-    'Eso no es un REPROCANN, pero tiene buena pinta 😄 ¿Me mandás el certificado?',
-    'Hermosa foto, pero acá necesitamos el DNI y el REPROCANN 📋',
-    '¿Ya fumaste la medicina? 🌿 Mandame los documentos cuando estés listo.',
+    'Che, linda foto boludo 📸 Pero necesito tu DNI y REPROCANN, no fotos del bolso 😅',
+    'Ey, hermosa la foto 🔥 Pero acá necesitamos el DNI y el certificado che 📋',
+    'Dale boludo, me encanta la onda 🌿 Pero pasame los documentos, anda 👀',
   ],
   solo_emojis: [
-    '🤝 Te entiendo. ¿Arrancamos con los documentos?',
-    'Eso suena bien. ¿Me mandás el REPROCANN para seguir?',
-    '100% de acuerdo. Ahora mandame el certificado 😄',
+    '🤝 Te entiendo boludo. Ahora anda, mandame los documentos che',
+    '✨ Eso suena bien, pero necesito que me pases el REPROCANN 📄',
+    '💯 De acuerdo. Ahora vamo' con los documentos che 🚀',
   ],
   reaccion: [
-    'Gracias! Sigamos — ¿tenés el REPROCANN a mano?',
-    '😄 ¿Listos para completar el trámite?',
+    'Gracias boludo! 🙏 ¿Me pasas el REPROCANN? 📋',
+    '¡Dale! 💪 ¿Tenés los documentos a mano che?',
   ],
 }
 
@@ -863,7 +863,7 @@ app.post('/webhook', (req, res) => {
         // v4.0: Si es la primera vez, solicitar nombre
         if (state.step === 'inicio' && !state.nombre) {
           log('webhook', `Primer contacto: solicitando nombre para ${chatId}`)
-          await sendWhatsAppMessage(chatId, `¡Hola! Bienvenido 👋\n\n¿Cuál es tu nombre?`)
+          await sendWhatsAppMessage(chatId, `¡Ey! 👋 Bienvenido che. ¿Cuál es tu nombre? 🤔`)
           state.step = 'solicitando_nombre'
           state.last_greeting_at = new Date().toISOString()
           await saveState(chatId, state)
@@ -881,11 +881,9 @@ app.post('/webhook', (req, res) => {
           await supabase.from('members').insert({
             chat_id: chatId,
             nombre: state.nombre,
-          }).on('*', payload => {
-            // Silently ignore duplicates
           }).catch(() => {})
 
-          await sendWhatsAppMessage(chatId, `¡Gracias, ${state.nombre}! 😊\n\nAhora necesito que me envíes dos documentos:\n1️⃣ Tu DNI (frente y dorso)\n2️⃣ Tu certificado REPROCANN (frente y dorso)\n\nPodés enviarlos en el orden que quieras. Comencemos 📸`)
+          await sendWhatsAppMessage(chatId, `¡Dale, ${state.nombre}! 🎉 Gracias por venir.\n\nAhora necesito que me pases dos cosas:\n1️⃣ Tu DNI (frente y dorso) 🪪\n2️⃣ Tu REPROCANN (frente y dorso) 📋\n\nLos mandas en el orden que quieras. Vamos 💪`)
           await saveState(chatId, state)
           return
         }
@@ -900,14 +898,14 @@ app.post('/webhook', (req, res) => {
 
           if (state.pendingFields.length > 0) {
             const nextField = state.pendingFields[0]
-            await sendWhatsAppMessage(chatId, `Gracias. Ahora contame ${nextField.label} 👇`)
-            await saveState(chatId, state)  // v4.0: persist to DB
+            await sendWhatsAppMessage(chatId, `Boludo, gracias 🙏 Ahora contame ${nextField.label}? 👀`)
+            await saveState(chatId, state)
             return
           } else {
-            // Completó todos los campos, pedir DNI
-            state.step = 'esperando_dni'
-            await sendWhatsAppMessage(chatId, `✅ Perfecto! Ahora mandame una foto de tu DNI para completar todo.`)
-            await saveState(chatId, state)  // v4.0: persist to DB
+            // Completó todos los campos, listo
+            state.step = 'completado'
+            await sendWhatsAppMessage(chatId, `✅ ¡Perfecto che! Ya está todo. Te contactamos en un toque 💯`)
+            await saveState(chatId, state)
             return
           }
         }
@@ -987,7 +985,7 @@ app.post('/webhook', (req, res) => {
         }
 
         if (detected.tipo === 'DOCUMENTO_EXTRANJERO') {
-          await sendWhatsAppMessage(chatId, `Este documento no es de Argentina. Necesitamos tu *DNI argentino* y el certificado *REPROCANN de Argentina*. ¿Tenés esos documentos? 🇦🇷`)
+          await sendWhatsAppMessage(chatId, `Ey che 🛑 Ese documento no es argentino. Necesitamos tu *DNI argentino* 🇦🇷 y el *REPROCANN de acá*. ¿Los tenés? 👀`)
           return
         }
 
@@ -1055,8 +1053,8 @@ app.post('/webhook', (req, res) => {
 
         if (documentosFaltantes.length > 0) {
           log('webhook', `Documentos faltantes: ${documentosFaltantes.join(', ')}`)
-          await sendWhatsAppMessage(chatId, `Gracias. Aún necesito: ${documentosFaltantes.join(', ')} 📸`)
-          await saveState(chatId, state)  // v4.0: persist to DB
+          await sendWhatsAppMessage(chatId, `Dale, recibido 📍 Todavía necesito: ${documentosFaltantes.join(', ')} 📸`)
+          await saveState(chatId, state)
           return
         }
 
@@ -1072,14 +1070,14 @@ app.post('/webhook', (req, res) => {
           state.step = 'completando_datos'
           state.pendingFields = missing
           const firstField = missing[0]
-          await sendWhatsAppMessage(chatId, `Ahora necesito ${firstField.label}. Contame 👇`)
-          await saveState(chatId, state)  // v4.0: persist to DB
+          await sendWhatsAppMessage(chatId, `Boludo, te falta ${firstField.label} 📝 Contame che 👇`)
+          await saveState(chatId, state)
           return
         }
 
         // Todos los documentos y campos están completos!
         state.step = 'completado'
-        await sendWhatsAppMessage(chatId, `${analysis} ¡Listo! Te contactamos pronto 🌿`)
+        await sendWhatsAppMessage(chatId, `✅ ¡Listo boludo! 🎉 Ya está todo. Te contactamos en un ratito 💯`)
 
         if (ADMIN_EMAIL) {
           log('webhook', `Enviando email de notificación para ${state.nombre}`)
