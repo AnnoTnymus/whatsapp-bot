@@ -2,6 +2,7 @@ import 'dotenv/config.js'
 import express from 'express'
 import fetch from 'node-fetch'
 import { readFileSync } from 'fs'
+import { Resend } from 'resend'
 
 const app = express()
 app.use(express.json())
@@ -11,6 +12,8 @@ const GREEN_INSTANCE = process.env.GREEN_API_INSTANCE_ID ?? '7107588003'
 const GREEN_TOKEN = process.env.GREEN_API_TOKEN ?? '5d7a2dd449bd48deaed916c65ae197c86ceb73a683254677b5'
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY?.replace(/[^\x20-\x7E]/g, '').trim()
 const MODEL = 'claude-opus-4-7'
+const RESEND_API_KEY = process.env.RESEND_API_KEY
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL
 
 const conversationHistory = new Map()
 const rateLimits = new Map()
@@ -19,6 +22,8 @@ const userState = new Map()
 const RATE_LIMIT = 30
 const RATE_WINDOW = 60 * 60 * 1000
 const ADMIN_WHATSAPP = process.env.ADMIN_WHATSAPP
+
+const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null
 
 function checkRateLimit(chatId) {
   const now = Date.now()
@@ -266,45 +271,72 @@ Retorna SOLO JSON sin explicaciones ni textos adicionales:
   }
 }
 
-async function notifyAdmin(chatId, nombre, dniData, reprocannData) {
-  if (!ADMIN_WHATSAPP) {
-    log('admin', 'ADMIN_WHATSAPP no configurada')
+async function sendEmailNotification(chatId, nombre, dniData, reprocannData) {
+  if (!resend || !ADMIN_EMAIL) {
+    log('email', 'Resend no configurado o email de admin faltante')
     return
   }
 
-  let msg = `📋 NUEVO LEAD - DOCUMENTOS COMPLETOS\n\n`
-  msg += `👤 Nombre: ${nombre}\n`
-  msg += `📱 Contacto: ${chatId}\n\n`
+  let htmlContent = `
+    <h2>📋 Nuevo Lead - Documentos Completos</h2>
+    <p><strong>Contacto:</strong> ${nombre}</p>
+    <p><strong>Número:</strong> ${chatId}</p>
+
+    <hr />
+  `
 
   if (dniData && dniData.nombre) {
-    msg += `🪪 DNI:\n`
-    msg += `  Nombre: ${dniData.nombre || ''} ${dniData.apellido || ''}\n`
-    msg += `  Documento: ${dniData.documento || 'N/A'}\n`
-    msg += `  Nacimiento: ${dniData.fecha_nacimiento || 'N/A'}\n`
-    msg += `  Domicilio: ${dniData.domicilio || 'N/A'}\n\n`
+    htmlContent += `
+      <h3>🪪 DNI</h3>
+      <ul>
+        <li><strong>Nombre:</strong> ${dniData.nombre || ''} ${dniData.apellido || ''}</li>
+        <li><strong>Documento:</strong> ${dniData.documento || 'N/A'}</li>
+        <li><strong>Nacimiento:</strong> ${dniData.fecha_nacimiento || 'N/A'}</li>
+        <li><strong>Domicilio:</strong> ${dniData.domicilio || 'N/A'}</li>
+      </ul>
+    `
   }
 
   if (reprocannData && reprocannData.nombre) {
-    msg += `🌿 REPROCANN:\n`
-    msg += `  Nombre: ${reprocannData.nombre || 'N/A'}\n`
-    msg += `  DNI: ${reprocannData.dni || 'N/A'}\n`
-    msg += `  Plantas: ${reprocannData.autorizacion?.plantas || 'N/A'}\n`
-    msg += `  Tipo: ${reprocannData.autorizacion?.tipo || 'N/A'}\n`
-    msg += `  Estado: ${reprocannData.autorizacion?.estado || 'N/A'}\n`
-    msg += `  Provincia: ${reprocannData.ubicacion?.provincia || 'N/A'}\n`
-    msg += `  Dirección: ${reprocannData.ubicacion?.direccion || 'N/A'}\n`
-    msg += `  ID Trámite: ${reprocannData.tramite?.id || 'N/A'}\n`
-    msg += `  Vencimiento: ${reprocannData.tramite?.fecha_vencimiento || 'N/A'}\n\n`
+    htmlContent += `
+      <h3>🌿 REPROCANN</h3>
+      <ul>
+        <li><strong>Nombre:</strong> ${reprocannData.nombre || 'N/A'}</li>
+        <li><strong>DNI:</strong> ${reprocannData.dni || 'N/A'}</li>
+        <li><strong>Plantas:</strong> ${reprocannData.autorizacion?.plantas || 'N/A'}</li>
+        <li><strong>Tipo:</strong> ${reprocannData.autorizacion?.tipo || 'N/A'}</li>
+        <li><strong>Estado:</strong> ${reprocannData.autorizacion?.estado || 'N/A'}</li>
+        <li><strong>Provincia:</strong> ${reprocannData.ubicacion?.provincia || 'N/A'}</li>
+        <li><strong>Dirección:</strong> ${reprocannData.ubicacion?.direccion || 'N/A'}</li>
+        <li><strong>ID Trámite:</strong> ${reprocannData.tramite?.id || 'N/A'}</li>
+        <li><strong>Vencimiento:</strong> ${reprocannData.tramite?.fecha_vencimiento || 'N/A'}</li>
+      </ul>
+    `
   }
 
-  msg += `✅ Listo para contactar y procesar afiliación`
+  htmlContent += `
+    <hr />
+    <p style="color: green; font-weight: bold;">✅ Listo para contactar y procesar afiliación</p>
+  `
 
   try {
-    await sendWhatsAppMessage(ADMIN_WHATSAPP, msg)
-    log('admin', `Notificación enviada a ${ADMIN_WHATSAPP} para: ${nombre}`)
+    const response = await resend.emails.send({
+      from: 'Bot Club <onboarding@resend.dev>',
+      to: ADMIN_EMAIL,
+      subject: `Nuevo Lead: ${nombre} - Documentos Completos`,
+      html: htmlContent,
+    })
+    log('email', `Email enviado a ${ADMIN_EMAIL} para ${nombre}`)
+    return response
   } catch (e) {
-    log('admin', `Error enviando notificación: ${e.message}`)
+    log('email', `Error enviando email: ${e.message}`)
+    return null
   }
+}
+
+async function notifyAdmin(chatId, nombre, dniData, reprocannData) {
+  log('admin', `Notificando admin para: ${nombre}`)
+  await sendEmailNotification(chatId, nombre, dniData, reprocannData)
 }
 
 async function askClaude(msg, chatId) {
