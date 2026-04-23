@@ -559,6 +559,222 @@ CREATE INDEX idx_chatId ON patient_followups(chatId);
 
 ---
 
+## ⚠️ PROBLEMA CRÍTICO: Pérdida de Datos en Reinicios
+
+### Problema Actual (v3.0)
+
+**Situación:**
+- El servidor se reinicia ocasionalmente (deploy automático, crash, etc)
+- Todo el estado de usuarios está en memoria (`userState` Map)
+- Cuando se reinicia: **Se pierden todos los documentos enviados**
+- Usuario debe empezar de cero
+
+**Ejemplo Real:**
+```
+Día 1, 15:00 - Usuario envía REPROCANN frente
+Bot: "✅ Recibido, mandame el dorso"
+
+Día 1, 15:05 - Servidor se reinicia (deploy automático)
+
+Día 1, 15:06 - Usuario envía REPROCANN dorso
+Bot: "✅ Recibido. Aún necesito: REPROCANN frente, DNI frente, DNI dorso"
+
+Usuario confundido: "¡Pero recién envié el frente!" ❌
+```
+
+### Solución: Persistir Todo en BD
+
+**Cuando implementen BD, guardar INMEDIATAMENTE:**
+
+```javascript
+// Cuando se recibe una imagen
+async function procesarImagen(chatId, imageUrl, type) {
+  // 1. Guardar imagen URL en BD ANTES de procesar
+  await db.query(`
+    INSERT INTO document_uploads (chatId, imageUrl, tipo, timestamp)
+    VALUES ($1, $2, $3, NOW())
+  `, [chatId, imageUrl, type])
+  
+  // 2. Procesar imagen
+  const data = await detectImage(imageUrl)
+  
+  // 3. Actualizar estado en BD inmediatamente
+  await db.query(`
+    UPDATE patient_state 
+    SET documentos_recibidos = documentos_recibidos || $1
+    WHERE chatId = $2
+  `, [{ [type]: { url: imageUrl, data } }, chatId])
+  
+  // 4. Responder al usuario
+  await sendWhatsAppMessage(chatId, respuesta)
+}
+```
+
+### Schema de BD para Esto
+
+```sql
+-- Tabla de uploads de documentos
+CREATE TABLE document_uploads (
+  id UUID PRIMARY KEY,
+  chatId VARCHAR(50) NOT NULL,
+  imageUrl TEXT NOT NULL,
+  tipo VARCHAR(50), -- dni_frente, dni_dorso, reprocann_frente, reprocann_dorso
+  status VARCHAR(50), -- pending, processed, error
+  extracted_data JSONB, -- datos extraídos de la imagen
+  created_at TIMESTAMP DEFAULT NOW(),
+  FOREIGN KEY (chatId) REFERENCES patient_followups(chatId)
+);
+
+-- Tabla de estado del usuario (reemplaza en-memoria)
+CREATE TABLE patient_state (
+  chatId VARCHAR(50) PRIMARY KEY,
+  nombre VARCHAR(100),
+  paso_actual VARCHAR(50), -- recibiendo_documentos, completando_datos, completado
+  documentos_recibidos JSONB, -- {dni_frente, dni_dorso, reprocann_frente, reprocann_dorso}
+  datos_completos JSONB, -- datos finales validados
+  campos_faltantes JSONB[], -- campos que faltan llenar
+  datos_texto_completados JSONB, -- datos que usuario proporcionó por texto
+  ultimo_documento_timestamp TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_document_uploads_chatId ON document_uploads(chatId);
+CREATE INDEX idx_patient_state_created ON patient_state(created_at);
+```
+
+### Al Iniciar el Bot
+
+```javascript
+// En startup.js o en inicio del webhook
+async function loadUserStateFromDB(chatId) {
+  // En lugar de crear state vacío, buscar en BD
+  const state = await db.query(
+    'SELECT * FROM patient_state WHERE chatId = $1',
+    [chatId]
+  )
+  
+  if (state) {
+    // El usuario YA había empezado el proceso, recuperar su estado
+    userState.set(chatId, state)
+    log('startup', `Loaded state for ${chatId} from DB`)
+    return state
+  } else {
+    // Usuario nuevo
+    const newState = { paso_actual: 'recibiendo_documentos', ... }
+    userState.set(chatId, newState)
+    await db.query(
+      'INSERT INTO patient_state (...) VALUES (...)',
+      [...]
+    )
+    return newState
+  }
+}
+
+// Usar en webhook
+const state = await loadUserStateFromDB(chatId)
+```
+
+### Sincronización Bidireccional
+
+```javascript
+// IMPORTANTE: Sincronizar memoria ↔ BD constantemente
+
+async function syncStateToDB(chatId, state) {
+  // Después de CADA cambio de estado
+  await db.query(`
+    UPDATE patient_state 
+    SET 
+      documentos_recibidos = $1,
+      campos_faltantes = $2,
+      paso_actual = $3,
+      updated_at = NOW()
+    WHERE chatId = $4
+  `, [
+    state.documentos_recibidos,
+    state.pendingFields,
+    state.step,
+    chatId
+  ])
+}
+
+// En webhook, después de procesar imagen:
+await syncStateToDB(chatId, state)
+userState.set(chatId, state)
+```
+
+### Recuperación Automática Post-Reinicio
+
+```javascript
+// Cuando bot se reinicia y usuario envía próximo documento
+
+async function webhookImageHandler(chatId, imageUrl) {
+  // 1. Cargar estado de BD (puede haber sido guardado desde reinicio anterior)
+  let state = userState.get(chatId)
+  if (!state) {
+    state = await loadUserStateFromDB(chatId)
+  }
+  
+  // 2. Estado está recuperado, continuar flujo normal
+  // Usuario no ve ningún problema, documentos no se perdieron
+  
+  processImage(state, imageUrl)
+}
+```
+
+### Timeline: Cómo Sería
+
+```
+Hora 15:00 - Usuario envía REPROCANN frente
+  ↓ Guardado en DB inmediatamente
+  Bot dice: "Recibido, mandame el dorso"
+
+Hora 15:01 - Servidor se reinicia
+  
+Hora 15:02 - Usuario envía REPROCANN dorso
+  ↓ Bot carga estado de BD
+  Bot ve: "Ah, ya tiene REPROCANN frente, este es dorso"
+  Bot procesa ambos juntos
+  
+Usuario feliz: No notó el reinicio ✅
+```
+
+### Beneficios
+
+- ✅ Documentos nunca se pierden
+- ✅ Usuarios pueden continuar el flujo después de reinicios
+- ✅ Admin tiene historial completo de intentos
+- ✅ No hay frustración por "empezar de cero"
+- ✅ Trazabilidad completa
+
+### Checklist para BD (Critical)
+
+**ANTES de usar en producción:**
+- [ ] Guardar uploads en BD inmediatamente
+- [ ] Cargar estado desde BD al iniciar webhook
+- [ ] Sincronizar estado después de cada cambio
+- [ ] Índices en tablas para búsquedas rápidas
+- [ ] Testing: reiniciar servidor con usuarios mid-flow
+- [ ] Verificar que documentos no se pierden
+- [ ] Verificar que flujo continúa normalmente
+
+### Estimado de Esfuerzo
+
+| Tarea | Tiempo |
+|-------|--------|
+| Schema BD | 1 hora |
+| Persistencia de uploads | 2 horas |
+| Sincronización estado | 2 horas |
+| Loading en startup | 1 hora |
+| Testing robusto | 3-4 horas |
+| **Total** | **9-10 horas** |
+
+---
+
+**IMPORTANTE:** Esto es CRÍTICO cuando pasen a BD. Sin esto, volverán a tener problemas con usuarios que pierden documentos.
+
+---
+
 ## 📈 Success Criteria
 
 - ✅ Ningún mensaje se corta nunca (incluso errores complejos)
