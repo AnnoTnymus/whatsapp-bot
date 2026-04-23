@@ -797,7 +797,7 @@ const RESPUESTAS_FUERA_FLUJO = {
   solo_emojis: [
     '🤝 Te entiendo boludo. Ahora anda, mandame los documentos che',
     '✨ Eso suena bien, pero necesito que me pases el REPROCANN 📄',
-    '💯 De acuerdo. Ahora vamo' con los documentos che 🚀',
+    '💯 De acuerdo. Ahora vamos con los documentos che 🚀',
   ],
   reaccion: [
     'Gracias boludo! 🙏 ¿Me pasas el REPROCANN? 📋',
