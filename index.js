@@ -628,7 +628,14 @@ app.post('/webhook', (req, res) => {
           return
         }
 
-        const state = userState.get(chatId) || { step: 'inicio', nombre: sender, collectedData: {}, pendingFields: [] }
+        // Initialize state if needed
+        const state = userState.get(chatId) || {
+          step: 'recibiendo_documentos',
+          nombre: sender,
+          documentos: { dni: { frente: null, dorso: null }, reprocann: { frente: null, dorso: null } },
+          collectedData: {},
+          pendingFields: [],
+        }
 
         // Detectar tipo de imagen
         const detected = await detectImage(imageUrl)
@@ -641,96 +648,102 @@ app.post('/webhook', (req, res) => {
           return
         }
 
+        // Procesar según tipo de documento
         if (detected.tipo === 'REPROCANN') {
-          // REPROCANN: frente vs dorso
           if (detected.ambosSides) {
-            // Imagen con ambos lados
-            log('webhook', `REPROCANN con ambos lados para ${chatId}`)
-            const reprocannData = await extractReprocannData(imageUrl)
-            state.reprocannData = reprocannData
-            state.imagenes = { reprocann: { url: imageUrl, data: reprocannData } }
-
-            const missing = getMissingFields(reprocannData)
-            log('webhook', `Campos faltantes: ${missing.map(m => m.key).join(', ') || 'ninguno'}`)
-
-            if (missing.length > 0) {
-              // Faltan campos, pedir por texto
-              state.step = 'completando_datos'
-              state.pendingFields = missing
-              const firstField = missing[0]
-              await sendWhatsAppMessage(chatId, `Falta ${firstField.label}. Contame 👇`)
-            } else {
-              // Todos los campos del REPROCANN están, pedir DNI
-              state.step = 'esperando_dni'
-              await sendWhatsAppMessage(chatId, `${analysis} Ahora mandame tu DNI 📸`)
-            }
-            userState.set(chatId, state)
+            // REPROCANN completo (ambos lados)
+            const data = await extractReprocannData(imageUrl)
+            state.documentos.reprocann.frente = { url: imageUrl, data }
+            state.documentos.reprocann.dorso = { url: imageUrl, data }
+            log('webhook', `REPROCANN completo (ambos lados) para ${chatId}`)
           } else {
-            // Una sola lado: ¿frente o dorso?
-            if (!state.reprocannFrenteUrl) {
-              // Asumir que es frente, guardar y pedir dorso
-              log('webhook', `Recibido frente de REPROCANN para ${chatId}, esperando dorso`)
-              state.step = 'esperando_reprocann_dorso'
-              state.reprocannFrenteUrl = imageUrl
+            // Un solo lado, determinar si es frente o dorso
+            if (!state.documentos.reprocann.frente) {
+              // Asumir frente
+              const data = await extractReprocannData(imageUrl)
+              state.documentos.reprocann.frente = { url: imageUrl, data }
+              log('webhook', `REPROCANN frente para ${chatId}`)
               await sendWhatsAppMessage(chatId, `${analysis} Mandame el dorso también.`)
-            } else {
-              // Ya tenemos frente, este es dorso
-              log('webhook', `Recibido dorso de REPROCANN para ${chatId}`)
-              const reprocannData = await extractReprocannData([state.reprocannFrenteUrl, imageUrl])
-              state.reprocannData = reprocannData
-              state.imagenes = { reprocann: { urls: [state.reprocannFrenteUrl, imageUrl], data: reprocannData } }
-              state.reprocannFrenteUrl = null
-
-              const missing = getMissingFields(reprocannData)
-              log('webhook', `Campos faltantes: ${missing.map(m => m.key).join(', ') || 'ninguno'}`)
-
-              if (missing.length > 0) {
-                state.step = 'completando_datos'
-                state.pendingFields = missing
-                const firstField = missing[0]
-                await sendWhatsAppMessage(chatId, `Falta ${firstField.label}. Contame 👇`)
-              } else {
-                state.step = 'esperando_dni'
-                await sendWhatsAppMessage(chatId, `${analysis} Ahora mandame tu DNI 📸`)
-              }
+              userState.set(chatId, state)
+              return
+            } else if (!state.documentos.reprocann.dorso) {
+              // Ya tiene frente, esto es dorso
+              const data = await extractReprocannData([state.documentos.reprocann.frente.url, imageUrl])
+              state.documentos.reprocann.dorso = { url: imageUrl, data }
+              log('webhook', `REPROCANN dorso para ${chatId}`)
             }
-            userState.set(chatId, state)
           }
         } else if (detected.tipo === 'DNI') {
-          // DNI - solo procesar si ya tiene REPROCANN completo
-          const hasReprocann = state.reprocannData || (state.imagenes?.reprocann?.data)
-          const hasAllReprocannFields = hasReprocann && getMissingFields(hasReprocann).length === 0
-
-          if (!hasReprocann || !hasAllReprocannFields) {
-            // Aún no tiene REPROCANN completo
-            log('webhook', `DNI recibido pero falta REPROCANN para ${chatId}`)
-            await sendWhatsAppMessage(chatId, `Primero necesito tu REPROCANN. Mandame esa foto.`)
-            userState.set(chatId, state)
-            return
+          if (detected.ambosSides) {
+            // DNI completo (ambos lados)
+            const data = await extractDocumentData(imageUrl, 'DNI')
+            state.documentos.dni.frente = { url: imageUrl, data }
+            state.documentos.dni.dorso = { url: imageUrl, data }
+            log('webhook', `DNI completo (ambos lados) para ${chatId}`)
+          } else {
+            // Un solo lado, determinar si es frente o dorso
+            if (!state.documentos.dni.frente) {
+              // Asumir frente
+              const data = await extractDocumentData(imageUrl, 'DNI')
+              state.documentos.dni.frente = { url: imageUrl, data }
+              log('webhook', `DNI frente para ${chatId}`)
+              await sendWhatsAppMessage(chatId, `${analysis} Mandame el dorso también.`)
+              userState.set(chatId, state)
+              return
+            } else if (!state.documentos.dni.dorso) {
+              // Ya tiene frente, esto es dorso
+              const data = await extractDocumentData(imageUrl, 'DNI')
+              state.documentos.dni.dorso = { url: imageUrl, data }
+              log('webhook', `DNI dorso para ${chatId}`)
+            }
           }
-
-          // Ya tiene REPROCANN completo, procesar DNI
-          log('webhook', `DNI recibido para ${chatId}`)
-          const dniData = await extractDocumentData(imageUrl, 'DNI')
-          state.imagenes = state.imagenes || {}
-          state.imagenes.dni = { url: imageUrl, data: dniData }
-
-          // Completado, enviar email
-          state.step = 'completado'
-          await sendWhatsAppMessage(chatId, `${analysis} ¡Listo! Te contactamos pronto 🌿`)
-
-          const reprocannData = state.reprocannData || (state.imagenes.reprocann?.data || null)
-          if (ADMIN_EMAIL) {
-            log('webhook', `Enviando email de notificación para ${state.nombre}`)
-            await notifyAdmin(chatId, state.nombre, dniData, reprocannData, state.collectedData)
-          }
-
-          userState.set(chatId, state)
         } else {
-          // OTRO: no sabemos qué es
+          // Tipo desconocido
           await sendWhatsAppMessage(chatId, `Mandame tu REPROCANN o DNI 📸`)
+          return
         }
 
+        // Verificar qué documentos faltan
+        const documentosFaltantes = []
+        if (!state.documentos.reprocann.frente) documentosFaltantes.push('REPROCANN frente')
+        if (!state.documentos.reprocann.dorso) documentosFaltantes.push('REPROCANN dorso')
+        if (!state.documentos.dni.frente) documentosFaltantes.push('DNI frente')
+        if (!state.documentos.dni.dorso) documentosFaltantes.push('DNI dorso')
+
+        if (documentosFaltantes.length > 0) {
+          log('webhook', `Documentos faltantes: ${documentosFaltantes.join(', ')}`)
+          await sendWhatsAppMessage(chatId, `Gracias. Aún necesito: ${documentosFaltantes.join(', ')} 📸`)
+          userState.set(chatId, state)
+          return
+        }
+
+        // Tenemos todos los 4 documentos, validar datos de REPROCANN
+        const reprocannData = state.documentos.reprocann.dorso?.data || state.documentos.reprocann.frente?.data
+        const dniData = state.documentos.dni.dorso?.data || state.documentos.dni.frente?.data
+
+        const missing = getMissingFields(reprocannData)
+        log('webhook', `Campos faltantes en REPROCANN: ${missing.map(m => m.key).join(', ') || 'ninguno'}`)
+
+        if (missing.length > 0) {
+          // Faltan campos obligatorios en REPROCANN, pedir por texto
+          state.step = 'completando_datos'
+          state.pendingFields = missing
+          const firstField = missing[0]
+          await sendWhatsAppMessage(chatId, `Ahora necesito ${firstField.label}. Contame 👇`)
+          userState.set(chatId, state)
+          return
+        }
+
+        // Todos los documentos y campos están completos!
+        state.step = 'completado'
+        await sendWhatsAppMessage(chatId, `${analysis} ¡Listo! Te contactamos pronto 🌿`)
+
+        if (ADMIN_EMAIL) {
+          log('webhook', `Enviando email de notificación para ${state.nombre}`)
+          await notifyAdmin(chatId, state.nombre, dniData, reprocannData, state.collectedData)
+        }
+
+        userState.set(chatId, state)
         log('webhook', `Imagen procesada para ${chatId}`)
       } else {
         log('webhook', `Tipo no soportado: ${msgType}`)
