@@ -341,8 +341,19 @@ Retorna JSON válido (null si no aparece, no cadenas vacías):
     if (!res.ok) return null
 
     const data = await res.json()
-    const text = data.content[0].text.trim()
-    const json = JSON.parse(text)
+    let text = data.content[0].text.trim()
+
+    // Limpiar backticks si Claude devuelve markdown
+    text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
+
+    let json
+    try {
+      json = JSON.parse(text)
+    } catch {
+      log('extract', `JSON parse error in ${docType}, retornando null`)
+      return null
+    }
+
     log('extract', `Datos extraídos de ${docType}: ${text.substring(0, 60)}`)
     return json
   } catch (e) {
@@ -404,8 +415,19 @@ Retorna JSON válido:
     if (!res.ok) return null
 
     const data = await res.json()
-    const text = data.content[0].text.trim()
-    const json = JSON.parse(text)
+    let text = data.content[0].text.trim()
+
+    // Limpiar backticks si Claude devuelve markdown
+    text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
+
+    let json
+    try {
+      json = JSON.parse(text)
+    } catch {
+      log('extract', `JSON parse error, retornando null: ${text.substring(0, 80)}`)
+      return null
+    }
+
     log('extract', `Datos extraídos de ${urlArray.length} imagen(s) REPROCANN`)
     return json
   } catch (e) {
