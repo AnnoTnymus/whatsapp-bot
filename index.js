@@ -104,14 +104,14 @@ async function sendWhatsAppMessage(chatId, message) {
   }
 }
 
-async function downloadImage(idMessage) {
+async function downloadImage(idMessage, chatId) {
   const url = `${GREEN_URL}/waInstance${GREEN_INSTANCE}/downloadFile/${GREEN_TOKEN}`
-  log('image', `Intentando descargar: ${idMessage} desde ${url}`)
+  log('image', `Intentando descargar: ${idMessage} (chat: ${chatId})`)
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idMessage }),
+      body: JSON.stringify({ idMessage, chatId }),
     })
     log('image', `Respuesta status: ${res.status}`)
     const data = await res.json()
@@ -378,7 +378,7 @@ app.post('/webhook', (req, res) => {
           return
         }
 
-        const imageUrl = await downloadImage(idMessage)
+        const imageUrl = await downloadImage(idMessage, chatId)
         if (!imageUrl) {
           await sendWhatsAppMessage(chatId, 'No pude descargar la imagen, probá de nuevo 🙏')
           return
