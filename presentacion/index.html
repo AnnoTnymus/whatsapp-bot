@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WhatsApp Bot Cannabis Club — v4.1</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0a0f0a;
+    color: #e8f5e9;
+    overflow: hidden;
+  }
+  .deck { position: relative; width: 100vw; height: 100vh; }
+  .slide {
+    position: absolute; inset: 0;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 60px 80px;
+    animation: fadeIn 0.5s ease;
+  }
+  .slide.active { display: flex; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  h1 { font-size: 72px; font-weight: 800; background: linear-gradient(135deg, #7cdb7c 0%, #4caf50 50%, #2e7d32 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 24px; text-align: center; }
+  h2 { font-size: 48px; font-weight: 700; color: #7cdb7c; margin-bottom: 32px; text-align: center; }
+  h3 { font-size: 28px; font-weight: 600; color: #a5d6a7; margin-bottom: 16px; }
+  p { font-size: 22px; line-height: 1.6; color: #c8e6c9; max-width: 900px; text-align: center; }
+  .subtitle { font-size: 28px; color: #81c784; margin-bottom: 40px; }
+  .tag { display: inline-block; padding: 8px 20px; background: rgba(124,219,124,0.15); border: 1px solid #4caf50; border-radius: 20px; color: #7cdb7c; font-size: 16px; font-weight: 600; margin: 4px; }
+
+  .grid { display: grid; gap: 24px; width: 100%; max-width: 1100px; }
+  .grid-2 { grid-template-columns: 1fr 1fr; }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+  .card {
+    background: rgba(30,40,30,0.6);
+    border: 1px solid rgba(124,219,124,0.3);
+    border-radius: 16px;
+    padding: 28px;
+    transition: all 0.3s;
+  }
+  .card:hover { border-color: #7cdb7c; transform: translateY(-4px); }
+  .card .icon { font-size: 40px; margin-bottom: 12px; }
+  .card h3 { font-size: 22px; color: #7cdb7c; margin-bottom: 10px; }
+  .card p { font-size: 16px; text-align: left; color: #c8e6c9; }
+
+  table { border-collapse: collapse; width: 100%; max-width: 1100px; font-size: 18px; }
+  th, td { padding: 14px 18px; text-align: left; border-bottom: 1px solid rgba(124,219,124,0.2); }
+  th { background: rgba(76,175,80,0.15); color: #7cdb7c; font-weight: 700; }
+  td.v1 { color: #ef9a9a; }
+  td.v4 { color: #7cdb7c; font-weight: 600; }
+  tr:hover { background: rgba(124,219,124,0.05); }
+
+  .metric { text-align: center; padding: 24px; }
+  .metric .num { font-size: 72px; font-weight: 800; background: linear-gradient(135deg, #7cdb7c, #2e7d32); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1; }
+  .metric .label { font-size: 18px; color: #a5d6a7; margin-top: 8px; }
+
+  .nav {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    background: rgba(20,30,20,0.8);
+    backdrop-filter: blur(10px);
+    padding: 10px 20px;
+    border-radius: 30px;
+    border: 1px solid rgba(124,219,124,0.3);
+    z-index: 100;
+  }
+  .nav button {
+    background: rgba(76,175,80,0.2);
+    border: 1px solid #4caf50;
+    color: #7cdb7c;
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+  .nav button:hover { background: #4caf50; color: #fff; }
+  .nav .counter { color: #a5d6a7; font-size: 14px; font-weight: 600; }
+
+  .progress {
+    position: fixed;
+    top: 0; left: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #7cdb7c, #4caf50);
+    transition: width 0.3s;
+    z-index: 100;
+  }
+
+  .arch-diagram {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    width: 100%;
+    max-width: 900px;
+  }
+  .arch-row { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+  .arch-box {
+    background: rgba(30,40,30,0.7);
+    border: 2px solid #4caf50;
+    border-radius: 12px;
+    padding: 18px 24px;
+    min-width: 180px;
+    text-align: center;
+  }
+  .arch-box .title { font-weight: 700; color: #7cdb7c; font-size: 18px; margin-bottom: 4px; }
+  .arch-box .desc { font-size: 13px; color: #a5d6a7; }
+  .arch-arrow { color: #4caf50; font-size: 32px; }
+
+  .checklist { list-style: none; padding: 0; max-width: 800px; }
+  .checklist li { padding: 14px 0; font-size: 20px; color: #c8e6c9; display: flex; align-items: center; gap: 14px; }
+  .checklist li::before { content: "✓"; color: #7cdb7c; font-weight: 800; font-size: 24px; }
+
+  .footer-note {
+    position: absolute;
+    bottom: 80px;
+    font-size: 14px;
+    color: #66bb6a;
+    opacity: 0.7;
+  }
+
+  .leaf { position: absolute; font-size: 200px; opacity: 0.05; }
+  .leaf-tl { top: -40px; left: -40px; transform: rotate(-30deg); }
+  .leaf-br { bottom: -40px; right: -40px; transform: rotate(150deg); }
+
+  .logo-corner {
+    position: fixed;
+    top: 20px;
+    right: 24px;
+    height: 56px;
+    width: auto;
+    opacity: 0.85;
+    z-index: 50;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4));
+  }
+  .logo-hero {
+    height: 180px;
+    width: auto;
+    margin-bottom: 30px;
+    filter: drop-shadow(0 8px 24px rgba(124,219,124,0.3));
+  }
+  .logo-cierre {
+    height: 140px;
+    width: auto;
+    margin-bottom: 30px;
+    opacity: 0.95;
+  }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+
+<img src="logo.png" alt="Indajaus" class="logo-corner">
+
+<div class="deck" id="deck">
+
+  <!-- SLIDE 1: TITLE -->
+  <section class="slide active">
+    <div class="leaf leaf-tl">🌿</div>
+    <div class="leaf leaf-br">🌿</div>
+    <img src="logo.png" alt="Indajaus" class="logo-hero">
+    <h1>WhatsApp Bot<br>Cannabis Club</h1>
+    <p class="subtitle">Sistema de atención automatizada — v4.1</p>
+    <div style="margin-top: 40px;">
+      <span class="tag">🤖 Claude Sonnet 4.5</span>
+      <span class="tag">💾 Supabase</span>
+      <span class="tag">📱 GreenAPI WhatsApp</span>
+      <span class="tag">☁️ Render.com</span>
+    </div>
+    <p class="footer-note" style="position: static; margin-top: 60px;">Abril 2026 — Presentación técnica y comercial</p>
+  </section>
+
+  <!-- SLIDE 2: PROBLEMA -->
+  <section class="slide">
+    <h2>El problema</h2>
+    <div class="grid grid-2" style="max-width: 1000px;">
+      <div class="card">
+        <div class="icon">😓</div>
+        <h3>Atención manual 24/7</h3>
+        <p>Cada consulta de un socio o prospecto requería respuesta humana inmediata. Preguntas repetidas sobre horarios, documentación, genéticas, REPROCANN.</p>
+      </div>
+      <div class="card">
+        <div class="icon">📋</div>
+        <h3>Sin CRM ni seguimiento</h3>
+        <p>Leads se perdían. No había forma de recontactar automáticamente a quien no completó la documentación o está tramitando el REPROCANN.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🔀</div>
+        <h3>Proceso inconsistente</h3>
+        <p>Cada operador preguntaba cosas distintas. Sin flujo estándar para validar documentación, tono de comunicación, o criterios de aceptación.</p>
+      </div>
+      <div class="card">
+        <div class="icon">📉</div>
+        <h3>Sin datos</h3>
+        <p>Nulo registro de conversaciones, tiempos de respuesta, tasas de conversión. Imposible optimizar lo que no se mide.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 3: EVOLUCIÓN V1→V4 -->
+  <section class="slide">
+    <h2>Evolución v1 → v4</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Capacidad</th>
+          <th>v1 (MVP)</th>
+          <th>v4 (actual)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>IA</strong></td>
+          <td class="v1">Respuestas hardcodeadas</td>
+          <td class="v4">Claude Sonnet 4.5 + contexto</td>
+        </tr>
+        <tr>
+          <td><strong>Persistencia</strong></td>
+          <td class="v1">RAM (se perdía al reiniciar)</td>
+          <td class="v4">Supabase PostgreSQL (4 tablas)</td>
+        </tr>
+        <tr>
+          <td><strong>Flujo de afiliación</strong></td>
+          <td class="v1">No existía</td>
+          <td class="v4">Opt-in: consulta libre → afiliación a demanda</td>
+        </tr>
+        <tr>
+          <td><strong>Atención al cliente</strong></td>
+          <td class="v1">Solo pedía docs</td>
+          <td class="v4">Prioridad — responde dudas primero</td>
+        </tr>
+        <tr>
+          <td><strong>Validación de documentos</strong></td>
+          <td class="v1">Manual</td>
+          <td class="v4">Vision permisivo — pide texto si falta dato</td>
+        </tr>
+        <tr>
+          <td><strong>Seguimiento (follow-up)</strong></td>
+          <td class="v1">Ninguno</td>
+          <td class="v4">Cron configurable (test/prod)</td>
+        </tr>
+        <tr>
+          <td><strong>Tono</strong></td>
+          <td class="v1">Neutro / "boludo" sin contexto</td>
+          <td class="v4">Cordial + casual jocoso en off-topic</td>
+        </tr>
+        <tr>
+          <td><strong>Respuestas off-topic</strong></td>
+          <td class="v1">Forzaban a mandar docs</td>
+          <td class="v4">Variantes rotativas con humor</td>
+        </tr>
+        <tr>
+          <td><strong>CRM</strong></td>
+          <td class="v1">–</td>
+          <td class="v4">Members + conversation history</td>
+        </tr>
+        <tr>
+          <td><strong>Tests</strong></td>
+          <td class="v1">0</td>
+          <td class="v4">113 tests automatizados</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- SLIDE 4: ARQUITECTURA -->
+  <section class="slide">
+    <h2>Arquitectura actual</h2>
+    <div class="arch-diagram">
+      <div class="arch-row">
+        <div class="arch-box">
+          <div class="title">📱 WhatsApp</div>
+          <div class="desc">Usuario final</div>
+        </div>
+      </div>
+      <div class="arch-arrow">↓</div>
+      <div class="arch-row">
+        <div class="arch-box">
+          <div class="title">🟢 GreenAPI</div>
+          <div class="desc">Gateway WhatsApp Business</div>
+        </div>
+      </div>
+      <div class="arch-arrow">↓</div>
+      <div class="arch-row">
+        <div class="arch-box" style="border-color:#7cdb7c; background: rgba(76,175,80,0.15);">
+          <div class="title">☁️ Bot Node.js (Render)</div>
+          <div class="desc">Webhook + state machine + cron</div>
+        </div>
+      </div>
+      <div class="arch-arrow">↓</div>
+      <div class="arch-row">
+        <div class="arch-box">
+          <div class="title">🧠 Claude API</div>
+          <div class="desc">Sonnet 4.5 + Vision</div>
+        </div>
+        <div class="arch-box">
+          <div class="title">💾 Supabase</div>
+          <div class="desc">PostgreSQL + RLS</div>
+        </div>
+        <div class="arch-box">
+          <div class="title">📄 knowledge/</div>
+          <div class="desc">base.md + config JSON</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 5: FEATURES -->
+  <section class="slide">
+    <h2>Funcionalidades clave</h2>
+    <div class="grid grid-3" style="max-width: 1200px;">
+      <div class="card">
+        <div class="icon">💬</div>
+        <h3>Atención al cliente primero</h3>
+        <p>El bot prioriza responder consultas (horarios, genéticas, REPROCANN). Solo entra al flujo de afiliación cuando el usuario lo pide explícitamente.</p>
+      </div>
+      <div class="card">
+        <div class="icon">📋</div>
+        <h3>Flujo opt-in de afiliación</h3>
+        <p>Saludo → nombre → conversación libre → detección de intent "quiero afiliarme" → pide DNI y REPROCANN.</p>
+      </div>
+      <div class="card">
+        <div class="icon">👁️</div>
+        <h3>Vision AI permisivo</h3>
+        <p>Claude analiza DNI y REPROCANN. Si un dato no se lee, lo pide por texto — no fuerza al usuario a sacar otra foto.</p>
+      </div>
+      <div class="card">
+        <div class="icon">⏰</div>
+        <h3>Follow-ups inteligentes</h3>
+        <p>Recontacta automáticamente según motivo: sin REPROCANN, tramitando, docs incompletos, inactivo.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🗃️</div>
+        <h3>CRM integrado</h3>
+        <p>Historial completo de cada chat. Base de miembros con estado, intentos, timestamps.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🎭</div>
+        <h3>Personalidad variada</h3>
+        <p>Respuestas jocosas a stickers y audios con rotación anti-repetición. Cada usuario recibe experiencia distinta.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 5B: MEJORAS v4.1 -->
+  <section class="slide">
+    <h2>Mejoras v4.1 — experiencia del cliente</h2>
+    <p style="margin-bottom: 30px;">Rediseño basado en feedback de testing real</p>
+    <div class="grid grid-3" style="max-width: 1200px;">
+      <div class="card">
+        <div class="icon">🔁</div>
+        <h3>Flujo opt-in</h3>
+        <p><strong>Antes:</strong> Hola → "mandame DNI".<br>
+        <strong>Ahora:</strong> Hola → "¿En qué te ayudo?" → responde consultas → si el usuario dice "quiero afiliarme" arranca proceso.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🗣️</div>
+        <h3>Tono cordial</h3>
+        <p><strong>Antes:</strong> "Boludo, mandame los papeles che".<br>
+        <strong>Ahora:</strong> Cordial y profesional. "Che" solo en respuestas casuales (stickers, audios).</p>
+      </div>
+      <div class="card">
+        <div class="icon">📸</div>
+        <h3>Vision permisivo</h3>
+        <p><strong>Antes:</strong> Rechazaba fotos "borrosas" aunque se leyeran.<br>
+        <strong>Ahora:</strong> Acepta docs legibles. Si falta algún dato, lo pide por texto.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🎤</div>
+        <h3>Audios con humor</h3>
+        <p>"Uyyy boluuu no puedo escuchar audios todavía, el jefe no me dio oídos jaja" — 5 variantes rotativas.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🎨</div>
+        <h3>Stickers con personalidad</h3>
+        <p>"Me faltan superpoderes para entender stickers 🦸 pero seguro estuvo re piola" — tono jocoso y útil.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🔀</div>
+        <h3>Rotación anti-repetición</h3>
+        <p>El bot recuerda qué respuesta usó por chat y no repite dos veces seguidas la misma variante.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 6: BASE DE DATOS -->
+  <section class="slide">
+    <h2>Base de datos</h2>
+    <p style="margin-bottom: 40px;">4 tablas en Supabase con RLS y service_role bypass para el bot</p>
+    <div class="grid grid-2" style="max-width: 1000px;">
+      <div class="card">
+        <div class="icon">👥</div>
+        <h3>members</h3>
+        <p><strong>CRM principal.</strong> chat_id, nombre, estado_afiliacion, reprocann_status, fecha_alta, último contacto.</p>
+      </div>
+      <div class="card">
+        <div class="icon">💬</div>
+        <h3>conversation_history</h3>
+        <p><strong>Historial completo.</strong> Cada mensaje entrante/saliente, timestamp, tipo (texto/imagen/audio).</p>
+      </div>
+      <div class="card">
+        <div class="icon">🔔</div>
+        <h3>followups</h3>
+        <p><strong>Cola de seguimientos.</strong> motivo, proxima_notificacion, intento, status (pendiente/enviado/cancelado).</p>
+      </div>
+      <div class="card">
+        <div class="icon">📊</div>
+        <h3>bot_state</h3>
+        <p><strong>Estado conversacional.</strong> chat_id + estado actual + datos temporales del flujo de afiliación.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 7: FOLLOW-UPS -->
+  <section class="slide">
+    <h2>Follow-ups inteligentes</h2>
+    <p style="margin-bottom: 30px;">El bot recontacta solo cuando tiene sentido — configurable en minutos o días</p>
+    <table style="max-width: 900px; font-size: 17px;">
+      <thead>
+        <tr>
+          <th>Motivo</th>
+          <th>Test (min)</th>
+          <th>Producción</th>
+          <th>Máx intentos</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Sin REPROCANN (1°)</strong></td>
+          <td>3 min</td>
+          <td class="v4">3 días</td>
+          <td>2</td>
+        </tr>
+        <tr>
+          <td><strong>Sin REPROCANN (2°)</strong></td>
+          <td>5 min</td>
+          <td class="v4">7 días</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td><strong>Tramitando</strong></td>
+          <td>4 min</td>
+          <td class="v4">7 días</td>
+          <td>1</td>
+        </tr>
+        <tr>
+          <td><strong>Docs incompletos</strong></td>
+          <td>3 min</td>
+          <td class="v4">3 días</td>
+          <td>1</td>
+        </tr>
+        <tr>
+          <td><strong>Inactivo</strong></td>
+          <td>5 min</td>
+          <td class="v4">7 días</td>
+          <td>1</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="margin-top: 30px; font-size: 16px; color: #81c784;">📝 Editable en <code style="background:#1b2a1b;padding:2px 8px;border-radius:4px;color:#7cdb7c;">knowledge/notificaciones.config.json</code></p>
+  </section>
+
+  <!-- SLIDE 8: MÉTRICAS / TESTING -->
+  <section class="slide">
+    <h2>Calidad del sistema</h2>
+    <div class="grid grid-4" style="max-width: 1100px;">
+      <div class="metric card">
+        <div class="num">113</div>
+        <div class="label">Tests automatizados</div>
+      </div>
+      <div class="metric card">
+        <div class="num">100%</div>
+        <div class="label">Tests passing</div>
+      </div>
+      <div class="metric card">
+        <div class="num">14</div>
+        <div class="label">Suites de testing</div>
+      </div>
+      <div class="metric card">
+        <div class="num">4</div>
+        <div class="label">Bugs críticos fixeados</div>
+      </div>
+    </div>
+    <div style="margin-top: 40px; max-width: 900px;">
+      <h3 style="text-align:center; margin-bottom: 20px;">Cobertura</h3>
+      <div class="grid grid-2">
+        <ul class="checklist">
+          <li>Persistencia Supabase</li>
+          <li>CRM members</li>
+          <li>Follow-ups cron</li>
+          <li>Historial conversaciones</li>
+          <li>Flujo E2E afiliación</li>
+          <li>Edge cases</li>
+          <li>Tono cordial sin "boludo"</li>
+          <li>Marker [[AFILIAR]] funciona</li>
+        </ul>
+        <ul class="checklist">
+          <li>Respuestas fuera de flujo</li>
+          <li>Tono rioplatense + emojis</li>
+          <li>Detector emoji-only</li>
+          <li>Mensajes de follow-up</li>
+          <li>Procesamiento de texto</li>
+          <li>State machine</li>
+          <li>Vision permisivo</li>
+          <li>Rotación anti-repetición</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 9: VALOR COMERCIAL -->
+  <section class="slide">
+    <h2>Valor comercial</h2>
+    <div class="grid grid-2" style="max-width: 1100px;">
+      <div class="card">
+        <div class="icon">⚡</div>
+        <h3>Respuesta 24/7 instantánea</h3>
+        <p>0 leads perdidos por horarios. Cada consulta atendida en segundos, sin importar el volumen.</p>
+      </div>
+      <div class="card">
+        <div class="icon">📈</div>
+        <h3>Conversión aumentada</h3>
+        <p>Follow-ups automáticos recuperan socios que abandonaron el proceso de afiliación a mitad de camino.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🎯</div>
+        <h3>Campañas segmentadas</h3>
+        <p>Base de miembros permite broadcast a segmentos: nuevos stocks, eventos, promos, por estado o genética preferida.</p>
+      </div>
+      <div class="card">
+        <div class="icon">💰</div>
+        <h3>Costo operativo bajo</h3>
+        <p>Render + Supabase free tier + Claude API por uso. Escala lineal sin sumar personal.</p>
+      </div>
+      <div class="card">
+        <div class="icon">📊</div>
+        <h3>Data real</h3>
+        <p>Cada interacción queda registrada. Métricas de conversión, tiempos, motivos de abandono, genéticas más consultadas.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🔒</div>
+        <h3>Compliance REPROCANN</h3>
+        <p>Validación automatizada de certificados. Documentación archivada y auditable.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 10: PRÓXIMOS PASOS -->
+  <section class="slide">
+    <h2>Próximos pasos</h2>
+    <ul class="checklist" style="max-width: 900px;">
+      <li>Migrar config a modo <strong>producción</strong> (días en vez de minutos)</li>
+      <li>Activar <strong>ping UptimeRobot</strong> para evitar cold starts en Render</li>
+      <li>Panel admin en la app <strong>clubes-app</strong> (stock, socios, broadcasts)</li>
+      <li>Campañas segmentadas (ej: "nueva genética Blue Dream disponible")</li>
+      <li>Integración con <strong>stock en tiempo real</strong></li>
+      <li>Reportes semanales automáticos (nuevos socios, conversión, top consultas)</li>
+      <li>Soporte completo de <strong>imágenes + audio</strong></li>
+    </ul>
+    <div style="margin-top: 50px; padding: 24px 40px; background: linear-gradient(135deg, rgba(76,175,80,0.2), rgba(46,125,50,0.2)); border: 1px solid #4caf50; border-radius: 16px;">
+      <p style="font-size: 24px; color: #7cdb7c; font-weight: 600;">Sistema en producción ✅</p>
+      <p style="font-size: 16px; margin-top: 8px;">whatsapp-bot-h85o.onrender.com</p>
+    </div>
+  </section>
+
+  <!-- SLIDE 11: CIERRE -->
+  <section class="slide">
+    <div class="leaf leaf-tl">🌿</div>
+    <div class="leaf leaf-br">🌿</div>
+    <img src="logo.png" alt="Indajaus" class="logo-cierre">
+    <h1 style="font-size: 88px;">Gracias 🌿</h1>
+    <p class="subtitle">¿Preguntas?</p>
+    <div style="margin-top: 60px;">
+      <span class="tag">v4.1 — Abril 2026</span>
+    </div>
+  </section>
+
+</div>
+
+<div class="nav">
+  <button onclick="prev()">← Anterior</button>
+  <span class="counter"><span id="current">1</span> / <span id="total">11</span></span>
+  <button onclick="next()">Siguiente →</button>
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  let idx = 0;
+  document.getElementById('total').textContent = total;
+
+  function show(i) {
+    slides.forEach(s => s.classList.remove('active'));
+    idx = (i + total) % total;
+    slides[idx].classList.add('active');
+    document.getElementById('current').textContent = idx + 1;
+    document.getElementById('progress').style.width = ((idx + 1) / total * 100) + '%';
+  }
+  function next() { show(idx + 1); }
+  function prev() { show(idx - 1); }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { next(); e.preventDefault(); }
+    if (e.key === 'ArrowLeft' || e.key === 'PageUp') { prev(); e.preventDefault(); }
+    if (e.key === 'Home') show(0);
+    if (e.key === 'End') show(total - 1);
+    if (e.key === 'f' || e.key === 'F') {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+      else document.exitFullscreen();
+    }
+  });
+
+  show(0);
+</script>
+
+</body>
+</html>

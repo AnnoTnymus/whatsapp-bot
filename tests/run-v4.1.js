@@ -174,8 +174,46 @@ assert('webhook maneja audioMessage/voiceMessage', () => {
   return true
 })
 
-assert('randomRespuesta("audio") existe', () => {
-  if (!/randomRespuesta\('audio'\)/.test(src)) throw new Error('falta llamada a audio')
+assert('randomRespuesta("audio", ...) existe', () => {
+  if (!/randomRespuesta\('audio'/.test(src)) throw new Error('falta llamada a audio')
+  return true
+})
+
+// ============ SUITE 7: Variedad de respuestas + rotación ============
+console.log('\n🧪 Suite 7: Variedad de respuestas (mínimo 3 por tipo, rotación activa)')
+
+function contarOpciones(tipo) {
+  const re = new RegExp(`${tipo}:\\s*\\[([\\s\\S]*?)\\]`)
+  const m = offFlowBlock.match(re)
+  if (!m) return 0
+  return (m[1].match(/^\s*'/gm) || []).length
+}
+
+assert('sticker tiene >= 3 variantes', () => contarOpciones('sticker') >= 3)
+assert('audio tiene >= 3 variantes', () => contarOpciones('audio') >= 3)
+assert('solo_emojis tiene >= 3 variantes', () => contarOpciones('solo_emojis') >= 3)
+assert('imagen_random tiene >= 3 variantes', () => contarOpciones('imagen_random') >= 3)
+
+assert('randomRespuesta implementa rotación no-repetitiva', () => {
+  if (!/lastRespIndex/.test(src)) throw new Error('falta memoria lastRespIndex')
+  if (!/do\s*\{[^}]*idx[^}]*\}\s*while/.test(src)) throw new Error('falta do-while anti-repetición')
+  return true
+})
+
+// ============ SUITE 8: Tono de los mensajes casuales ============
+console.log('\n🧪 Suite 8: Tono casual en mensajes off-topic (jocoso pero útil)')
+
+assert('sticker menciona superpoderes/estar re piola/cerebro', () => {
+  const m = offFlowBlock.match(/sticker:\s*\[([\s\S]*?)\]/)
+  if (!/superpoder|re piola|cortocircuito|kryptonita|manejo/i.test(m[1]))
+    throw new Error('sticker no tiene tono jocoso')
+  return true
+})
+
+assert('audio tiene tono jocoso ("oídos"/"tacaño"/"mudo")', () => {
+  const m = offFlowBlock.match(/audio:\s*\[([\s\S]*?)\]/)
+  if (!/oídos|tacaño|mudo|nanai|kryptonita|jefe/i.test(m[1]))
+    throw new Error('audio no tiene tono jocoso')
   return true
 })
 

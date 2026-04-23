@@ -809,35 +809,61 @@ async function insertMember(chatId, nombre, reprocannData, collectedData) {
 
 // ========== v4.0: OFF-FLOW RESPONSES (Fase 7) ==========
 
+// Respuestas casuales y graciosas para mensajes off-topic.
+// Rotamos para no repetir siempre lo mismo — experiencia variada.
 const RESPUESTAS_FUERA_FLUJO = {
   sticker: [
-    'Jaja 😄 Muy bueno. ¿En qué te puedo ayudar con el club?',
-    '¡Me encantó! 👍 Contame, ¿necesitás info de algo?',
-    'Genial 😂 ¿Te puedo ayudar con alguna consulta?',
+    'Me faltan algunos superpoderes para entender los stickers 🦸 pero seguro el que mandaste está re piola 😄 ¿Te ayudo con algo?',
+    'Uff todavía no manejo stickers, pero seguro estuvo genial 🔥 Contame en qué te puedo dar una mano.',
+    'Jaja no llego a interpretar stickers todavía 🙈 pero si lo ponés en palabras o un emoji, te ayudo al toque.',
+    'Los stickers son mi kryptonita por ahora 😅 ¿Me lo tirás en texto y vemos?',
+    'Me tiraste un sticker y mi cerebrito hizo cortocircuito jaja ⚡ ¿Me contás qué necesitás?',
   ],
   imagen_random: [
-    'Linda foto 📸 ¿Querías consultarme algo del club?',
-    'Gracias por la imagen 🔥 Contame, ¿en qué te ayudo?',
-    'Buena onda 🌿 ¿Hay algo que quieras saber del club?',
+    'Linda foto 📸 pero no logré identificar un documento. ¿Querías consultarme algo del club?',
+    'Me llegó la imagen, pero no parece un DNI ni un REPROCANN 🤔 ¿En qué te ayudo?',
+    'Gracias por la foto 🔥 aunque me cuesta encontrar info útil ahí. Contame qué necesitás.',
+    '¿Esa foto venía con alguna pregunta? 😄 Mandame un mensajito y vemos.',
   ],
   solo_emojis: [
-    '¡Dale! 🤝 ¿Querés preguntarme algo?',
-    '✨ ¡Genial! ¿En qué te puedo ayudar?',
-    '💯 ¿Necesitás info de algo puntual?',
+    '¡Te capto la onda! 🤝 ¿Querés contarme qué necesitás?',
+    'Jaja, los emojis dicen mucho ✨ pero mejor tirame unas palabritas, así te ayudo bien.',
+    'Buenísimo 💯 ¿Me contás en qué te puedo dar una mano?',
+    '😄 ¿Consulta sobre el club, afiliación, horarios? Contame.',
   ],
   reaccion: [
     '¡Gracias! 🙏 ¿Algo en lo que te pueda ayudar?',
     '¡Dale! 💪 Contame si tenés alguna consulta.',
+    'Jaja buenísimo 😄 ¿Te ayudo con algo?',
   ],
   audio: [
-    'Che, por ahora no puedo escuchar audios 🙏 ¿Me lo podés escribir?',
-    'Uy, todavía no proceso audios — ¿me lo escribís en un mensajito?',
-    'Disculpá, aún no puedo abrir audios. ¿Me lo pasás por texto?',
+    'Uyyy boluuu no puedo escuchar audios todavía 🙉 el jefe aún no me dio oídos jaja — pero si me escribís lo que necesitás seguro te doy una mano 💪',
+    'Che, todavía estoy en modo mudo 😅 no puedo reproducir audios. ¿Me lo pasás por texto y lo resolvemos?',
+    'Audios nanai por ahora 🎧❌ pero si me tirás el mensaje escrito lo vemos al toque.',
+    'Uy, audios no manejo aún — andá sabiendo que mi jefe es tacaño con los permisos jaja 😂 Escribime y te ayudo.',
+    'Disculpá, todavía no escucho audios 🙈 ¿Me lo contás en un mensajito?',
   ],
 }
 
-function randomRespuesta(tipo) {
+// Memoria por chat de qué índice usamos por tipo — evita repetir el mismo mensaje en fila.
+const lastRespIndex = new Map()  // chatId -> { sticker: idx, audio: idx, ... }
+
+function randomRespuesta(tipo, chatId = null) {
   const opciones = RESPUESTAS_FUERA_FLUJO[tipo] || RESPUESTAS_FUERA_FLUJO.sticker
+  if (opciones.length === 1) return opciones[0]
+
+  if (chatId) {
+    // Rotación sin repetir: elegimos un índice distinto al último usado
+    const used = lastRespIndex.get(chatId) || {}
+    const lastIdx = used[tipo] ?? -1
+    let idx
+    do {
+      idx = Math.floor(Math.random() * opciones.length)
+    } while (idx === lastIdx && opciones.length > 1)
+    used[tipo] = idx
+    lastRespIndex.set(chatId, used)
+    return opciones[idx]
+  }
   return opciones[Math.floor(Math.random() * opciones.length)]
 }
 
@@ -861,18 +887,18 @@ app.post('/webhook', (req, res) => {
 
       // v4.1: Handle off-flow messages (stickers, audios, reactions)
       if (msgType === 'stickerMessage') {
-        await sendWhatsAppMessage(chatId, randomRespuesta('sticker'))
+        await sendWhatsAppMessage(chatId, randomRespuesta('sticker', chatId))
         return
       }
 
       if (msgType === 'reactionMessage') {
-        await sendWhatsAppMessage(chatId, randomRespuesta('reaccion'))
+        await sendWhatsAppMessage(chatId, randomRespuesta('reaccion', chatId))
         return
       }
 
       if (msgType === 'audioMessage' || msgType === 'voiceMessage') {
         log('webhook', `Audio recibido de ${chatId} — respondiendo que no se procesan`)
-        await sendWhatsAppMessage(chatId, randomRespuesta('audio'))
+        await sendWhatsAppMessage(chatId, randomRespuesta('audio', chatId))
         return
       }
 
@@ -883,7 +909,7 @@ app.post('/webhook', (req, res) => {
         // v4.0: Detect emoji-only messages
         // Detectar mensajes emoji-only (incluye variation selectors, ZWJ, skin tones)
         if (/^[\p{Emoji}\p{Emoji_Modifier}\p{Emoji_Component}\s‍️]+$/u.test(message) && message.length < 30) {
-          await sendWhatsAppMessage(chatId, randomRespuesta('solo_emojis'))
+          await sendWhatsAppMessage(chatId, randomRespuesta('solo_emojis', chatId))
           return
         }
 
@@ -1091,7 +1117,7 @@ app.post('/webhook', (req, res) => {
           }
         } else {
           // Tipo desconocido — imagen random
-          await sendWhatsAppMessage(chatId, randomRespuesta('imagen_random'))
+          await sendWhatsAppMessage(chatId, randomRespuesta('imagen_random', chatId))
           return
         }
 
