@@ -133,10 +133,10 @@ async function analyzeImageWithClaude(imageUrl, chatId) {
 
   const state = userState.get(chatId) || {}
   const systemMsg = state.step === 'esperando_reprocann'
-    ? 'El usuario ya indicó que tiene REPROCANN. Analizá esta imagen como su certificado REPROCANN. Confirmá la recepción y pedile el DNI.'
+    ? 'El usuario ya indicó que tiene REPROCANN. Analizá esta imagen como su certificado REPROCANN. Confirmá con entusiasmo la recepción (ej: "¡Perfecto, vi tu REPROCANN!") y pedile el DNI para completar.'
     : state.step === 'esperando_dni'
-    ? 'El usuario ya mandó su REPROCANN. Analizá esta imagen como su DNI. Confirmá que recibiste los documentos y decile que lo contactamos pronto.'
-    : 'El usuario está en proceso de afiliación. Analizá esta imagen: ¿Es un REPROCANN válido o un DNI? Respondé brevemente qué ves.'
+    ? 'El usuario ya mandó su REPROCANN. Analizá esta imagen como su DNI. Confirmá con entusiasmo que recibiste ambos documentos (ej: "¡Excelente, ya tengo tu DNI!") y que alguien lo contactará.'
+    : 'El usuario está en proceso de afiliación. Analizá esta imagen: ¿Es un REPROCANN válido o un DNI? Respondé con entusiasmo qué ves y qué necesitás a continuación.'
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -389,6 +389,7 @@ app.post('/webhook', (req, res) => {
         const state = userState.get(chatId) || { step: 'inicio', nombre: sender, imagenes: {} }
         let docType = 'DNI'
         let extractedData = null
+        let userMessage = analysis
 
         if (state.step === 'inicio' || state.step === 'esperando_reprocann') {
           docType = 'REPROCANN'
@@ -406,10 +407,12 @@ app.post('/webhook', (req, res) => {
             const reprocannData = state.imagenes.reprocann?.data || null
             await notifyAdmin(chatId, state.nombre, dniData, reprocannData)
           }
+
+          userMessage = `¡Perfecto! 🎉 Ahora ya tenemos todos tus datos. Te va a contactar alguien del club para confirmarte que todo está bien y darte la bienvenida! 🌿`
         }
         userState.set(chatId, state)
 
-        await sendWhatsAppMessage(chatId, analysis)
+        await sendWhatsAppMessage(chatId, userMessage)
         log('webhook', `Análisis enviado a ${chatId} | ${docType} procesado`)
       } else {
         log('webhook', `Tipo no soportado: ${msgType}`)
