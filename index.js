@@ -3,6 +3,7 @@ import express from 'express'
 import fetch from 'node-fetch'
 import { readFileSync } from 'fs'
 import { Resend } from 'resend'
+import { createClient } from '@supabase/supabase-js'
 
 const app = express()
 app.use(express.json())
@@ -15,13 +16,31 @@ const MODEL = 'claude-opus-4-7'
 const RESEND_API_KEY = process.env.RESEND_API_KEY
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL
 
-const conversationHistory = new Map()
-const rateLimits = new Map()
-const userState = new Map()
+// Supabase client (v4.0 — persistence)
+const supabase = createClient(
+  process.env.SUPABASE_URL || '',
+  process.env.SUPABASE_ANON_KEY || ''
+)
+
+const conversationHistory = new Map()  // Still in-memory (reset hourly)
+const rateLimits = new Map()           // Still in-memory (reset hourly)
+const userState = new Map()            // ⚠️ Legacy: replaced by patient_state table
 
 const RATE_LIMIT = 30
 const RATE_WINDOW = 60 * 60 * 1000
 const ADMIN_WHATSAPP = process.env.ADMIN_WHATSAPP
+
+// v4.0: Dynamic token allocation (Fase 4)
+const TOKEN_BUDGET = {
+  confirmation: 50,        // "✅ Recibido. Mandame el dorso."
+  request_document: 100,   // "Aún necesito: DNI frente, REPROCANN dorso 📸"
+  request_field: 80,       // "Ahora necesito tu provincia. Contame 👇"
+  success: 120,           // "¡Listo! Te contactamos pronto 🌿"
+  error: 150,             // Mensajes de error con instrucciones
+  explanation: 250,       // Respuestas generales sobre el club (askClaude)
+  followup: 120,          // Mensajes de seguimiento automático
+  detect: 100,            // Document type detection
+}
 
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null
 
@@ -37,6 +56,96 @@ function checkRateLimit(chatId) {
   rateLimits.set(chatId, entry)
   return true
 }
+
+// ========== SUPABASE PERSISTENCE (v4.0) ==========
+
+async function loadState(chatId) {
+  try {
+    const { data } = await supabase
+      .from('patient_state')
+      .select('*')
+      .eq('chat_id', chatId)
+      .single()
+
+    if (!data) {
+      return {
+        step: 'inicio',
+        nombre: chatId,
+        documentos: { dni: { frente: null, dorso: null }, reprocann: { frente: null, dorso: null } },
+        collectedData: {},
+        pendingFields: [],
+      }
+    }
+
+    return {
+      step: data.step,
+      nombre: data.nombre,
+      documentos: data.documentos,
+      collectedData: data.collected_data,
+      pendingFields: data.pending_fields,
+    }
+  } catch (e) {
+    log('supabase', `Error loading state for ${chatId}: ${e.message}`)
+    return {
+      step: 'inicio',
+      nombre: chatId,
+      documentos: { dni: { frente: null, dorso: null }, reprocann: { frente: null, dorso: null } },
+      collectedData: {},
+      pendingFields: [],
+    }
+  }
+}
+
+async function saveState(chatId, state) {
+  try {
+    await supabase.from('patient_state').upsert(
+      {
+        chat_id: chatId,
+        nombre: state.nombre,
+        step: state.step,
+        documentos: state.documentos,
+        collected_data: state.collectedData,
+        pending_fields: state.pendingFields,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'chat_id' }
+    )
+    log('supabase', `State saved for ${chatId}`)
+  } catch (e) {
+    log('supabase', `Error saving state for ${chatId}: ${e.message}`)
+  }
+}
+
+async function loadHistory(chatId) {
+  try {
+    const { data } = await supabase
+      .from('conversation_history')
+      .select('messages')
+      .eq('chat_id', chatId)
+      .single()
+
+    return data?.messages || []
+  } catch {
+    return []
+  }
+}
+
+async function saveHistory(chatId, messages) {
+  try {
+    await supabase.from('conversation_history').upsert(
+      {
+        chat_id: chatId,
+        messages: messages.slice(-8),  // Keep last 8 messages only
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'chat_id' }
+    )
+  } catch (e) {
+    log('supabase', `Error saving history for ${chatId}: ${e.message}`)
+  }
+}
+
+// ========== END SUPABASE HELPERS ==========
 
 let knowledgeBase = ''
 try {
@@ -167,7 +276,7 @@ async function detectImage(imageUrl) {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 100,
+        max_tokens: TOKEN_BUDGET.detect,  // v4.0: dynamic
         messages: [
           {
             role: 'user',
@@ -178,7 +287,35 @@ async function detectImage(imageUrl) {
               },
               {
                 type: 'text',
-                text: 'Retorna SOLO este JSON (sin explicación): {"tipo":"REPROCANN" o "DNI" o "OTRO","ambosSides":true o false}',
+                text: `TAREA CRÍTICA: Detectar si este es un documento ARGENTINO válido.
+Retorna SOLO este JSON, sin explicación, sin markdown:
+{
+  "tipo": "DNI" | "REPROCANN" | "DOCUMENTO_EXTRANJERO" | "OTRO",
+  "ambosSides": true | false,
+  "pais": "Argentina" | "Uruguay" | "Paraguay" | "otro",
+  "valido": true | false
+}
+
+INSTRUCCIONES ABSOLUTAS (no hay excepciones):
+
+1. DNI ARGENTINO = color azul, formato RENAPER moderno, escudo + "Ministerio del Interior", tiene CUIT al dorso
+   → tipo="DNI" SOLO si ves estos elementos
+   → CUALQUIER OTRO DNI = rechazar como DOCUMENTO_EXTRANJERO
+
+2. CÉDULA URUGUAYA = color marrón/beige, dice "CÉDULA DE IDENTIDAD REPÚBLICA ORIENTAL DEL URUGUAY"
+   → tipo="DOCUMENTO_EXTRANJERO", pais="Uruguay" (ESTO DEBE RECHAZARSE)
+
+3. OTROS DOCUMENTOS = pasaporte, licencia, visa, cédula paraguaya, brasileña, etc
+   → tipo="DOCUMENTO_EXTRANJERO" (RECHAZAR TODOS)
+
+4. REPROCANN = certificado oficial ANMAT, dice "AUTORIZACIÓN ESPECIAL REPROCANN", tiene datos ANMAT
+   → tipo="REPROCANN" SOLO si es certificado OFICIAL argentino
+   → CUALQUIER OTRO CERTIFICADO = rechazar
+
+5. valido=true SOLO si la imagen es clara, legible, bien iluminada, NO cortada
+   → valido=false si está borrosa, desenfocada, parcial, ilegible
+
+6. EN DUDA SIEMPRE RECHAZA = si dudas entre argentino y extranjero → DOCUMENTO_EXTRANJERO`,
               },
             ],
           },
@@ -188,7 +325,7 @@ async function detectImage(imageUrl) {
 
     if (!res.ok) {
       log('detect', `Error detectando (status ${res.status}), asumiendo REPROCANN`)
-      return { tipo: 'REPROCANN', ambosSides: false }
+      return { tipo: 'REPROCANN', ambosSides: false, pais: null, valido: true }
     }
 
     const data = await res.json()
@@ -201,14 +338,19 @@ async function detectImage(imageUrl) {
     } catch {
       // Si no es JSON válido, asumir REPROCANN
       log('detect', `JSON parse error, asumiendo REPROCANN: ${text.substring(0, 50)}`)
-      return { tipo: 'REPROCANN', ambosSides: false }
+      return { tipo: 'REPROCANN', ambosSides: false, pais: null, valido: true }
     }
 
-    log('detect', `Detectado: tipo=${json.tipo}, ambosSides=${json.ambosSides}`)
-    return { tipo: json.tipo || 'REPROCANN', ambosSides: json.ambosSides || false }
+    log('detect', `Detectado: tipo=${json.tipo}, ambosSides=${json.ambosSides}, valido=${json.valido}, pais=${json.pais}`)
+    return {
+      tipo: json.tipo || 'REPROCANN',
+      ambosSides: json.ambosSides || false,
+      pais: json.pais || null,
+      valido: json.valido !== false, // true by default
+    }
   } catch (e) {
     log('detect', `Error detectando imagen: ${e.message}, asumiendo REPROCANN`)
-    return { tipo: 'REPROCANN', ambosSides: false }
+    return { tipo: 'REPROCANN', ambosSides: false, pais: null, valido: true }
   }
 }
 
@@ -237,7 +379,7 @@ async function analyzeImageWithClaude(imageUrl, chatId) {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 80,
+        max_tokens: TOKEN_BUDGET.confirmation,  // v4.0: dynamic
         system: systemMsg,
         messages: [
           {
@@ -319,7 +461,7 @@ Retorna JSON válido (null si no aparece, no cadenas vacías):
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 800,
+        max_tokens: TOKEN_BUDGET.explanation,  // v4.0: extract data needs full response
         messages: [
           {
             role: 'user',
@@ -402,7 +544,7 @@ Retorna JSON válido:
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 800,
+        max_tokens: TOKEN_BUDGET.explanation,  // v4.0: extract data needs full response
         messages: [
           {
             role: 'user',
@@ -523,7 +665,10 @@ async function askClaude(msg, chatId) {
     return 'Disculpá, estamos teniendo un problema técnico. Probá de nuevo en unos minutos 🙏'
   }
 
-  const history = conversationHistory.get(chatId) || []
+  let history = conversationHistory.get(chatId)
+  if (!history) {
+    history = await loadHistory(chatId)  // v4.0: load from DB
+  }
   const messages = [...history.slice(-8), { role: 'user', content: msg }]
 
   log('claude', `Llamando modelo con ${messages.length} mensajes | chat: ${chatId}`)
@@ -538,7 +683,7 @@ async function askClaude(msg, chatId) {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 500,
+        max_tokens: TOKEN_BUDGET.explanation,  // v4.0: dynamic
         system: SYSTEM_PROMPT,
         messages,
       }),
@@ -559,6 +704,7 @@ async function askClaude(msg, chatId) {
 
     const updated = [...history, { role: 'user', content: msg }, { role: 'assistant', content: reply }]
     conversationHistory.set(chatId, updated)
+    await saveHistory(chatId, updated)  // v4.0: persist to DB
 
     return reply
   } catch (e) {
@@ -566,6 +712,75 @@ async function askClaude(msg, chatId) {
     return 'Disculpá, tuvimos un problema técnico. Intentá de nuevo en un momento 🙏'
   }
 }
+
+// ========== v4.0: CRM MEMBER INSERTION ==========
+
+async function insertMember(chatId, nombre, reprocannData, collectedData) {
+  if (!supabase) return
+  try {
+    const finalData = { ...reprocannData, ...collectedData }
+
+    // Extraer fecha de vencimiento si existe
+    let vencimiento = null
+    if (finalData.tramite?.fecha_vencimiento) {
+      vencimiento = finalData.tramite.fecha_vencimiento
+    }
+
+    const { error } = await supabase.from('members').insert({
+      chat_id: chatId,
+      nombre: nombre || finalData.nombre || 'Sin nombre',
+      dni: finalData.dni,
+      tipo_paciente: finalData.autorizacion?.tipo,
+      provincia: finalData.ubicacion?.provincia,
+      localidad: finalData.ubicacion?.localidad,
+      direccion: finalData.ubicacion?.direccion,
+      reprocann_vencimiento: vencimiento,
+      limite_transporte: finalData.autorizacion?.transporte,
+      estado_autorizacion: finalData.autorizacion?.estado,
+    })
+
+    if (error) {
+      log('members', `Error inserting member: ${error.message}`)
+    } else {
+      log('members', `Member inserted: ${nombre} (${chatId})`)
+    }
+  } catch (e) {
+    log('members', `Exception inserting member: ${e.message}`)
+  }
+}
+
+// ========== END CRM ==========
+
+// ========== v4.0: OFF-FLOW RESPONSES (Fase 7) ==========
+
+const RESPUESTAS_FUERA_FLUJO = {
+  sticker: [
+    'Jaja bueno, pero necesito tus documentos, no stickers 😅 Mandame tu REPROCANN cuando puedas.',
+    'Buen sticker 👍 Ahora sí, ¿me mandás el REPROCANN?',
+    'Me encantó, lo guardo para después. Mientras tanto, ¿tenés el certificado?',
+  ],
+  imagen_random: [
+    'Eso no es un REPROCANN, pero tiene buena pinta 😄 ¿Me mandás el certificado?',
+    'Hermosa foto, pero acá necesitamos el DNI y el REPROCANN 📋',
+    '¿Ya fumaste la medicina? 🌿 Mandame los documentos cuando estés listo.',
+  ],
+  solo_emojis: [
+    '🤝 Te entiendo. ¿Arrancamos con los documentos?',
+    'Eso suena bien. ¿Me mandás el REPROCANN para seguir?',
+    '100% de acuerdo. Ahora mandame el certificado 😄',
+  ],
+  reaccion: [
+    'Gracias! Sigamos — ¿tenés el REPROCANN a mano?',
+    '😄 ¿Listos para completar el trámite?',
+  ],
+}
+
+function randomRespuesta(tipo) {
+  const opciones = RESPUESTAS_FUERA_FLUJO[tipo] || RESPUESTAS_FUERA_FLUJO.sticker
+  return opciones[Math.floor(Math.random() * opciones.length)]
+}
+
+// ========== END OFF-FLOW ==========
 
 app.post('/webhook', (req, res) => {
   res.send('OK')
@@ -583,9 +798,26 @@ app.post('/webhook', (req, res) => {
 
       if (!chatId) return
 
+      // v4.0: Handle off-flow messages (stickers, emojis, reactions)
+      if (msgType === 'stickerMessage') {
+        await sendWhatsAppMessage(chatId, randomRespuesta('sticker'))
+        return
+      }
+
+      if (msgType === 'reactionMessage') {
+        await sendWhatsAppMessage(chatId, randomRespuesta('reaccion'))
+        return
+      }
+
       if (msgType === 'textMessage') {
         const message = body.messageData?.textMessageData?.textMessage?.trim()
         if (!message) return
+
+        // v4.0: Detect emoji-only messages
+        if (/^[\p{Emoji}\s]+$/u.test(message) && message.length < 20) {
+          await sendWhatsAppMessage(chatId, randomRespuesta('solo_emojis'))
+          return
+        }
 
         log('webhook', `De: ${sender} (${chatId}) | "${message}"`)
 
@@ -595,7 +827,37 @@ app.post('/webhook', (req, res) => {
           return
         }
 
-        const state = userState.get(chatId) || { step: 'inicio', nombre: sender, collectedData: {}, pendingFields: [] }
+        const state = await loadState(chatId)  // v4.0: load from DB
+        state.last_message_at = new Date().toISOString()
+
+        // v4.0: Si es la primera vez, solicitar nombre
+        if (state.step === 'inicio' && !state.nombre) {
+          log('webhook', `Primer contacto: solicitando nombre para ${chatId}`)
+          await sendWhatsAppMessage(chatId, `¡Hola! Bienvenido 👋 ¿Cuál es tu nombre?`)
+          state.step = 'solicitando_nombre'
+          await saveState(chatId, state)
+          return
+        }
+
+        // v4.0: Si está en "solicitando_nombre", guardar nombre y continuar
+        if (state.step === 'solicitando_nombre') {
+          state.nombre = message.trim()
+          state.step = 'recibiendo_documentos'
+          state.last_greeting_at = new Date().toISOString()
+          log('webhook', `Nombre registrado: ${state.nombre} para ${chatId}`)
+
+          // Guardar contacto inicial en members
+          await supabase.from('members').insert({
+            chat_id: chatId,
+            nombre: state.nombre,
+          }).on('*', payload => {
+            // Silently ignore duplicates
+          }).catch(() => {})
+
+          await sendWhatsAppMessage(chatId, `¡Gracias, ${state.nombre}! 😊\n\nAhora necesito que me envíes dos documentos:\n1️⃣ Tu DNI (frente y dorso)\n2️⃣ Tu certificado REPROCANN (frente y dorso)\n\nPodés enviarlos en el orden que quieras. Comencemos 📸`)
+          await saveState(chatId, state)
+          return
+        }
 
         // Si está completando datos, guardar la respuesta
         if (state.step === 'completando_datos' && state.pendingFields && state.pendingFields.length > 0) {
@@ -608,13 +870,13 @@ app.post('/webhook', (req, res) => {
           if (state.pendingFields.length > 0) {
             const nextField = state.pendingFields[0]
             await sendWhatsAppMessage(chatId, `Gracias. Ahora contame ${nextField.label} 👇`)
-            userState.set(chatId, state)
+            await saveState(chatId, state)  // v4.0: persist to DB
             return
           } else {
             // Completó todos los campos, pedir DNI
             state.step = 'esperando_dni'
             await sendWhatsAppMessage(chatId, `✅ Perfecto! Ahora mandame una foto de tu DNI para completar todo.`)
-            userState.set(chatId, state)
+            await saveState(chatId, state)  // v4.0: persist to DB
             return
           }
         }
@@ -650,23 +912,43 @@ app.post('/webhook', (req, res) => {
           return
         }
 
-        // Initialize state if needed
-        const state = userState.get(chatId) || {
-          step: 'recibiendo_documentos',
-          nombre: sender,
-          documentos: { dni: { frente: null, dorso: null }, reprocann: { frente: null, dorso: null } },
-          collectedData: {},
-          pendingFields: [],
+        // Initialize state if needed (v4.0: load from DB)
+        const state = await loadState(chatId)
+        state.last_message_at = new Date().toISOString()
+
+        // v4.0: Si no tiene nombre, solicitar antes de procesar imagen
+        if (!state.nombre || state.nombre === chatId) {
+          log('webhook', `Imagen sin nombre registrado: solicitando nombre para ${chatId}`)
+          state.step = 'solicitando_nombre'
+          await saveState(chatId, state)
+          await sendWhatsAppMessage(chatId, `¡Hola! Antes de comenzar, ¿cuál es tu nombre?`)
+          return
+        }
+
+        if (state.step === 'inicio') {
+          state.step = 'recibiendo_documentos'
+          state.documentos = { dni: { frente: null, dorso: null }, reprocann: { frente: null, dorso: null } }
         }
 
         // Detectar tipo de imagen
         const detected = await detectImage(imageUrl)
-        log('webhook', `Detectado: tipo=${detected.tipo}, ambosSides=${detected.ambosSides}`)
+        log('webhook', `Detectado: tipo=${detected.tipo}, ambosSides=${detected.ambosSides}, valido=${detected.valido}, pais=${detected.pais}`)
 
         // Análisis de confirmación al usuario
         const analysis = await analyzeImageWithClaude(imageUrl, chatId)
         if (!analysis) {
           await sendWhatsAppMessage(chatId, 'Tuvimos un problema analizando la imagen, intentá de nuevo 🙏')
+          return
+        }
+
+        // v4.0: Validar documento antes de procesar
+        if (!detected.valido) {
+          await sendWhatsAppMessage(chatId, 'La imagen está muy borrosa o cortada. ¿Podés mandarla de nuevo con mejor luz? 📸')
+          return
+        }
+
+        if (detected.tipo === 'DOCUMENTO_EXTRANJERO') {
+          await sendWhatsAppMessage(chatId, `Este documento no es de Argentina. Necesitamos tu *DNI argentino* y el certificado *REPROCANN de Argentina*. ¿Tenés esos documentos? 🇦🇷`)
           return
         }
 
@@ -686,7 +968,7 @@ app.post('/webhook', (req, res) => {
               state.documentos.reprocann.frente = { url: imageUrl, data }
               log('webhook', `REPROCANN frente para ${chatId}`)
               await sendWhatsAppMessage(chatId, `${analysis} Mandame el dorso también.`)
-              userState.set(chatId, state)
+              await saveState(chatId, state)  // v4.0: persist to DB
               return
             } else if (!state.documentos.reprocann.dorso) {
               // Ya tiene frente, esto es dorso
@@ -710,7 +992,7 @@ app.post('/webhook', (req, res) => {
               state.documentos.dni.frente = { url: imageUrl, data }
               log('webhook', `DNI frente para ${chatId}`)
               await sendWhatsAppMessage(chatId, `${analysis} Mandame el dorso también.`)
-              userState.set(chatId, state)
+              await saveState(chatId, state)  // v4.0: persist to DB
               return
             } else if (!state.documentos.dni.dorso) {
               // Ya tiene frente, esto es dorso
@@ -720,8 +1002,8 @@ app.post('/webhook', (req, res) => {
             }
           }
         } else {
-          // Tipo desconocido
-          await sendWhatsAppMessage(chatId, `Mandame tu REPROCANN o DNI 📸`)
+          // Tipo desconocido — imagen random
+          await sendWhatsAppMessage(chatId, randomRespuesta('imagen_random'))
           return
         }
 
@@ -735,7 +1017,7 @@ app.post('/webhook', (req, res) => {
         if (documentosFaltantes.length > 0) {
           log('webhook', `Documentos faltantes: ${documentosFaltantes.join(', ')}`)
           await sendWhatsAppMessage(chatId, `Gracias. Aún necesito: ${documentosFaltantes.join(', ')} 📸`)
-          userState.set(chatId, state)
+          await saveState(chatId, state)  // v4.0: persist to DB
           return
         }
 
@@ -752,7 +1034,7 @@ app.post('/webhook', (req, res) => {
           state.pendingFields = missing
           const firstField = missing[0]
           await sendWhatsAppMessage(chatId, `Ahora necesito ${firstField.label}. Contame 👇`)
-          userState.set(chatId, state)
+          await saveState(chatId, state)  // v4.0: persist to DB
           return
         }
 
@@ -765,7 +1047,11 @@ app.post('/webhook', (req, res) => {
           await notifyAdmin(chatId, state.nombre, dniData, reprocannData, state.collectedData)
         }
 
-        userState.set(chatId, state)
+        await saveState(chatId, state)  // v4.0: persist to DB
+
+        // v4.0: Insert member record for CRM (future campaigns)
+        await insertMember(chatId, state.nombre, reprocannData, state.collectedData)
+
         log('webhook', `Imagen procesada para ${chatId}`)
       } else {
         log('webhook', `Tipo no soportado: ${msgType}`)
@@ -804,6 +1090,119 @@ app.get('/test-claude', async (req, res) => {
     res.json({ ok: false, error: e.message })
   }
 })
+
+// ========== v4.0: FOLLOW-UP CRON (Fase 3) ==========
+
+async function runFollowUpCron() {
+  if (!supabase) return
+  const now = new Date().toISOString()
+
+  try {
+    const { data: pending } = await supabase
+      .from('patient_followups')
+      .select('*')
+      .eq('status', 'pendiente')
+      .lte('proxima_notificacion', now)
+      .order('proxima_notificacion')
+
+    for (const f of pending || []) {
+      const msg = buildFollowUpMessage(f)
+      if (msg) {
+        await sendWhatsAppMessage(f.chat_id, msg)
+        log('followup', `Enviado a ${f.chat_id} — motivo: ${f.motivo}, intento ${f.intentos + 1}`)
+      }
+
+      // Determine if should cancel
+      const cancelar = (f.motivo === 'tramitando' && f.intentos >= 1) ||
+                       (f.motivo === 'inactivo' && f.intentos >= 1) ||
+                       (f.motivo === 'sin_reprocann' && f.intentos >= 2) ||
+                       (f.motivo === 'docs_incompletos' && f.intentos >= 1)
+
+      const nextDate = () => {
+        if (f.motivo === 'sin_reprocann') return f.intentos === 0 ? 3 : 7
+        if (f.motivo === 'tramitando') return 7
+        if (f.motivo === 'docs_incompletos') return 3
+        if (f.motivo === 'inactivo') return 7
+        return 7
+      }
+
+      const daysToAdd = nextDate()
+      const nextNotif = new Date(now)
+      nextNotif.setDate(nextNotif.getDate() + daysToAdd)
+
+      await supabase.from('patient_followups').update({
+        intentos: f.intentos + 1,
+        status: cancelar ? 'cancelado' : 'pendiente',
+        proxima_notificacion: cancelar ? null : nextNotif.toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq('id', f.id)
+    }
+  } catch (e) {
+    log('followup', `Error en cron: ${e.message}`)
+  }
+}
+
+function buildFollowUpMessage(followup) {
+  const msgs = {
+    sin_reprocann: [
+      '¡Hola! ¿Pudiste iniciar el trámite del REPROCANN?',
+      'El trámite REPROCANN tarda 20-30 días hábiles. ¿Ya lo iniciaste?',
+    ],
+    tramitando: [
+      '¿Cómo viene el trámite? Si ya tenés el certificado, mandánoslo.',
+      '¿Pudiste obtener tu REPROCANN? Te esperamos 🌿',
+    ],
+    docs_incompletos: [
+      'Te falta enviar algunos documentos. ¿Podemos ayudarte?',
+      'Completemos tu afiliación. ¿Tenés los documentos a mano?',
+    ],
+    inactivo: [
+      '¿Podemos ayudarte? El proceso es simple, en unos minutos completás tu afiliación.',
+      'Seguimos disponibles cuando quieras continuar.',
+    ],
+  }
+
+  const opciones = msgs[followup.motivo] || []
+  return opciones[Math.min(followup.intentos, opciones.length - 1)] || null
+}
+
+// Run cron every 15 minutes
+setInterval(runFollowUpCron, 15 * 60 * 1000)
+
+// ========== v4.0: TEST ROUTES (Fase 5) ==========
+
+app.get('/test/seed-followups', async (req, res) => {
+  if (!supabase) return res.json({ ok: false, error: 'Supabase not configured' })
+
+  const testChatId = req.query.chat || '5491100000000@c.us'
+  const ahora = new Date()
+  const pasado = (minutos) => new Date(ahora.getTime() - minutos * 60000).toISOString()
+
+  const seeds = [
+    { chat_id: testChatId, nombre: 'Test User 1', motivo: 'sin_reprocann', proxima_notificacion: pasado(1), intentos: 0, status: 'pendiente' },
+    { chat_id: testChatId, nombre: 'Test User 2', motivo: 'tramitando', proxima_notificacion: pasado(2), intentos: 0, status: 'pendiente' },
+    { chat_id: testChatId, nombre: 'Test User 3', motivo: 'docs_incompletos', proxima_notificacion: pasado(3), intentos: 0, status: 'pendiente' },
+    { chat_id: testChatId, nombre: 'Test User 4', motivo: 'inactivo', proxima_notificacion: pasado(4), intentos: 0, status: 'pendiente' },
+    { chat_id: testChatId, nombre: 'Test User 5', motivo: 'sin_reprocann', proxima_notificacion: pasado(5), intentos: 2, status: 'pendiente' },
+  ]
+
+  try {
+    const { error } = await supabase.from('patient_followups').insert(seeds)
+    if (error) {
+      return res.json({ ok: false, error: error.message })
+    }
+    res.json({ ok: true, seeded: seeds.length, note: 'Ejecuta /test/run-cron o espera 15 minutos' })
+  } catch (e) {
+    res.json({ ok: false, error: e.message })
+  }
+})
+
+app.get('/test/run-cron', async (req, res) => {
+  await runFollowUpCron()
+  res.json({ ok: true, message: 'Cron ejecutado manualmente' })
+})
+
+// ========== END TEST ROUTES ==========
 
 const PORT = process.env.PORT ?? 3000
 app.listen(PORT, () => {
