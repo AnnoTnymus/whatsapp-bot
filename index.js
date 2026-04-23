@@ -1241,6 +1241,45 @@ log('cron', `Follow-up cron corriendo cada ${NOTIF_CFG.cronMinutos} minutos (mod
 
 // ========== v4.0: TEST ROUTES (Fase 5) ==========
 
+// Endpoint de diagnóstico — muestra qué env vars tiene el bot (sin exponer secretos)
+app.get('/test/env-check', async (req, res) => {
+  const url = process.env.SUPABASE_URL || ''
+  const anon = process.env.SUPABASE_ANON_KEY || ''
+  const svc = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+
+  // Test real de conectividad
+  let dbTest = 'not tested'
+  try {
+    const { error } = await supabase.from('patient_state').select('chat_id').limit(1)
+    dbTest = error ? `ERROR: ${error.message}` : 'OK'
+  } catch (e) { dbTest = `Exception: ${e.message}` }
+
+  res.json({
+    supabase_url: {
+      configured: !!url,
+      length: url.length,
+      preview: url.slice(0, 30) + '...',
+      endsWithSpace: url !== url.trim(),
+    },
+    anon_key: {
+      configured: !!anon,
+      length: anon.length,
+      preview: anon.slice(0, 20) + '...',
+      endsWithSpace: anon !== anon.trim(),
+      hasNewline: anon.includes('\n'),
+    },
+    service_role_key: {
+      configured: !!svc,
+      length: svc.length,
+      preview: svc.slice(0, 20) + '...',
+      endsWithSpace: svc !== svc.trim(),
+      hasNewline: svc.includes('\n'),
+    },
+    using_key: svc ? 'service_role' : (anon ? 'anon' : 'NONE'),
+    db_connection_test: dbTest,
+  })
+})
+
 app.get('/test/seed-followups', async (req, res) => {
   if (!supabase) return res.json({ ok: false, error: 'Supabase not configured' })
 
