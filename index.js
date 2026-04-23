@@ -197,8 +197,31 @@ async function extractDocumentData(imageUrl, docType) {
   const prompts = {
     DNI: `Extrae del DNI: nombre, apellido, número de documento, fecha de nacimiento, género, domicilio.
 Retorna SOLO JSON sin explicaciones: {"tipo":"DNI","nombre":"","apellido":"","documento":"","fecha_nacimiento":"","genero":"","domicilio":""}`,
-    REPROCANN: `Extrae del REPROCANN: nombre completo, número de REPROCANN, tipo de cultivo, cantidad de plantas, fecha expedición, vigencia.
-Retorna SOLO JSON sin explicaciones: {"tipo":"REPROCANN","nombre":"","numero":"","cultivo_tipo":"","cantidad_plantas":"","fecha_expedicion":"","vigencia":""}`
+    REPROCANN: `Extrae del REPROCANN estos datos exactos:
+- Nombre del paciente
+- Documento (DNI)
+- Provincia / Departamento / Localidad
+- Dirección
+- Código postal
+- Estado de autorización
+- Tipo de paciente (ej: autocultivo)
+- Cantidad de plantas permitidas
+- Límites de transporte
+- ID de trámite
+- Fecha de emisión
+- Fecha de vencimiento
+- Ley
+
+Retorna SOLO JSON sin explicaciones ni textos adicionales:
+{
+  "tipo": "REPROCANN",
+  "nombre": "",
+  "dni": "",
+  "ubicacion": {"provincia": "", "departamento": "", "localidad": "", "direccion": "", "codigo_postal": ""},
+  "autorizacion": {"estado": "", "tipo": "", "plantas": "", "transporte": ""},
+  "tramite": {"id": "", "fecha_emision": "", "fecha_vencimiento": ""},
+  "ley": ""
+}`
   }
 
   try {
@@ -211,7 +234,7 @@ Retorna SOLO JSON sin explicaciones: {"tipo":"REPROCANN","nombre":"","numero":""
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 300,
+        max_tokens: 600,
         messages: [
           {
             role: 'user',
@@ -251,28 +274,37 @@ async function notifyAdmin(chatId, nombre, dniData, reprocannData) {
 
   let msg = `📋 NUEVO LEAD - DOCUMENTOS COMPLETOS\n\n`
   msg += `👤 Nombre: ${nombre}\n`
-  msg += `📱 Número: ${chatId}\n\n`
+  msg += `📱 Contacto: ${chatId}\n\n`
 
-  if (dniData) {
+  if (dniData && dniData.nombre) {
     msg += `🪪 DNI:\n`
-    msg += `  Nombre: ${dniData.nombre} ${dniData.apellido || ''}\n`
+    msg += `  Nombre: ${dniData.nombre || ''} ${dniData.apellido || ''}\n`
     msg += `  Documento: ${dniData.documento || 'N/A'}\n`
     msg += `  Nacimiento: ${dniData.fecha_nacimiento || 'N/A'}\n`
     msg += `  Domicilio: ${dniData.domicilio || 'N/A'}\n\n`
   }
 
-  if (reprocannData) {
+  if (reprocannData && reprocannData.nombre) {
     msg += `🌿 REPROCANN:\n`
-    msg += `  Número: ${reprocannData.numero || 'N/A'}\n`
-    msg += `  Cultivo: ${reprocannData.cultivo_tipo || 'N/A'}\n`
-    msg += `  Plantas: ${reprocannData.cantidad_plantas || 'N/A'}\n`
-    msg += `  Vigencia: ${reprocannData.vigencia || 'N/A'}\n\n`
+    msg += `  Nombre: ${reprocannData.nombre || 'N/A'}\n`
+    msg += `  DNI: ${reprocannData.dni || 'N/A'}\n`
+    msg += `  Plantas: ${reprocannData.autorizacion?.plantas || 'N/A'}\n`
+    msg += `  Tipo: ${reprocannData.autorizacion?.tipo || 'N/A'}\n`
+    msg += `  Estado: ${reprocannData.autorizacion?.estado || 'N/A'}\n`
+    msg += `  Provincia: ${reprocannData.ubicacion?.provincia || 'N/A'}\n`
+    msg += `  Dirección: ${reprocannData.ubicacion?.direccion || 'N/A'}\n`
+    msg += `  ID Trámite: ${reprocannData.tramite?.id || 'N/A'}\n`
+    msg += `  Vencimiento: ${reprocannData.tramite?.fecha_vencimiento || 'N/A'}\n\n`
   }
 
   msg += `✅ Listo para contactar y procesar afiliación`
 
-  await sendWhatsAppMessage(ADMIN_WHATSAPP, msg)
-  log('admin', `Notificación completa enviada: ${nombre}`)
+  try {
+    await sendWhatsAppMessage(ADMIN_WHATSAPP, msg)
+    log('admin', `Notificación enviada a ${ADMIN_WHATSAPP} para: ${nombre}`)
+  } catch (e) {
+    log('admin', `Error enviando notificación: ${e.message}`)
+  }
 }
 
 async function askClaude(msg, chatId) {
