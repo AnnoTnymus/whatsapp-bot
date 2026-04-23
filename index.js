@@ -61,16 +61,32 @@ function checkRateLimit(chatId) {
 
 async function loadState(chatId) {
   try {
-    const { data } = await supabase
+    if (!supabase) {
+      log('supabase', `⚠️ Supabase NOT CONFIGURED - returning default state`)
+      return {
+        step: 'inicio',
+        nombre: null,
+        documentos: { dni: { frente: null, dorso: null }, reprocann: { frente: null, dorso: null } },
+        collectedData: {},
+        pendingFields: [],
+      }
+    }
+
+    const { data, error } = await supabase
       .from('patient_state')
       .select('*')
       .eq('chat_id', chatId)
       .single()
 
+    if (error && error.code !== 'PGRST116') {
+      // PGRST116 = row not found (expected for new users)
+      log('supabase', `❌ ERROR loading state for ${chatId}: ${error.message}`)
+    }
+
     if (!data) {
       return {
         step: 'inicio',
-        nombre: chatId,
+        nombre: null,
         documentos: { dni: { frente: null, dorso: null }, reprocann: { frente: null, dorso: null } },
         collectedData: {},
         pendingFields: [],
@@ -83,12 +99,14 @@ async function loadState(chatId) {
       documentos: data.documentos,
       collectedData: data.collected_data,
       pendingFields: data.pending_fields,
+      last_message_at: data.last_message_at,
+      last_greeting_at: data.last_greeting_at,
     }
   } catch (e) {
-    log('supabase', `Error loading state for ${chatId}: ${e.message}`)
+    log('supabase', `❌ Exception loading state for ${chatId}: ${e.message}`)
     return {
       step: 'inicio',
-      nombre: chatId,
+      nombre: null,
       documentos: { dni: { frente: null, dorso: null }, reprocann: { frente: null, dorso: null } },
       collectedData: {},
       pendingFields: [],
@@ -98,7 +116,12 @@ async function loadState(chatId) {
 
 async function saveState(chatId, state) {
   try {
-    await supabase.from('patient_state').upsert(
+    if (!supabase) {
+      log('supabase', `⚠️ Supabase NOT CONFIGURED - State NOT saved for ${chatId}`)
+      return
+    }
+
+    const result = await supabase.from('patient_state').upsert(
       {
         chat_id: chatId,
         nombre: state.nombre,
@@ -106,13 +129,20 @@ async function saveState(chatId, state) {
         documentos: state.documentos,
         collected_data: state.collectedData,
         pending_fields: state.pendingFields,
+        last_message_at: state.last_message_at,
+        last_greeting_at: state.last_greeting_at,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'chat_id' }
     )
-    log('supabase', `State saved for ${chatId}`)
+
+    if (result.error) {
+      log('supabase', `❌ ERROR saving state for ${chatId}: ${result.error.message}`)
+    } else {
+      log('supabase', `✅ State saved for ${chatId} (step=${state.step})`)
+    }
   } catch (e) {
-    log('supabase', `Error saving state for ${chatId}: ${e.message}`)
+    log('supabase', `❌ Exception saving state for ${chatId}: ${e.message}`)
   }
 }
 
@@ -833,8 +863,9 @@ app.post('/webhook', (req, res) => {
         // v4.0: Si es la primera vez, solicitar nombre
         if (state.step === 'inicio' && !state.nombre) {
           log('webhook', `Primer contacto: solicitando nombre para ${chatId}`)
-          await sendWhatsAppMessage(chatId, `¡Hola! Bienvenido 👋 ¿Cuál es tu nombre?`)
+          await sendWhatsAppMessage(chatId, `¡Hola! Bienvenido 👋\n\n¿Cuál es tu nombre?`)
           state.step = 'solicitando_nombre'
+          state.last_greeting_at = new Date().toISOString()
           await saveState(chatId, state)
           return
         }
@@ -916,12 +947,20 @@ app.post('/webhook', (req, res) => {
         const state = await loadState(chatId)
         state.last_message_at = new Date().toISOString()
 
-        // v4.0: Si no tiene nombre, solicitar antes de procesar imagen
-        if (!state.nombre || state.nombre === chatId) {
+        // v4.0: Si no tiene nombre y no está ya solicitándolo, pedir nombre
+        if ((!state.nombre || state.nombre === chatId) && state.step !== 'solicitando_nombre') {
           log('webhook', `Imagen sin nombre registrado: solicitando nombre para ${chatId}`)
           state.step = 'solicitando_nombre'
+          state.last_greeting_at = new Date().toISOString()
           await saveState(chatId, state)
-          await sendWhatsAppMessage(chatId, `¡Hola! Antes de comenzar, ¿cuál es tu nombre?`)
+          await sendWhatsAppMessage(chatId, `Antes de continuar, ¿cuál es tu nombre?`)
+          return
+        }
+
+        // Si está solicitando nombre, ignora imágenes hasta que responda
+        if (state.step === 'solicitando_nombre') {
+          log('webhook', `Esperando nombre, ignorando imagen para ${chatId}`)
+          await sendWhatsAppMessage(chatId, `Por favor respondé con tu nombre 👇`)
           return
         }
 
