@@ -187,14 +187,88 @@ async function analyzeImageWithClaude(imageUrl, chatId) {
   }
 }
 
-async function notifyAdmin(chatId, nombre, docs) {
+async function extractDocumentData(imageUrl, docType) {
+  if (!ANTHROPIC_KEY) return null
+
+  const prompts = {
+    DNI: `Extrae del DNI: nombre, apellido, número de documento, fecha de nacimiento, género, domicilio.
+Retorna SOLO JSON sin explicaciones: {"tipo":"DNI","nombre":"","apellido":"","documento":"","fecha_nacimiento":"","genero":"","domicilio":""}`,
+    REPROCANN: `Extrae del REPROCANN: nombre completo, número de REPROCANN, tipo de cultivo, cantidad de plantas, fecha expedición, vigencia.
+Retorna SOLO JSON sin explicaciones: {"tipo":"REPROCANN","nombre":"","numero":"","cultivo_tipo":"","cantidad_plantas":"","fecha_expedicion":"","vigencia":""}`
+  }
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': ANTHROPIC_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 300,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: { type: 'url', url: imageUrl },
+              },
+              {
+                type: 'text',
+                text: prompts[docType] || prompts.DNI,
+              },
+            ],
+          },
+        ],
+      }),
+    })
+
+    if (!res.ok) return null
+
+    const data = await res.json()
+    const text = data.content[0].text.trim()
+    const json = JSON.parse(text)
+    log('extract', `Datos extraídos de ${docType}: ${text.substring(0, 60)}`)
+    return json
+  } catch (e) {
+    log('extract', `Error extrayendo datos: ${e.message}`)
+    return null
+  }
+}
+
+async function notifyAdmin(chatId, nombre, dniData, reprocannData) {
   if (!ADMIN_WHATSAPP) {
     log('admin', 'ADMIN_WHATSAPP no configurada')
     return
   }
-  const msg = `📋 Nuevo lead listo:\n👤 ${nombre}\n📱 ${chatId}\n✅ ${docs}`
+
+  let msg = `📋 NUEVO LEAD - DOCUMENTOS COMPLETOS\n\n`
+  msg += `👤 Nombre: ${nombre}\n`
+  msg += `📱 Número: ${chatId}\n\n`
+
+  if (dniData) {
+    msg += `🪪 DNI:\n`
+    msg += `  Nombre: ${dniData.nombre} ${dniData.apellido || ''}\n`
+    msg += `  Documento: ${dniData.documento || 'N/A'}\n`
+    msg += `  Nacimiento: ${dniData.fecha_nacimiento || 'N/A'}\n`
+    msg += `  Domicilio: ${dniData.domicilio || 'N/A'}\n\n`
+  }
+
+  if (reprocannData) {
+    msg += `🌿 REPROCANN:\n`
+    msg += `  Número: ${reprocannData.numero || 'N/A'}\n`
+    msg += `  Cultivo: ${reprocannData.cultivo_tipo || 'N/A'}\n`
+    msg += `  Plantas: ${reprocannData.cantidad_plantas || 'N/A'}\n`
+    msg += `  Vigencia: ${reprocannData.vigencia || 'N/A'}\n\n`
+  }
+
+  msg += `✅ Listo para contactar y procesar afiliación`
+
   await sendWhatsAppMessage(ADMIN_WHATSAPP, msg)
-  log('admin', `Notificación enviada: ${nombre}`)
+  log('admin', `Notificación completa enviada: ${nombre}`)
 }
 
 async function askClaude(msg, chatId) {
@@ -275,6 +349,16 @@ app.post('/webhook', (req, res) => {
           return
         }
 
+        const wantHuman = /hablar.*persona|persona.*atienda|atender.*humano|pasar.*alguien|contactar.*equipo|speak.*human/i.test(message)
+        if (wantHuman && ADMIN_WHATSAPP) {
+          log('webhook', `User pidió hablar con humano: ${chatId}`)
+          const state = userState.get(chatId) || { nombre: sender }
+          const handoverMsg = `📞 SOLICITUD DE ATENCIÓN HUMANA\n\n👤 ${state.nombre}\n📱 ${chatId}\n💬 "${message}"\n\nEl usuario quiere hablar con alguien del equipo.`
+          await sendWhatsAppMessage(ADMIN_WHATSAPP, handoverMsg)
+          await sendWhatsAppMessage(chatId, 'Dale, te paso con alguien del club enseguida 👋 Puede demorar un ratito.')
+          return
+        }
+
         const reply = await askClaude(message, chatId)
         await sendWhatsAppMessage(chatId, reply)
         log('webhook', `Respuesta enviada a ${chatId}`)
@@ -302,19 +386,31 @@ app.post('/webhook', (req, res) => {
           return
         }
 
-        const state = userState.get(chatId) || { step: 'inicio', nombre: sender }
+        const state = userState.get(chatId) || { step: 'inicio', nombre: sender, imagenes: {} }
+        let docType = 'DNI'
+        let extractedData = null
+
         if (state.step === 'inicio' || state.step === 'esperando_reprocann') {
+          docType = 'REPROCANN'
           state.step = 'esperando_dni'
+          extractedData = await extractDocumentData(imageUrl, 'REPROCANN')
+          state.imagenes.reprocann = { url: imageUrl, data: extractedData }
         } else if (state.step === 'esperando_dni') {
+          docType = 'DNI'
           state.step = 'completado'
+          extractedData = await extractDocumentData(imageUrl, 'DNI')
+          state.imagenes.dni = { url: imageUrl, data: extractedData }
+
           if (ADMIN_WHATSAPP) {
-            await notifyAdmin(chatId, state.nombre, 'Reprocann + DNI recibidos')
+            const dniData = state.imagenes.dni?.data || null
+            const reprocannData = state.imagenes.reprocann?.data || null
+            await notifyAdmin(chatId, state.nombre, dniData, reprocannData)
           }
         }
         userState.set(chatId, state)
 
         await sendWhatsAppMessage(chatId, analysis)
-        log('webhook', `Análisis enviado a ${chatId}`)
+        log('webhook', `Análisis enviado a ${chatId} | ${docType} procesado`)
       } else {
         log('webhook', `Tipo no soportado: ${msgType}`)
       }
