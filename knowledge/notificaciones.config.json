@@ -1,0 +1,33 @@
+{
+  "_comentario_1": "Configuración de notificaciones automáticas — EDITABLE.",
+  "_comentario_2": "Todos los valores están en MINUTOS. Para días: multiplicar por 1440 (ej: 3 días = 4320, 7 días = 10080).",
+  "_comentario_3": "modo='test' = intervalos cortos para validar flujo. modo='produccion' = intervalos largos (días).",
+
+  "modo": "test",
+
+  "cron_frecuencia_minutos": 2,
+
+  "intervalos_test_minutos": {
+    "sin_reprocann_intento_0": 3,
+    "sin_reprocann_intento_1": 5,
+    "tramitando": 4,
+    "docs_incompletos": 3,
+    "inactivo": 5
+  },
+
+  "intervalos_produccion_minutos": {
+    "sin_reprocann_intento_0": 4320,
+    "sin_reprocann_intento_1": 10080,
+    "tramitando": 10080,
+    "docs_incompletos": 4320,
+    "inactivo": 10080
+  },
+
+  "_comentario_cancelacion": "Después de cuántos intentos se cancela el followup (el mensaje inicial es intento 0).",
+  "max_intentos": {
+    "sin_reprocann": 2,
+    "tramitando": 1,
+    "docs_incompletos": 1,
+    "inactivo": 1
+  }
+}

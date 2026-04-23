@@ -57,3 +57,25 @@ Sí, puedes reservar genéticas llamando o escribiendo. Contáctanos para más i
 
 ## Contacto
 Para consultas sobre membresía, inventario o eventos especiales, comunícate con nuestro equipo.
+
+---
+
+## 🔧 Configuración Admin — Notificaciones Automáticas
+
+Los intervalos de follow-up (cuándo el bot vuelve a contactar a un usuario inactivo, sin REPROCANN, etc.) se configuran en:
+
+**`knowledge/notificaciones.config.json`**
+
+### Campos editables:
+
+- **`modo`**: `"test"` (intervalos en minutos, para validación rápida) o `"produccion"` (intervalos en días, uso real)
+- **`cron_frecuencia_minutos`**: cada cuántos minutos el bot revisa si hay notificaciones pendientes (2 min test / 15 min prod)
+- **`intervalos_test_minutos`** / **`intervalos_produccion_minutos`**: cuántos minutos esperar antes del próximo intento por cada motivo
+- **`max_intentos`**: después de cuántos intentos se cancela el seguimiento
+
+### Para pasar a producción:
+1. Abrir `notificaciones.config.json`
+2. Cambiar `"modo": "test"` → `"modo": "produccion"`
+3. Guardar y redeployar (Render auto-redeploy al hacer git push)
+
+⚠️ No tocar este archivo en vivo — requiere reiniciar el bot para aplicar cambios.

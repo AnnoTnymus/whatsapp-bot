@@ -17,9 +17,10 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL
 
 // Supabase client (v4.0 — persistence)
+// Uses service_role key if available (bypasses RLS), falls back to anon key
 const supabase = createClient(
   process.env.SUPABASE_URL || '',
-  process.env.SUPABASE_ANON_KEY || ''
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || ''
 )
 
 const conversationHistory = new Map()  // Still in-memory (reset hourly)
@@ -796,7 +797,7 @@ const RESPUESTAS_FUERA_FLUJO = {
   ],
   solo_emojis: [
     '🤝 Te entiendo boludo. Ahora anda, mandame los documentos che',
-    '✨ Eso suena bien, pero necesito que me pases el REPROCANN 📄',
+    '✨ Dale che, eso suena bien. Pero necesito que me pases el REPROCANN 📄',
     '💯 De acuerdo. Ahora vamos con los documentos che 🚀',
   ],
   reaccion: [
@@ -844,7 +845,8 @@ app.post('/webhook', (req, res) => {
         if (!message) return
 
         // v4.0: Detect emoji-only messages
-        if (/^[\p{Emoji}\s]+$/u.test(message) && message.length < 20) {
+        // Detectar mensajes emoji-only (incluye variation selectors, ZWJ, skin tones)
+        if (/^[\p{Emoji}\p{Emoji_Modifier}\p{Emoji_Component}\s‍️]+$/u.test(message) && message.length < 30) {
           await sendWhatsAppMessage(chatId, randomRespuesta('solo_emojis'))
           return
         }
@@ -877,11 +879,14 @@ app.post('/webhook', (req, res) => {
           state.last_greeting_at = new Date().toISOString()
           log('webhook', `Nombre registrado: ${state.nombre} para ${chatId}`)
 
-          // Guardar contacto inicial en members
-          await supabase.from('members').insert({
+          // Guardar contacto inicial en members (no crítico si falla)
+          const { error: memberErr } = await supabase.from('members').insert({
             chat_id: chatId,
             nombre: state.nombre,
-          }).catch(() => {})
+          })
+          if (memberErr && memberErr.code !== '23505') {
+            log('supabase', `⚠️ INSERT members falló (no crítico): ${memberErr.message}`)
+          }
 
           await sendWhatsAppMessage(chatId, `¡Dale, ${state.nombre}! 🎉 Gracias por venir.\n\nAhora necesito que me pases dos cosas:\n1️⃣ Tu DNI (frente y dorso) 🪪\n2️⃣ Tu REPROCANN (frente y dorso) 📋\n\nLos mandas en el orden que quieras. Vamos 💪`)
           await saveState(chatId, state)
@@ -1130,6 +1135,32 @@ app.get('/test-claude', async (req, res) => {
 
 // ========== v4.0: FOLLOW-UP CRON (Fase 3) ==========
 
+// Cargar config de notificaciones (editable en knowledge/notificaciones.config.json)
+function loadNotifConfig() {
+  try {
+    const raw = readFileSync('./knowledge/notificaciones.config.json', 'utf-8')
+    const cfg = JSON.parse(raw)
+    const intervalos = cfg.modo === 'produccion' ? cfg.intervalos_produccion_minutos : cfg.intervalos_test_minutos
+    log('config', `Notificaciones modo=${cfg.modo} cron=${cfg.cron_frecuencia_minutos}min`)
+    return {
+      modo: cfg.modo,
+      cronMinutos: cfg.cron_frecuencia_minutos,
+      intervalos,
+      maxIntentos: cfg.max_intentos,
+    }
+  } catch (e) {
+    log('config', `⚠️ No se pudo cargar notificaciones.config.json, usando defaults: ${e.message}`)
+    return {
+      modo: 'produccion',
+      cronMinutos: 15,
+      intervalos: { sin_reprocann_intento_0: 4320, sin_reprocann_intento_1: 10080, tramitando: 10080, docs_incompletos: 4320, inactivo: 10080 },
+      maxIntentos: { sin_reprocann: 2, tramitando: 1, docs_incompletos: 1, inactivo: 1 },
+    }
+  }
+}
+
+const NOTIF_CFG = loadNotifConfig()
+
 async function runFollowUpCron() {
   if (!supabase) return
   const now = new Date().toISOString()
@@ -1149,30 +1180,31 @@ async function runFollowUpCron() {
         log('followup', `Enviado a ${f.chat_id} — motivo: ${f.motivo}, intento ${f.intentos + 1}`)
       }
 
-      // Determine if should cancel
-      const cancelar = (f.motivo === 'tramitando' && f.intentos >= 1) ||
-                       (f.motivo === 'inactivo' && f.intentos >= 1) ||
-                       (f.motivo === 'sin_reprocann' && f.intentos >= 2) ||
-                       (f.motivo === 'docs_incompletos' && f.intentos >= 1)
+      // Cancelar según max_intentos configurable
+      const maxInt = NOTIF_CFG.maxIntentos[f.motivo] ?? 1
+      const cancelar = f.intentos >= maxInt
 
-      const nextDate = () => {
-        if (f.motivo === 'sin_reprocann') return f.intentos === 0 ? 3 : 7
-        if (f.motivo === 'tramitando') return 7
-        if (f.motivo === 'docs_incompletos') return 3
-        if (f.motivo === 'inactivo') return 7
-        return 7
-      }
+      // Próximo intervalo desde config (en minutos)
+      const nextIntervalMinutos = (() => {
+        if (f.motivo === 'sin_reprocann') {
+          return f.intentos === 0
+            ? NOTIF_CFG.intervalos.sin_reprocann_intento_0
+            : NOTIF_CFG.intervalos.sin_reprocann_intento_1
+        }
+        return NOTIF_CFG.intervalos[f.motivo] ?? 4320
+      })()
 
-      const daysToAdd = nextDate()
-      const nextNotif = new Date(now)
-      nextNotif.setDate(nextNotif.getDate() + daysToAdd)
+      const nextNotif = new Date(Date.now() + nextIntervalMinutos * 60 * 1000)
 
-      await supabase.from('patient_followups').update({
+      const updatePayload = {
         intentos: f.intentos + 1,
         status: cancelar ? 'cancelado' : 'pendiente',
-        proxima_notificacion: cancelar ? null : nextNotif.toISOString(),
         updated_at: new Date().toISOString(),
-      }).eq('id', f.id)
+      }
+      if (!cancelar) updatePayload.proxima_notificacion = nextNotif.toISOString()
+
+      const { error: updErr } = await supabase.from('patient_followups').update(updatePayload).eq('id', f.id)
+      if (updErr) log('followup', `❌ Error updating ${f.id}: ${updErr.message}`)
     }
   } catch (e) {
     log('followup', `Error en cron: ${e.message}`)
@@ -1203,8 +1235,9 @@ function buildFollowUpMessage(followup) {
   return opciones[Math.min(followup.intentos, opciones.length - 1)] || null
 }
 
-// Run cron every 15 minutes
-setInterval(runFollowUpCron, 15 * 60 * 1000)
+// Cron de followups — frecuencia configurable en notificaciones.config.json
+setInterval(runFollowUpCron, NOTIF_CFG.cronMinutos * 60 * 1000)
+log('cron', `Follow-up cron corriendo cada ${NOTIF_CFG.cronMinutos} minutos (modo=${NOTIF_CFG.modo})`)
 
 // ========== v4.0: TEST ROUTES (Fase 5) ==========
 
