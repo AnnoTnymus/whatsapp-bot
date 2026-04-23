@@ -697,7 +697,19 @@ app.post('/webhook', (req, res) => {
             userState.set(chatId, state)
           }
         } else if (detected.tipo === 'DNI') {
-          // DNI
+          // DNI - solo procesar si ya tiene REPROCANN completo
+          const hasReprocann = state.reprocannData || (state.imagenes?.reprocann?.data)
+          const hasAllReprocannFields = hasReprocann && getMissingFields(hasReprocann).length === 0
+
+          if (!hasReprocann || !hasAllReprocannFields) {
+            // Aún no tiene REPROCANN completo
+            log('webhook', `DNI recibido pero falta REPROCANN para ${chatId}`)
+            await sendWhatsAppMessage(chatId, `Primero necesito tu REPROCANN. Mandame esa foto.`)
+            userState.set(chatId, state)
+            return
+          }
+
+          // Ya tiene REPROCANN completo, procesar DNI
           log('webhook', `DNI recibido para ${chatId}`)
           const dniData = await extractDocumentData(imageUrl, 'DNI')
           state.imagenes = state.imagenes || {}
