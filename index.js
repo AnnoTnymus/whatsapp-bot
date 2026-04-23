@@ -202,30 +202,30 @@ async function extractDocumentData(imageUrl, docType) {
   const prompts = {
     DNI: `Extrae del DNI: nombre, apellido, número de documento, fecha de nacimiento, género, domicilio.
 Retorna SOLO JSON sin explicaciones: {"tipo":"DNI","nombre":"","apellido":"","documento":"","fecha_nacimiento":"","genero":"","domicilio":""}`,
-    REPROCANN: `Extrae del REPROCANN estos datos exactos:
-- Nombre del paciente
-- Documento (DNI)
-- Provincia / Departamento / Localidad
-- Dirección
-- Código postal
-- Estado de autorización
-- Tipo de paciente (ej: autocultivo)
-- Cantidad de plantas permitidas
-- Límites de transporte
-- ID de trámite
-- Fecha de emisión
-- Fecha de vencimiento
-- Ley
+    REPROCANN: `Extrae TODO lo que veas del REPROCANN. Si no ves un dato, usa null, no cadena vacía.
+Busca especialmente:
+- Nombre completo
+- DNI / Número de documento
+- Provincia, departamento, localidad, dirección, código postal
+- Estado (autorizado, vigente, vencido)
+- Tipo de paciente (autocultivo, productor, etc)
+- Cantidad plantas permitidas
+- Límites transporte (gramos, cantidad)
+- ID/Número de trámite
+- Fechas (emisión, vencimiento)
+- Ley/Resolución
 
-Retorna SOLO JSON sin explicaciones ni textos adicionales:
+IMPORTANTE: Sé flexible. Si ves "20 plantas" escribe 20, si ves "30g" escribe "30g". No dejes campos vacíos si ves algo relacionado.
+
+Retorna JSON válido (null si no aparece, no cadenas vacías):
 {
   "tipo": "REPROCANN",
-  "nombre": "",
-  "dni": "",
-  "ubicacion": {"provincia": "", "departamento": "", "localidad": "", "direccion": "", "codigo_postal": ""},
-  "autorizacion": {"estado": "", "tipo": "", "plantas": "", "transporte": ""},
-  "tramite": {"id": "", "fecha_emision": "", "fecha_vencimiento": ""},
-  "ley": ""
+  "nombre": null,
+  "dni": null,
+  "ubicacion": {"provincia": null, "departamento": null, "localidad": null, "direccion": null, "codigo_postal": null},
+  "autorizacion": {"estado": null, "tipo": null, "plantas": null, "transporte": null},
+  "tramite": {"id": null, "fecha_emision": null, "fecha_vencimiento": null},
+  "ley": null
 }`
   }
 
@@ -239,7 +239,7 @@ Retorna SOLO JSON sin explicaciones ni textos adicionales:
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 600,
+        max_tokens: 800,
         messages: [
           {
             role: 'user',
@@ -278,45 +278,50 @@ async function sendEmailNotification(chatId, nombre, dniData, reprocannData) {
   }
 
   let htmlContent = `
-    <h2>📋 Nuevo Lead - Documentos Completos</h2>
-    <p><strong>Contacto:</strong> ${nombre}</p>
-    <p><strong>Número:</strong> ${chatId}</p>
+    <h2>📋 Afiliación Completada - Documentos Recibidos</h2>
+    <p><strong>Persona:</strong> ${nombre}</p>
+    <p><strong>Contacto:</strong> ${chatId}</p>
+    <p><strong>Fecha:</strong> ${new Date().toLocaleString('es-AR')}</p>
 
     <hr />
   `
 
   if (dniData && dniData.nombre) {
     htmlContent += `
-      <h3>🪪 DNI</h3>
+      <h3>🪪 Documento de Identidad</h3>
       <ul>
-        <li><strong>Nombre:</strong> ${dniData.nombre || ''} ${dniData.apellido || ''}</li>
-        <li><strong>Documento:</strong> ${dniData.documento || 'N/A'}</li>
-        <li><strong>Nacimiento:</strong> ${dniData.fecha_nacimiento || 'N/A'}</li>
-        <li><strong>Domicilio:</strong> ${dniData.domicilio || 'N/A'}</li>
+        <li><strong>Nombre Completo:</strong> ${dniData.nombre || ''} ${dniData.apellido || ''}</li>
+        <li><strong>DNI:</strong> ${dniData.documento || 'No disponible'}</li>
+        <li><strong>Fecha Nacimiento:</strong> ${dniData.fecha_nacimiento || 'No disponible'}</li>
+        <li><strong>Domicilio:</strong> ${dniData.domicilio || 'No disponible'}</li>
       </ul>
     `
   }
 
-  if (reprocannData && reprocannData.nombre) {
+  if (reprocannData) {
     htmlContent += `
-      <h3>🌿 REPROCANN</h3>
+      <h3>🌿 Autorización REPROCANN</h3>
       <ul>
-        <li><strong>Nombre:</strong> ${reprocannData.nombre || 'N/A'}</li>
-        <li><strong>DNI:</strong> ${reprocannData.dni || 'N/A'}</li>
-        <li><strong>Plantas:</strong> ${reprocannData.autorizacion?.plantas || 'N/A'}</li>
-        <li><strong>Tipo:</strong> ${reprocannData.autorizacion?.tipo || 'N/A'}</li>
-        <li><strong>Estado:</strong> ${reprocannData.autorizacion?.estado || 'N/A'}</li>
-        <li><strong>Provincia:</strong> ${reprocannData.ubicacion?.provincia || 'N/A'}</li>
-        <li><strong>Dirección:</strong> ${reprocannData.ubicacion?.direccion || 'N/A'}</li>
-        <li><strong>ID Trámite:</strong> ${reprocannData.tramite?.id || 'N/A'}</li>
-        <li><strong>Vencimiento:</strong> ${reprocannData.tramite?.fecha_vencimiento || 'N/A'}</li>
-      </ul>
     `
+    if (reprocannData.nombre) htmlContent += `<li><strong>Nombre:</strong> ${reprocannData.nombre}</li>`
+    if (reprocannData.dni) htmlContent += `<li><strong>DNI en REPROCANN:</strong> ${reprocannData.dni}</li>`
+    if (reprocannData.autorizacion?.estado) htmlContent += `<li><strong>Estado:</strong> ${reprocannData.autorizacion.estado}</li>`
+    if (reprocannData.autorizacion?.tipo) htmlContent += `<li><strong>Tipo:</strong> ${reprocannData.autorizacion.tipo}</li>`
+    if (reprocannData.autorizacion?.plantas) htmlContent += `<li><strong>Cantidad Plantas:</strong> ${reprocannData.autorizacion.plantas}</li>`
+    if (reprocannData.autorizacion?.transporte) htmlContent += `<li><strong>Transporte:</strong> ${reprocannData.autorizacion.transporte}</li>`
+    if (reprocannData.ubicacion?.provincia) htmlContent += `<li><strong>Provincia:</strong> ${reprocannData.ubicacion.provincia}</li>`
+    if (reprocannData.ubicacion?.direccion) htmlContent += `<li><strong>Dirección:</strong> ${reprocannData.ubicacion.direccion}</li>`
+    if (reprocannData.tramite?.id) htmlContent += `<li><strong>ID Trámite:</strong> ${reprocannData.tramite.id}</li>`
+    if (reprocannData.tramite?.fecha_vencimiento) htmlContent += `<li><strong>Vigencia:</strong> ${reprocannData.tramite.fecha_vencimiento}</li>`
+    htmlContent += `</ul>`
   }
 
   htmlContent += `
     <hr />
-    <p style="color: green; font-weight: bold;">✅ Listo para contactar y procesar afiliación</p>
+    <p style="background: #e8f5e9; padding: 10px; border-left: 4px solid #4caf50;">
+      <strong style="color: #2e7d32;">✅ Documentación completa</strong><br/>
+      Proceder con verificación y contacto directo.
+    </p>
   `
 
   try {
