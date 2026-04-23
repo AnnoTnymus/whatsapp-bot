@@ -401,16 +401,22 @@ app.post('/webhook', (req, res) => {
           state.step = 'esperando_dni'
           extractedData = await extractDocumentData(imageUrl, 'REPROCANN')
           state.imagenes.reprocann = { url: imageUrl, data: extractedData }
+          log('webhook', `Estado actualizado a esperando_dni para ${chatId}`)
         } else if (state.step === 'esperando_dni') {
           docType = 'DNI'
           state.step = 'completado'
           extractedData = await extractDocumentData(imageUrl, 'DNI')
           state.imagenes.dni = { url: imageUrl, data: extractedData }
+          log('webhook', `Estado actualizado a COMPLETADO para ${chatId}`)
 
+          log('webhook', `ADMIN_WHATSAPP configurada: ${!!ADMIN_WHATSAPP}`)
           if (ADMIN_WHATSAPP) {
             const dniData = state.imagenes.dni?.data || null
             const reprocannData = state.imagenes.reprocann?.data || null
+            log('webhook', `Notificando admin con datos: DNI=${dniData?.nombre}, REPROCANN=${reprocannData?.numero}`)
             await notifyAdmin(chatId, state.nombre, dniData, reprocannData)
+          } else {
+            log('webhook', `ADMIN_WHATSAPP NO está configurada, no enviando notificación`)
           }
 
           userMessage = `¡Perfecto! 🎉 Ahora ya tenemos todos tus datos. Te va a contactar alguien del club para confirmarte que todo está bien y darte la bienvenida! 🌿`
