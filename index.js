@@ -152,7 +152,10 @@ function getMissingFields(reprocannData) {
 }
 
 async function detectImage(imageUrl) {
-  if (!ANTHROPIC_KEY) return { tipo: 'DESCONOCIDO', ambosSides: false }
+  if (!ANTHROPIC_KEY) {
+    log('detect', 'ANTHROPIC_KEY no configurada, usando detección simple')
+    return { tipo: 'REPROCANN', ambosSides: false }
+  }
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -164,7 +167,7 @@ async function detectImage(imageUrl) {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 60,
+        max_tokens: 100,
         messages: [
           {
             role: 'user',
@@ -175,8 +178,7 @@ async function detectImage(imageUrl) {
               },
               {
                 type: 'text',
-                text: `Retorna SOLO JSON. ¿Es un REPROCANN o DNI? ¿Ves ambos lados (frente y dorso) o solo uno?
-                Responde: {"tipo":"REPROCANN"|"DNI"|"OTRO","ambosSides":true|false}`,
+                text: 'Retorna SOLO este JSON (sin explicación): {"tipo":"REPROCANN" o "DNI" o "OTRO","ambosSides":true o false}',
               },
             ],
           },
@@ -184,16 +186,29 @@ async function detectImage(imageUrl) {
       }),
     })
 
-    if (!res.ok) return { tipo: 'DESCONOCIDO', ambosSides: false }
+    if (!res.ok) {
+      log('detect', `Error detectando (status ${res.status}), asumiendo REPROCANN`)
+      return { tipo: 'REPROCANN', ambosSides: false }
+    }
 
     const data = await res.json()
     const text = data.content[0].text.trim()
-    const json = JSON.parse(text)
-    log('detect', `Detectado: ${json.tipo}, ambosSides: ${json.ambosSides}`)
-    return json
+
+    // Parse JSON robustly
+    let json
+    try {
+      json = JSON.parse(text)
+    } catch {
+      // Si no es JSON válido, asumir REPROCANN
+      log('detect', `JSON parse error, asumiendo REPROCANN: ${text.substring(0, 50)}`)
+      return { tipo: 'REPROCANN', ambosSides: false }
+    }
+
+    log('detect', `Detectado: tipo=${json.tipo}, ambosSides=${json.ambosSides}`)
+    return { tipo: json.tipo || 'REPROCANN', ambosSides: json.ambosSides || false }
   } catch (e) {
-    log('detect', `Error detectando imagen: ${e.message}`)
-    return { tipo: 'DESCONOCIDO', ambosSides: false }
+    log('detect', `Error detectando imagen: ${e.message}, asumiendo REPROCANN`)
+    return { tipo: 'REPROCANN', ambosSides: false }
   }
 }
 
@@ -205,12 +220,12 @@ async function analyzeImageWithClaude(imageUrl, chatId) {
 
   const state = userState.get(chatId) || {}
   const systemMsg = state.step === 'esperando_reprocann_dorso'
-    ? 'El usuario está mandando el dorso de su REPROCANN. Confirmá brevemente que lo recibiste (máx 2 líneas). Ej: "✅ Recibí el dorso. Procesando datos..."'
+    ? 'Di SOLO: "✅ Recibí el dorso."'
     : state.step === 'completando_datos'
-    ? 'El usuario mandó una imagen pero aún faltan campos del REPROCANN. Pedile brevemente que continúe por texto. Ej: "Ya voy a procesar eso. Contame tu provincia por acá 👇"'
+    ? 'Di SOLO: "Procesando datos."'
     : state.step === 'esperando_dni'
-    ? 'El usuario está mandando su DNI. Confirmá brevemente que lo recibiste y que procesamos toda su documentación (máx 2 líneas).'
-    : 'Confirmá brevemente que recibiste la imagen (máx 1-2 líneas). Sé entusiasta pero conciso.'
+    ? 'Di SOLO: "✅ Recibí tu DNI."'
+    : 'Di SOLO: "✅ Recibido." (máx 1 línea, nada más)'
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -222,7 +237,7 @@ async function analyzeImageWithClaude(imageUrl, chatId) {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 150,
+        max_tokens: 80,
         system: systemMsg,
         messages: [
           {
@@ -237,7 +252,7 @@ async function analyzeImageWithClaude(imageUrl, chatId) {
               },
               {
                 type: 'text',
-                text: 'Analizá esta imagen.',
+                text: 'Analizá.',
               },
             ],
           },
@@ -248,16 +263,16 @@ async function analyzeImageWithClaude(imageUrl, chatId) {
     if (!res.ok) {
       const err = await res.text()
       log('claude', `Error analizando imagen: ${err.substring(0, 150)}`)
-      return null
+      return '✅ Recibido'
     }
 
     const data = await res.json()
     const reply = data.content[0].text.trim()
-    log('claude', `Análisis de imagen: ${reply.substring(0, 80)}`)
+    log('claude', `Análisis: ${reply.substring(0, 60)}`)
     return reply
   } catch (e) {
     log('claude', `Excepción analizando imagen: ${e.message}`)
-    return null
+    return '✅ Recibido'
   }
 }
 
@@ -643,11 +658,11 @@ app.post('/webhook', (req, res) => {
               state.step = 'completando_datos'
               state.pendingFields = missing
               const firstField = missing[0]
-              await sendWhatsAppMessage(chatId, `${analysis}\n\nAhora contame ${firstField.label} 👇`)
+              await sendWhatsAppMessage(chatId, `Falta ${firstField.label}. Contame 👇`)
             } else {
               // Todos los campos del REPROCANN están, pedir DNI
               state.step = 'esperando_dni'
-              await sendWhatsAppMessage(chatId, `${analysis}\n\nAhora mandame una foto de tu DNI para terminar 📸`)
+              await sendWhatsAppMessage(chatId, `${analysis} Ahora mandame tu DNI 📸`)
             }
             userState.set(chatId, state)
           } else {
@@ -657,7 +672,7 @@ app.post('/webhook', (req, res) => {
               log('webhook', `Recibido frente de REPROCANN para ${chatId}, esperando dorso`)
               state.step = 'esperando_reprocann_dorso'
               state.reprocannFrenteUrl = imageUrl
-              await sendWhatsAppMessage(chatId, `${analysis}\n\nAhora mandame el dorso también.`)
+              await sendWhatsAppMessage(chatId, `${analysis} Mandame el dorso también.`)
             } else {
               // Ya tenemos frente, este es dorso
               log('webhook', `Recibido dorso de REPROCANN para ${chatId}`)
@@ -673,10 +688,10 @@ app.post('/webhook', (req, res) => {
                 state.step = 'completando_datos'
                 state.pendingFields = missing
                 const firstField = missing[0]
-                await sendWhatsAppMessage(chatId, `${analysis}\n\nAhora contame ${firstField.label} 👇`)
+                await sendWhatsAppMessage(chatId, `Falta ${firstField.label}. Contame 👇`)
               } else {
                 state.step = 'esperando_dni'
-                await sendWhatsAppMessage(chatId, `${analysis}\n\nAhora mandame una foto de tu DNI para terminar 📸`)
+                await sendWhatsAppMessage(chatId, `${analysis} Ahora mandame tu DNI 📸`)
               }
             }
             userState.set(chatId, state)
@@ -690,7 +705,7 @@ app.post('/webhook', (req, res) => {
 
           // Completado, enviar email
           state.step = 'completado'
-          await sendWhatsAppMessage(chatId, `¡Perfecto! 🎉 Recibimos toda tu documentación. Te contactamos pronto 🌿`)
+          await sendWhatsAppMessage(chatId, `${analysis} ¡Listo! Te contactamos pronto 🌿`)
 
           const reprocannData = state.reprocannData || (state.imagenes.reprocann?.data || null)
           if (ADMIN_EMAIL) {
@@ -701,7 +716,7 @@ app.post('/webhook', (req, res) => {
           userState.set(chatId, state)
         } else {
           // OTRO: no sabemos qué es
-          await sendWhatsAppMessage(chatId, `No estoy seguro qué documento es esa imagen. Mandame tu REPROCANN o tu DNI 📸`)
+          await sendWhatsAppMessage(chatId, `Mandame tu REPROCANN o DNI 📸`)
         }
 
         log('webhook', `Imagen procesada para ${chatId}`)
