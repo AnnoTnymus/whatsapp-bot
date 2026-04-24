@@ -437,6 +437,93 @@ assert('Regex detecta variantes comunes de pedido humano', () => {
   return true
 })
 
+// ============ SUITE 14: Parseo IA del nombre (apodo + nombre_completo) ============
+console.log('\n🧪 Suite 14: Parseo inteligente del nombre')
+
+assert('Existe función parseUserName', () => {
+  if (!/async function parseUserName\(rawMessage\)/.test(src))
+    throw new Error('parseUserName no definida')
+  return true
+})
+
+assert('parseUserName devuelve apodo + nombre_completo + necesita_aclarar', () => {
+  const body = src.match(/async function parseUserName[\s\S]*?^\}/m)
+  if (!body) throw new Error('no pude extraer body')
+  if (!/apodo/.test(body[0])) throw new Error('no usa apodo')
+  if (!/nombre_completo/.test(body[0])) throw new Error('no usa nombre_completo')
+  if (!/necesita_aclarar/.test(body[0])) throw new Error('no usa necesita_aclarar')
+  return true
+})
+
+assert('parseUserName llama a la API de Claude', () => {
+  // Buscamos el bloque desde "async function parseUserName" hasta la próxima
+  // declaración top-level (otra "async function" o "function").
+  const m = src.match(/async function parseUserName[\s\S]*?(?=\nasync function |\nfunction )/)
+  if (!m) throw new Error('no pude extraer el body de parseUserName')
+  if (!/api\.anthropic\.com\/v1\/messages/.test(m[0]))
+    throw new Error('no llama a la API de Claude')
+  return true
+})
+
+assert('parseUserName tiene fallback si no hay ANTHROPIC_KEY', () => {
+  const body = src.match(/async function parseUserName[\s\S]*?^\}/m)
+  if (!/if \(!ANTHROPIC_KEY\)/.test(body[0]))
+    throw new Error('no tiene guard de ANTHROPIC_KEY')
+  return true
+})
+
+assert('State machine tiene paso aclarando_nombre', () => {
+  if (!/aclarando_nombre/.test(src))
+    throw new Error('no se usa aclarando_nombre como step')
+  return true
+})
+
+assert('solicitando_nombre invoca parseUserName en lugar de usar el mensaje crudo', () => {
+  // Tomamos el bloque del step solicitando_nombre
+  const block = src.match(/state\.step === 'solicitando_nombre'[\s\S]{0,1500}/)
+  if (!block) throw new Error('no encontré bloque solicitando_nombre')
+  if (!/parseUserName\(message\)/.test(block[0]))
+    throw new Error('no llama a parseUserName(message)')
+  if (/state\.nombre = message\.trim\(\)/.test(block[0]))
+    throw new Error('aún asigna state.nombre = message.trim() (sin IA)')
+  return true
+})
+
+assert('Si necesita_aclarar=true, se pasa a aclarando_nombre y se pregunta', () => {
+  const block = src.match(/parsedName\.necesita_aclarar[\s\S]{0,500}/)
+  if (!block) throw new Error('no encontré check de necesita_aclarar')
+  if (!/aclarando_nombre/.test(block[0])) throw new Error('no asigna aclarando_nombre')
+  if (!/pregunta_aclaracion/.test(block[0])) throw new Error('no envía pregunta_aclaracion')
+  return true
+})
+
+assert('Saludo usa state.nombre (apodo) no nombre_completo', () => {
+  const greet = src.match(/¡Un gusto, \$\{state\.nombre\}/)
+  if (!greet) throw new Error('saludo no usa ${state.nombre}')
+  return true
+})
+
+assert('insertMember usa nombre_completo cuando está disponible', () => {
+  // Al menos un call site debe priorizar nombre_completo
+  if (!/state\.nombre_completo \|\| state\.nombre/.test(src))
+    throw new Error('ningún call site usa state.nombre_completo || state.nombre')
+  return true
+})
+
+assert('loadState incluye nombre_completo en el retorno', () => {
+  const load = src.match(/async function loadState[\s\S]*?^\}/m)
+  if (!/nombre_completo:/.test(load[0]))
+    throw new Error('loadState no devuelve nombre_completo')
+  return true
+})
+
+assert('saveState persiste nombre_completo en collected_data', () => {
+  const save = src.match(/async function saveState[\s\S]*?^\}/m)
+  if (!/nombre_completo/.test(save[0]))
+    throw new Error('saveState no persiste nombre_completo')
+  return true
+})
+
 // ============ RESUMEN ============
 console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
 console.log(`📊 Resultado: ${passed} passed / ${failed} failed`)

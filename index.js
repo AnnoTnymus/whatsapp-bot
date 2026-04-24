@@ -89,6 +89,7 @@ async function loadState(chatId) {
       return {
         step: 'inicio',
         nombre: null,
+        nombre_completo: null,
         documentos: { dni: { frente: null, dorso: null }, reprocann: { frente: null, dorso: null } },
         collectedData: {},
         pendingFields: [],
@@ -98,17 +99,20 @@ async function loadState(chatId) {
     return {
       step: data.step,
       nombre: data.nombre,
+      nombre_completo: data.collected_data?.nombre_completo || data.nombre || null,
       documentos: data.documentos,
-      collectedData: data.collected_data,
+      collectedData: data.collected_data || {},
       pendingFields: data.pending_fields,
       last_message_at: data.last_message_at,
       last_greeting_at: data.last_greeting_at,
+      raw_name_attempt: data.collected_data?.raw_name_attempt || null,
     }
   } catch (e) {
     log('supabase', `❌ Exception loading state for ${chatId}: ${e.message}`)
     return {
       step: 'inicio',
       nombre: null,
+      nombre_completo: null,
       documentos: { dni: { frente: null, dorso: null }, reprocann: { frente: null, dorso: null } },
       collectedData: {},
       pendingFields: [],
@@ -123,13 +127,21 @@ async function saveState(chatId, state) {
       return
     }
 
+    // Store nombre_completo + raw_name_attempt inside collected_data JSON
+    // (no dedicated column on patient_state — keeps the schema stable)
+    const collectedData = {
+      ...(state.collectedData || {}),
+      ...(state.nombre_completo ? { nombre_completo: state.nombre_completo } : {}),
+      ...(state.raw_name_attempt ? { raw_name_attempt: state.raw_name_attempt } : {}),
+    }
+
     const result = await supabase.from('patient_state').upsert(
       {
         chat_id: chatId,
         nombre: state.nombre,
         step: state.step,
         documentos: state.documentos,
-        collected_data: state.collectedData,
+        collected_data: collectedData,
         pending_fields: state.pendingFields,
         last_message_at: state.last_message_at,
         last_greeting_at: state.last_greeting_at,
@@ -867,6 +879,80 @@ async function notifyHumanHandover(chatId, nombre, userMessage) {
   }
 }
 
+// v4.2: Parseo inteligente del nombre del usuario.
+// El usuario puede responder "Martin", "Martin Morales", "Martin pero me dicen Tincho",
+// "soy Juan", "jaja que queres", etc. Claude extrae nombre + apellido + apodo, o pide
+// aclarar si no puede determinar.
+// Retorna: { apodo, nombre_completo, necesita_aclarar, pregunta_aclaracion }
+async function parseUserName(rawMessage) {
+  if (!ANTHROPIC_KEY) {
+    // Fallback simple: primera palabra, max 20 chars
+    const guess = (rawMessage || '').trim().split(/\s+/)[0].substring(0, 20)
+    return { apodo: guess || 'Amigo', nombre_completo: guess, necesita_aclarar: false }
+  }
+
+  const prompt = `El usuario de un club cannabico se está presentando por WhatsApp. Tu tarea: extraer cómo quiere que lo llamemos.
+
+MENSAJE DEL USUARIO: "${rawMessage}"
+
+Devolvé SOLO JSON con esta forma exacta, sin markdown, sin explicación:
+{
+  "apodo": "string — el nombre/apodo corto para saludarlo (1 palabra idealmente, max 2)",
+  "nombre_completo": "string — nombre completo si lo dio, si no el mismo apodo",
+  "necesita_aclarar": boolean,
+  "pregunta_aclaracion": "string — si necesita_aclarar=true, la pregunta a hacerle (tono cordial, corta)"
+}
+
+REGLAS:
+- "Martin" → apodo=Martin, nombre_completo=Martin, necesita_aclarar=false
+- "Martin Morales" → apodo=Martin, nombre_completo=Martin Morales, necesita_aclarar=false (nombre y apellido claros)
+- "Martin pero me dicen Tincho" → apodo=Tincho (usamos el apodo que prefiere), nombre_completo=Martin, necesita_aclarar=false
+- "Soy Juan Carlos Pérez" → apodo=Juan, nombre_completo=Juan Carlos Pérez, necesita_aclarar=false
+- "hola que tal" / "no se" / "jaja" / algo no-nombre → necesita_aclarar=true, pregunta_aclaracion="¿Cómo te llamás o cómo preferís que te llame?"
+- Si tiene más de 2 palabras sin ser claramente "nombre apellido" → necesita_aclarar=true, pregunta="¿Cómo querés que te agendemos? Decime solo tu nombre o apodo 🙂"
+- Nunca inventes. Si dudás, pedí aclaración.
+- El apodo nunca debe tener "me dicen", "soy", etc. — solo el nombre limpio.`
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': ANTHROPIC_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 200,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    })
+
+    if (!res.ok) {
+      log('parseName', `Error ${res.status}, fallback simple`)
+      const guess = (rawMessage || '').trim().split(/\s+/)[0].substring(0, 20)
+      return { apodo: guess || 'Amigo', nombre_completo: guess, necesita_aclarar: false }
+    }
+
+    const data = await res.json()
+    let text = data.content[0].text.trim().replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
+    const parsed = JSON.parse(text)
+
+    log('parseName', `"${rawMessage}" → apodo="${parsed.apodo}" completo="${parsed.nombre_completo}" aclarar=${parsed.necesita_aclarar}`)
+
+    return {
+      apodo: (parsed.apodo || '').trim().substring(0, 30) || 'Amigo',
+      nombre_completo: (parsed.nombre_completo || parsed.apodo || '').trim().substring(0, 80),
+      necesita_aclarar: !!parsed.necesita_aclarar,
+      pregunta_aclaracion: parsed.pregunta_aclaracion || '¿Cómo preferís que te llame? Un nombre o apodo corto 🙂',
+    }
+  } catch (e) {
+    log('parseName', `Excepción: ${e.message}, fallback simple`)
+    const guess = (rawMessage || '').trim().split(/\s+/)[0].substring(0, 20)
+    return { apodo: guess || 'Amigo', nombre_completo: guess, necesita_aclarar: false }
+  }
+}
+
 async function askClaude(msg, chatId) {
   if (!ANTHROPIC_KEY) {
     log('claude', 'ANTHROPIC_KEY no configurada!')
@@ -1134,16 +1220,30 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
           return
         }
 
-        // Paso 2: Guardar nombre y pasar a modo conversación
-        if (state.step === 'solicitando_nombre') {
-          state.nombre = message.trim()
+        // Paso 2: Parsear nombre con IA y pasar a modo conversación (o aclarar si es ambiguo)
+        if (state.step === 'solicitando_nombre' || state.step === 'aclarando_nombre') {
+          const parsedName = await parseUserName(message)
+
+          // Si es ambiguo y estamos en el primer intento, pedimos aclaración
+          if (parsedName.necesita_aclarar && state.step === 'solicitando_nombre') {
+            state.step = 'aclarando_nombre'
+            state.raw_name_attempt = message.trim().substring(0, 100)
+            await sendWhatsAppMessage(chatId, parsedName.pregunta_aclaracion)
+            await saveState(chatId, state)
+            log('webhook', `Nombre ambiguo ("${message}") — pidiendo aclaración a ${chatId}`)
+            return
+          }
+
+          // Si tras aclarar sigue ambiguo, tomamos la primera palabra razonable y seguimos
+          state.nombre = parsedName.apodo
+          state.nombre_completo = parsedName.nombre_completo
           state.step = 'conversando'
           state.last_greeting_at = new Date().toISOString()
-          log('webhook', `Nombre registrado: ${state.nombre} para ${chatId}`)
+          log('webhook', `Nombre registrado: apodo="${state.nombre}" completo="${state.nombre_completo}" para ${chatId}`)
 
           const { error: memberErr } = await supabase.from('members').insert({
             chat_id: chatId,
-            nombre: state.nombre,
+            nombre: state.nombre_completo || state.nombre,
           })
           if (memberErr && memberErr.code !== '23505') {
             log('supabase', `⚠️ INSERT members falló (no crítico): ${memberErr.message}`)
@@ -1181,11 +1281,11 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
           log('webhook', `User pidió hablar con humano: ${chatId}`)
 
           // Notificar al admin por email (principal — siempre que esté configurado)
-          await notifyHumanHandover(chatId, state.nombre, message)
+          await notifyHumanHandover(chatId, state.nombre_completo || state.nombre, message)
 
           // Notificar también por WhatsApp si hay número admin configurado (best-effort)
           if (ADMIN_WHATSAPP) {
-            const handoverMsg = `📞 SOLICITUD DE ATENCIÓN HUMANA\n\n👤 ${state.nombre || 'Sin nombre'}\n📱 ${chatId}\n💬 "${message}"\n\nEl usuario quiere hablar con alguien del equipo.`
+            const handoverMsg = `📞 SOLICITUD DE ATENCIÓN HUMANA\n\n👤 ${state.nombre_completo || state.nombre || 'Sin nombre'}\n📱 ${chatId}\n💬 "${message}"\n\nEl usuario quiere hablar con alguien del equipo.`
             await sendWhatsAppMessage(ADMIN_WHATSAPP, handoverMsg)
           }
 
@@ -1389,13 +1489,13 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
 
         if (ADMIN_EMAIL) {
           log('webhook', `Enviando email de notificación para ${state.nombre}`)
-          await notifyAdmin(chatId, state.nombre, dniData, reprocannData, state.collectedData)
+          await notifyAdmin(chatId, state.nombre_completo || state.nombre, dniData, reprocannData, state.collectedData)
         }
 
         await saveState(chatId, state)  // v4.0: persist to DB
 
         // v4.0: Insert member record for CRM (future campaigns)
-        await insertMember(chatId, state.nombre, reprocannData, state.collectedData)
+        await insertMember(chatId, state.nombre_completo || state.nombre, reprocannData, state.collectedData)
 
         log('webhook', `Imagen procesada para ${chatId}`)
       } else {
