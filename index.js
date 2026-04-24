@@ -28,7 +28,8 @@ const ENABLE_FOLLOWUP_CRON = process.env.ENABLE_FOLLOWUP_CRON !== 'false'
 const STT_FUNCTION_URL = process.env.STT_FUNCTION_URL?.trim()
 const STT_SHARED_SECRET = process.env.STT_SHARED_SECRET?.trim()
 const GREEN_API_CONFIGURED = Boolean(GREEN_INSTANCE && GREEN_TOKEN)
-const STT_CONFIGURED = Boolean(STT_FUNCTION_URL && STT_SHARED_SECRET)
+// Added by OpenCode (Rolli) on 2026-04-24
+const STT_CONFIGURED = Boolean(STT_FUNCTION_URL && process.env.SUPABASE_ANON_KEY)
 
 // Supabase client (v4.0 — persistence)
 // Server-side Supabase auth tightened by Codex (GPT-5) on 2026-04-24:
@@ -43,9 +44,11 @@ const supabase = SUPABASE_URL && SUPABASE_SERVER_KEY
 const conversationHistory = new Map()  // Still in-memory (reset hourly)
 const rateLimits = new Map()           // Still in-memory (reset hourly)
 const userState = new Map()            // ⚠️ Legacy: replaced by patient_state table
+const processedInboundMessages = new Map()  // chatId -> Map(messageId, seenAt)
 
 const RATE_LIMIT = 30
 const RATE_WINDOW = 60 * 60 * 1000
+const PROCESSED_MESSAGE_TTL_MS = 6 * 60 * 60 * 1000
 const ADMIN_WHATSAPP = process.env.ADMIN_WHATSAPP
 
 // v4.0: Dynamic token allocation (Fase 4)
@@ -130,6 +133,57 @@ function checkRateLimit(chatId) {
   return true
 }
 
+// Production logging/idempotency helpers added by Codex (GPT-5) on 2026-04-24:
+// reduce PII in logs and avoid duplicate replies when a webhook is redelivered.
+function formatChatRef(chatId) {
+  if (!chatId) return 'unknown'
+  const normalized = String(chatId)
+  const [localPart, suffix = ''] = normalized.split('@')
+  if (localPart.length <= 4) return normalized
+  return `${localPart.slice(0, 4)}...${localPart.slice(-2)}${suffix ? `@${suffix}` : ''}`
+}
+
+function rememberInboundMessage(chatId, messageId) {
+  if (!chatId || !messageId) return false
+
+  const now = Date.now()
+  const cache = processedInboundMessages.get(chatId) || new Map()
+
+  for (const [cachedId, seenAt] of cache) {
+    if (now - seenAt > PROCESSED_MESSAGE_TTL_MS) cache.delete(cachedId)
+  }
+
+  if (cache.has(messageId)) {
+    processedInboundMessages.set(chatId, cache)
+    return true
+  }
+
+  cache.set(messageId, now)
+  while (cache.size > 200) {
+    const oldestKey = cache.keys().next().value
+    if (!oldestKey) break
+    cache.delete(oldestKey)
+  }
+
+  processedInboundMessages.set(chatId, cache)
+  return false
+}
+
+function pruneEphemeralState() {
+  const now = Date.now()
+
+  for (const [chatId, entry] of rateLimits.entries()) {
+    if (now > entry.resetAt) rateLimits.delete(chatId)
+  }
+
+  for (const [chatId, cache] of processedInboundMessages.entries()) {
+    for (const [messageId, seenAt] of cache.entries()) {
+      if (now - seenAt > PROCESSED_MESSAGE_TTL_MS) cache.delete(messageId)
+    }
+    if (cache.size === 0) processedInboundMessages.delete(chatId)
+  }
+}
+
 // ========== SUPABASE PERSISTENCE (v4.0) ==========
 
 async function loadState(chatId) {
@@ -153,7 +207,8 @@ async function loadState(chatId) {
 
     if (error && error.code !== 'PGRST116') {
       // PGRST116 = row not found (expected for new users)
-      log('supabase', `❌ ERROR loading state for ${chatId}: ${error.message}`)
+      // Log sanitization refined by Codex (GPT-5) on 2026-04-24.
+      log('supabase', `❌ ERROR loading state for ${formatChatRef(chatId)}: ${error.message}`)
     }
 
     if (!data) {
@@ -179,7 +234,7 @@ async function loadState(chatId) {
       raw_name_attempt: data.collected_data?.raw_name_attempt || null,
     }
   } catch (e) {
-    log('supabase', `❌ Exception loading state for ${chatId}: ${e.message}`)
+    log('supabase', `❌ Exception loading state for ${formatChatRef(chatId)}: ${e.message}`)
     return {
       step: 'inicio',
       nombre: null,
@@ -194,7 +249,7 @@ async function loadState(chatId) {
 async function saveState(chatId, state) {
   try {
     if (!supabase) {
-      log('supabase', `⚠️ Supabase NOT CONFIGURED - State NOT saved for ${chatId}`)
+      log('supabase', `⚠️ Supabase NOT CONFIGURED - State NOT saved for ${formatChatRef(chatId)}`)
       return
     }
 
@@ -222,12 +277,12 @@ async function saveState(chatId, state) {
     )
 
     if (result.error) {
-      log('supabase', `❌ ERROR saving state for ${chatId}: ${result.error.message}`)
+      log('supabase', `❌ ERROR saving state for ${formatChatRef(chatId)}: ${result.error.message}`)
     } else {
-      log('supabase', `✅ State saved for ${chatId} (step=${state.step})`)
+      log('supabase', `✅ State saved for ${formatChatRef(chatId)} (step=${state.step})`)
     }
   } catch (e) {
-    log('supabase', `❌ Exception saving state for ${chatId}: ${e.message}`)
+    log('supabase', `❌ Exception saving state for ${formatChatRef(chatId)}: ${e.message}`)
   }
 }
 
@@ -258,7 +313,7 @@ async function saveHistory(chatId, messages) {
       { onConflict: 'chat_id' }
     )
   } catch (e) {
-    log('supabase', `Error saving history for ${chatId}: ${e.message}`)
+    log('supabase', `Error saving history for ${formatChatRef(chatId)}: ${e.message}`)
   }
 }
 
@@ -420,7 +475,9 @@ async function sendWhatsAppMessage(chatId, message) {
         if (greenApiStats.rejectedChatIds.length > 20) greenApiStats.rejectedChatIds.shift()
       }
 
-      log('whatsapp', `🚨 GREENAPI 466 CORRESPONDENTS_QUOTE_EXCEEDED — chat=${chatId} FUERA del cupo de 3 chats/mes del plan Developer. Única solución: upgrade a Business en console.green-api.com. Body: ${text.substring(0, 200)}`)
+      // Provider log sanitization by Codex (GPT-5) on 2026-04-24:
+      // keep operational detail without exposing full chat identifiers in logs.
+      log('whatsapp', `🚨 GREENAPI 466 CORRESPONDENTS_QUOTE_EXCEEDED — chat=${formatChatRef(chatId)} FUERA del cupo de 3 chats/mes del plan Developer. Única solución: upgrade a Business en console.green-api.com. Body: ${text.substring(0, 200)}`)
 
       await notifyAdminQuotaExceeded(text, chatId)
       return { ok: false, reason: 'quota_or_whitelist', status: res.status }
@@ -430,7 +487,7 @@ async function sendWhatsAppMessage(chatId, message) {
       greenApiStats.failed++
       greenApiStats.lastError = `HTTP ${res.status}: ${text.substring(0, 150)}`
       greenApiStats.lastErrorAt = new Date().toISOString()
-      log('whatsapp', `❌ Envío falló (${res.status}) chat=${chatId}: ${text.substring(0, 150)}`)
+      log('whatsapp', `❌ Envío falló (${res.status}) chat=${formatChatRef(chatId)}: ${text.substring(0, 150)}`)
       return { ok: false, reason: 'http_error', status: res.status }
     }
 
@@ -488,7 +545,8 @@ async function downloadImage(idMessage, chatId) {
   }
 
   const url = `${GREEN_URL}/waInstance${GREEN_INSTANCE}/downloadFile/${GREEN_TOKEN}`
-  log('image', `Intentando descargar: ${idMessage} (chat: ${chatId})`)
+  // Image download logs sanitized by Codex (GPT-5) on 2026-04-24.
+  log('image', `Intentando descargar id=${idMessage} chat=${formatChatRef(chatId)}`)
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -497,13 +555,13 @@ async function downloadImage(idMessage, chatId) {
     })
     log('image', `Respuesta status: ${res.status}`)
     const data = await res.json()
-    log('image', `Respuesta JSON: ${JSON.stringify(data).substring(0, 200)}`)
+    log('image', `Respuesta JSON resumida: hasResult=${!!data?.result} hasUrl=${!!data?.result?.downloadUrl}`)
 
     if (data.result) {
       log('image', `Descargada exitosamente: ${idMessage}`)
       return data.result
     }
-    log('image', `Error descargando - respuesta: ${JSON.stringify(data)}`)
+    log('image', `Error descargando - respuesta resumida: hasResult=${!!data?.result}`)
     return null
   } catch (e) {
     log('image', `Error al descargar: ${e.message}`)
@@ -617,13 +675,12 @@ INSTRUCCIONES:
   }
 }
 
-async function analyzeImageWithClaude(imageUrl, chatId) {
+async function analyzeImageWithClaude(imageUrl, state = {}) {
   if (!ANTHROPIC_KEY) {
     log('claude', 'ANTHROPIC_KEY no configurada para análisis de imagen')
     return null
   }
 
-  const state = userState.get(chatId) || {}
   const systemMsg = state.step === 'esperando_reprocann_dorso'
     ? 'Di SOLO: "✅ Recibí el dorso."'
     : state.step === 'completando_datos'
@@ -956,7 +1013,8 @@ async function notifyHumanHandover(chatId, nombre, userMessage) {
       subject: `📞 Atención humana solicitada — ${safeName} (+${phone})`,
       html,
     })
-    log('handover', `📧 Email de handover enviado a ${ADMIN_EMAIL} para ${safeName} (${chatId})`)
+    // Handover audit log sanitized by Codex (GPT-5) on 2026-04-24.
+    log('handover', `📧 Email de handover enviado a ${ADMIN_EMAIL} para ${formatChatRef(chatId)}`)
   } catch (e) {
     log('handover', `❌ Error enviando email de handover: ${e.message}`)
   }
@@ -1021,7 +1079,8 @@ REGLAS:
     let text = data.content[0].text.trim().replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
     const parsed = JSON.parse(text)
 
-    log('parseName', `"${rawMessage}" → apodo="${parsed.apodo}" completo="${parsed.nombre_completo}" aclarar=${parsed.necesita_aclarar}`)
+    // Name parsing logs sanitized by Codex (GPT-5) on 2026-04-24.
+    log('parseName', `len=${(rawMessage || '').length} apodoLen=${(parsed.apodo || '').length} aclarar=${parsed.necesita_aclarar}`)
 
     return {
       apodo: (parsed.apodo || '').trim().substring(0, 30) || 'Amigo',
@@ -1048,7 +1107,7 @@ async function askClaude(msg, chatId) {
   }
   const messages = [...history.slice(-8), { role: 'user', content: msg }]
 
-  log('claude', `Llamando modelo con ${messages.length} mensajes | chat: ${chatId}`)
+  log('claude', `Llamando modelo con ${messages.length} mensajes | chat=${formatChatRef(chatId)}`)
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -1086,7 +1145,7 @@ async function askClaude(msg, chatId) {
     reply = parsed.cleanReply
     const skillName = parsed.skillName
 
-    log('claude', `Respuesta: ${reply.substring(0, 100)} | afiliacion=${wantsAffiliation} | skill=${skillName || 'none'}`)
+    log('claude', `Respuesta len=${reply.length} | afiliacion=${wantsAffiliation} | skill=${skillName || 'none'}`)
 
     const updated = [...history, { role: 'user', content: msg }, { role: 'assistant', content: reply }]
     conversationHistory.set(chatId, updated)
@@ -1134,7 +1193,8 @@ async function insertMember(chatId, nombre, reprocannData, collectedData) {
     if (error) {
       log('members', `Error upserting member: ${error.message}`)
     } else {
-      log('members', `Member upserted: ${nombre} (${chatId})`)
+      // CRM logs sanitized by Codex (GPT-5) on 2026-04-24.
+      log('members', `Member upserted para ${formatChatRef(chatId)}`)
     }
   } catch (e) {
     log('members', `Exception inserting member: ${e.message}`)
@@ -1234,17 +1294,21 @@ app.post('/webhook', (req, res) => {
     try {
       const body = req.body
       const msgType = body.messageData?.typeMessage
+      const messageId = body.messageData?.idMessage || body.idMessage || null
       const chatId = body.senderData?.chatId
       const sender = body.senderData?.senderName
 
-      log('webhook', `Recibido: typeWebhook=${body.typeWebhook} msgType=${msgType} chat=${chatId} inFlight=${inFlightWebhooks}`)
+      log('webhook', `Recibido: typeWebhook=${body.typeWebhook} msgType=${msgType} chat=${formatChatRef(chatId)} msgId=${messageId || 'none'} inFlight=${inFlightWebhooks}`)
 
       // GreenAPI manda este webhook cuando se agota la cuota del plan
       if (body.typeWebhook === 'quotaExceeded') {
         greenApiStats.quotaExceeded = true
         greenApiStats.quotaExceededAt = new Date().toISOString()
         log('webhook', `🚨 GREENAPI QUOTA EXCEEDED webhook recibido — bot no puede enviar`)
-        await notifyAdminQuotaExceeded(JSON.stringify(body).substring(0, 300))
+        await notifyAdminQuotaExceeded(
+          `typeWebhook=${body.typeWebhook || 'unknown'} msgType=${msgType || 'unknown'} msgId=${messageId || 'none'}`,
+          chatId
+        )
         return
       }
 
@@ -1252,7 +1316,7 @@ app.post('/webhook', (req, res) => {
       if (!chatId) return
 
       // Serializar mensajes del mismo chatId — distintos números procesan en paralelo
-      await withChatLock(chatId, () => handleMessage(body, msgType, chatId, sender, t0))
+      await withChatLock(chatId, () => handleMessage(body, msgType, chatId, sender, messageId, t0))
     } catch (e) {
       log('webhook', `Error inesperado outer: ${e.message}`)
     } finally {
@@ -1262,9 +1326,15 @@ app.post('/webhook', (req, res) => {
   })
 })
 
-async function handleMessage(body, msgType, chatId, sender, t0) {
+async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
   try {
     let message = null  // Added by OpenCode (Rolli) on 2026-04-24
+
+    // Idempotency guard added by Codex (GPT-5) on 2026-04-24.
+    if (rememberInboundMessage(chatId, messageId)) {
+      log('webhook', `Duplicado ignorado chat=${formatChatRef(chatId)} msgId=${messageId}`)
+      return
+    }
 
     // v4.1: Handle off-flow messages (stickers, audios, reactions)
       if (msgType === 'stickerMessage') {
@@ -1283,7 +1353,7 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
       // ========================================================================
       if (msgType === 'audioMessage' || msgType === 'voiceMessage') {
         const downloadUrl = body.messageData?.fileMessageData?.downloadUrl
-        log('webhook', `Audio recibido de ${chatId}, downloadUrl: ${downloadUrl}`)
+        log('webhook', `Audio recibido chat=${formatChatRef(chatId)} msgId=${messageId || 'none'} hasUrl=${!!downloadUrl}`)
 
         // Added by OpenCode (Rolli) on 2026-04-24
         if (downloadUrl) {
@@ -1300,7 +1370,7 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'x-stt-secret': STT_SHARED_SECRET,
+                'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`
               },
               body: JSON.stringify({ downloadUrl }),
               signal: AbortSignal.timeout(20_000),
@@ -1352,27 +1422,18 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
           return
         }
 
-        log('webhook', `De: ${sender} (${chatId}) | "${message}"`)
-
         if (!checkRateLimit(chatId)) {
-          log('webhook', `Rate limit exceeded para ${chatId}`)
+          log('webhook', `Rate limit exceeded para ${formatChatRef(chatId)}`)
           await sendWhatsAppMessage(chatId, 'Recibimos muchos mensajes de este número, intentá en un rato 🙏')
           return
         }
 
         const state = await loadState(chatId)
         state.last_message_at = new Date().toISOString()
-
-        // ========================================================================
-        // LOGGING: Decision trace - Added by OpenCode (Rolli) on 2026-04-24
-        // ========================================================================
-        log('webhook', `📊 ANALIZANDO: mensaje="${message}" | estado_actual=${state.step} | nombre=${state.nombre || 'sin nombre'}`)
+        log('webhook', `Texto recibido chat=${formatChatRef(chatId)} len=${message.length} step=${state.step}`)
 
         // Paso 1: Primer contacto — pedir nombre para trato direccional
         if (state.step === 'inicio' && !state.nombre) {
-          // Added by OpenCode (Rolli) on 2026-04-24
-          log('webhook', `🔀 DECISION: paso1_primer_contacto → solicitar nombre`)
-          await sendWhatsAppMessage(chatId, `¡Hola! 👋 Bienvenido/a al club. ¿Cuál es tu nombre?`)
           await sendWhatsAppMessage(chatId, `¡Hola! 👋 Bienvenido/a al club. ¿Cuál es tu nombre?`)
           state.step = 'solicitando_nombre'
           state.last_greeting_at = new Date().toISOString()
@@ -1382,8 +1443,6 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
 
         // Paso 2: Parsear nombre con IA y pasar a modo conversación (o aclarar si es ambiguo)
         if (state.step === 'solicitando_nombre' || state.step === 'aclarando_nombre') {
-          // Added by OpenCode (Rolli) on 2026-04-24
-          log('webhook', `🔀 DECISION: parseando nombre del mensaje: "${message}"`)
           const parsedName = await parseUserName(message)
 
           // Si es ambiguo y estamos en el primer intento, pedimos aclaración
@@ -1392,8 +1451,7 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
             state.raw_name_attempt = message.trim().substring(0, 100)
             await sendWhatsAppMessage(chatId, parsedName.pregunta_aclaracion)
             await saveState(chatId, state)
-            // Added by OpenCode (Rolli) on 2026-04-24
-            log('webhook', `🔀 DECISION: nombre ambiguo → pedir aclaración ("${parsedName.pregunta_aclaracion}")`)
+            log('webhook', `Nombre ambiguo chat=${formatChatRef(chatId)} → pedir aclaración`)
             return
           }
 
@@ -1402,8 +1460,7 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
           state.nombre_completo = parsedName.nombre_completo
           state.step = 'conversando'
           state.last_greeting_at = new Date().toISOString()
-          // Added by OpenCode (Rolli) on 2026-04-24
-          log('webhook', `🔀 DECISION: nombre confirmado="${state.nombre}" → paso a conversando`)
+          log('webhook', `Nombre confirmado chat=${formatChatRef(chatId)} → paso a conversando`)
 
           // Member draft upsert added by Codex (GPT-5) on 2026-04-24 to avoid
           // unique-key collisions when the same lead completes onboarding later.
@@ -1425,7 +1482,7 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
         if (state.step === 'completando_datos' && state.pendingFields && state.pendingFields.length > 0) {
           const currentField = state.pendingFields[0]
           state.collectedData[currentField.key] = message
-          log('webhook', `Guardado ${currentField.key}=${message} para ${chatId}`)
+          log('webhook', `Guardado campo ${currentField.key} para ${formatChatRef(chatId)}`)
 
           state.pendingFields.shift()
 
@@ -1446,9 +1503,7 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
         // Added by OpenCode (Rolli) on 2026-04-24
         const wantHuman = /hablar.*persona|persona.*atienda|atender.*humano|atienda.*humano|pasar.*alguien|pasame.*con.*alguien|contactar.*equipo|speak.*human|hablar.*humano|agente.*humano|atenci[oó]n.*humana/i.test(message)
         if (wantHuman) {
-          // Added by OpenCode (Rolli) on 2026-04-24
-          log('webhook', `🔀 DECISION: usuario pidio humano → notificar al admin`)
-          log('webhook', `User pidió hablar con humano: ${chatId}`)
+          log('webhook', `Pedido de humano chat=${formatChatRef(chatId)}`)
 
           // Notificar al admin por email (principal — siempre que esté configurado)
           await notifyHumanHandover(chatId, state.nombre_completo || state.nombre, message)
@@ -1464,15 +1519,11 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
         }
 
         // Paso 5: Modo atención al cliente — Claude responde, detecta intent afiliación + skill
-        // Added by OpenCode (Rolli) on 2026-04-24
-        log('webhook', `🔀 DECISION: mensaje del usuario → llamar a Claude (orquestador)`)
         const { reply, wantsAffiliation, skillName, history: updatedHistory } = await askClaude(message, chatId)
 
         // Paso 5b: Si Claude pidió invocar una skill, ejecutarla — su respuesta reemplaza a la del orquestador
         if (skillName && SKILL_NAMES.includes(skillName)) {
-          // Added by OpenCode (Rolli) on 2026-04-24
-          log('webhook', `🔀 DECISION: Claude invocio skill=${skillName}`)
-          log('webhook', `Invocando skill=${skillName} para ${chatId}`)
+          log('webhook', `Invocando skill=${skillName} para ${formatChatRef(chatId)}`)
           const skillReply = await invokeSkill(skillName, message, updatedHistory || [], ANTHROPIC_KEY, MODEL)
           if (skillReply) {
             await sendWhatsAppMessage(chatId, skillReply)
@@ -1483,7 +1534,7 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
               conversationHistory.set(chatId, hist)
               await saveHistory(chatId, hist)
             }
-            log('webhook', `Skill ${skillName} respondió a ${chatId}`)
+            log('webhook', `Skill ${skillName} respondió a ${formatChatRef(chatId)}`)
           } else {
             // Fallback: si la skill falla, mandamos la respuesta original del orquestador
             log('webhook', `Skill ${skillName} falló, usando fallback del orquestador`)
@@ -1493,18 +1544,16 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
           await sendWhatsAppMessage(chatId, reply)
         }
 
-        log('webhook', `Respuesta enviada a ${chatId} | wantsAffiliation=${wantsAffiliation} | skill=${skillName || 'none'}`)
+        log('webhook', `Respuesta enviada a ${formatChatRef(chatId)} | wantsAffiliation=${wantsAffiliation} | skill=${skillName || 'none'}`)
 
         // Paso 6: Si Claude detectó intent de afiliación, transicionar al flujo de documentos
         if (wantsAffiliation && state.step !== 'recibiendo_documentos' && state.step !== 'completando_datos' && state.step !== 'completado') {
           state.step = 'recibiendo_documentos'
           state.documentos = state.documentos || { dni: { frente: null, dorso: null }, reprocann: { frente: null, dorso: null } }
           await saveState(chatId, state)
-          log('webhook', `Transición a recibiendo_documentos para ${chatId}`)
+          log('webhook', `Transición a recibiendo_documentos para ${formatChatRef(chatId)}`)
         }
       } else if (msgType === 'imageMessage') {
-        log('webhook', `messageData: ${JSON.stringify(body.messageData).substring(0, 300)}`)
-
         const imageUrl = body.messageData?.downloadUrl ||
                          body.messageData?.fileMessageData?.downloadUrl ||
                          body.messageData?.imageMessage?.downloadUrl
@@ -1513,10 +1562,10 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
           return
         }
 
-        log('webhook', `Imagen recibida de ${sender} (${chatId})`)
+        log('webhook', `Imagen recibida chat=${formatChatRef(chatId)} msgId=${messageId || 'none'}`)
 
         if (!checkRateLimit(chatId)) {
-          log('webhook', `Rate limit exceeded para ${chatId}`)
+          log('webhook', `Rate limit exceeded para ${formatChatRef(chatId)}`)
           await sendWhatsAppMessage(chatId, 'Recibimos muchos mensajes de este número, intentá en un rato 🙏')
           return
         }
@@ -1527,7 +1576,7 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
 
         // v4.0: Si no tiene nombre y no está ya solicitándolo, pedir nombre
         if ((!state.nombre || state.nombre === chatId) && state.step !== 'solicitando_nombre') {
-          log('webhook', `Imagen sin nombre registrado: solicitando nombre para ${chatId}`)
+          log('webhook', `Imagen sin nombre registrado: solicitando nombre para ${formatChatRef(chatId)}`)
           state.step = 'solicitando_nombre'
           state.last_greeting_at = new Date().toISOString()
           await saveState(chatId, state)
@@ -1537,7 +1586,7 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
 
         // Si está solicitando nombre, ignora imágenes hasta que responda
         if (state.step === 'solicitando_nombre') {
-          log('webhook', `Esperando nombre, ignorando imagen para ${chatId}`)
+          log('webhook', `Esperando nombre, ignorando imagen para ${formatChatRef(chatId)}`)
           await sendWhatsAppMessage(chatId, `Por favor respondé con tu nombre 👇`)
           return
         }
@@ -1553,7 +1602,7 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
         log('webhook', `Detectado: tipo=${detected.tipo}, ambosSides=${detected.ambosSides}, valido=${detected.valido}, pais=${detected.pais}`)
 
         // Análisis de confirmación al usuario
-        const analysis = await analyzeImageWithClaude(imageUrl, chatId)
+        const analysis = await analyzeImageWithClaude(imageUrl, state)
         if (!analysis) {
           await sendWhatsAppMessage(chatId, 'Tuvimos un problema analizando la imagen, intentá de nuevo 🙏')
           return
@@ -1578,14 +1627,14 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
             const data = await extractReprocannData(imageUrl)
             state.documentos.reprocann.frente = { url: imageUrl, data }
             state.documentos.reprocann.dorso = { url: imageUrl, data }
-            log('webhook', `REPROCANN completo (ambos lados) para ${chatId}`)
+            log('webhook', `REPROCANN completo (ambos lados) para ${formatChatRef(chatId)}`)
           } else {
             // Un solo lado, determinar si es frente o dorso
             if (!state.documentos.reprocann.frente) {
               // Asumir frente
               const data = await extractReprocannData(imageUrl)
               state.documentos.reprocann.frente = { url: imageUrl, data }
-              log('webhook', `REPROCANN frente para ${chatId}`)
+              log('webhook', `REPROCANN frente para ${formatChatRef(chatId)}`)
               await sendWhatsAppMessage(chatId, `${analysis} Mandame el dorso también.`)
               await saveState(chatId, state)  // v4.0: persist to DB
               return
@@ -1593,7 +1642,7 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
               // Ya tiene frente, esto es dorso
               const data = await extractReprocannData([state.documentos.reprocann.frente.url, imageUrl])
               state.documentos.reprocann.dorso = { url: imageUrl, data }
-              log('webhook', `REPROCANN dorso para ${chatId}`)
+              log('webhook', `REPROCANN dorso para ${formatChatRef(chatId)}`)
             }
           }
         } else if (detected.tipo === 'DNI') {
@@ -1602,14 +1651,14 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
             const data = await extractDocumentData(imageUrl, 'DNI')
             state.documentos.dni.frente = { url: imageUrl, data }
             state.documentos.dni.dorso = { url: imageUrl, data }
-            log('webhook', `DNI completo (ambos lados) para ${chatId}`)
+            log('webhook', `DNI completo (ambos lados) para ${formatChatRef(chatId)}`)
           } else {
             // Un solo lado, determinar si es frente o dorso
             if (!state.documentos.dni.frente) {
               // Asumir frente
               const data = await extractDocumentData(imageUrl, 'DNI')
               state.documentos.dni.frente = { url: imageUrl, data }
-              log('webhook', `DNI frente para ${chatId}`)
+              log('webhook', `DNI frente para ${formatChatRef(chatId)}`)
               await sendWhatsAppMessage(chatId, `${analysis} Mandame el dorso también.`)
               await saveState(chatId, state)  // v4.0: persist to DB
               return
@@ -1617,7 +1666,7 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
               // Ya tiene frente, esto es dorso
               const data = await extractDocumentData(imageUrl, 'DNI')
               state.documentos.dni.dorso = { url: imageUrl, data }
-              log('webhook', `DNI dorso para ${chatId}`)
+              log('webhook', `DNI dorso para ${formatChatRef(chatId)}`)
             }
           }
         } else {
@@ -1671,12 +1720,12 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
         // v4.0: Insert member record for CRM (future campaigns)
         await insertMember(chatId, state.nombre_completo || state.nombre, reprocannData, state.collectedData)
 
-        log('webhook', `Imagen procesada para ${chatId}`)
+        log('webhook', `Imagen procesada para ${formatChatRef(chatId)}`)
       } else {
         log('webhook', `Tipo no soportado: ${msgType}`)
       }
   } catch (e) {
-    log('webhook', `Error inesperado handler (chat=${chatId}, t=${Date.now() - t0}ms): ${e.message}`)
+    log('webhook', `Error inesperado handler (chat=${formatChatRef(chatId)}, t=${Date.now() - t0}ms): ${e.message}`)
   }
 }
 
@@ -1831,6 +1880,10 @@ if (ENABLE_FOLLOWUP_CRON) {
   log('cron', 'Follow-up cron deshabilitado por configuración')
 }
 
+// Periodic cleanup added by Codex (GPT-5) on 2026-04-24 to avoid unbounded
+// growth in ephemeral in-memory caches used for rate limiting and dedupe.
+setInterval(pruneEphemeralState, 15 * 60 * 1000)
+
 // ========== v4.2: QA AGENT (manual, modo lectura) ==========
 
 // Endpoint manual — lee últimas N conversaciones y pide a Claude evaluarlas
@@ -1976,7 +2029,6 @@ app.get('/admin/greenapi-status', (req, res) => {
 app.get('/test/env-check', async (req, res) => {
   if (!ensureTestRoutesEnabled(req, res)) return
   const url = process.env.SUPABASE_URL || ''
-  const anon = process.env.SUPABASE_ANON_KEY || ''
   const svc = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 
   // Test real de conectividad
@@ -1993,13 +2045,8 @@ app.get('/test/env-check', async (req, res) => {
       preview: url.slice(0, 30) + '...',
       endsWithSpace: url !== url.trim(),
     },
-    anon_key: {
-      configured: !!anon,
-      length: anon.length,
-      preview: anon.slice(0, 20) + '...',
-      endsWithSpace: anon !== anon.trim(),
-      hasNewline: anon.includes('\n'),
-    },
+    // Test route updated by Codex (GPT-5) on 2026-04-24:
+    // server-side paths now rely only on service_role.
     service_role_key: {
       configured: !!svc,
       length: svc.length,
@@ -2007,7 +2054,7 @@ app.get('/test/env-check', async (req, res) => {
       endsWithSpace: svc !== svc.trim(),
       hasNewline: svc.includes('\n'),
     },
-    using_key: svc ? 'service_role' : (anon ? 'anon' : 'NONE'),
+    using_key: svc ? 'service_role' : 'NONE',
     db_connection_test: dbTest,
   })
 })
