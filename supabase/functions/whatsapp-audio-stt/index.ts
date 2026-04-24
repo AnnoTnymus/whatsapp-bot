@@ -6,7 +6,7 @@
 
 const HF_TOKEN = Deno.env.get('HF_TOKEN')!
 
-async function downloadAudioFromGreenAPI(fileId: string): Promise<ArrayBuffer | null> {
+async function downloadAudioFromGreenAPI(chatId: string, idMessage: string): Promise<ArrayBuffer | null> {
   const GREEN_URL = Deno.env.get('GREEN_API_URL') ?? 'https://7107.api.greenapi.com'
   const GREEN_INSTANCE = Deno.env.get('GREEN_API_INSTANCE_ID') ?? '7107588003'
   const GREEN_TOKEN_API = Deno.env.get('GREEN_API_TOKEN') ?? '5d7a2dd449bd48deaed916c65ae197c86ceb73a683254677b5'
@@ -16,15 +16,18 @@ async function downloadAudioFromGreenAPI(fileId: string): Promise<ArrayBuffer | 
     const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileId })
+      body: JSON.stringify({ chatId, idMessage })
     })
 
     if (!resp.ok) {
-      console.error('Download failed:', resp.status)
+      console.error('GreenAPI download failed:', resp.status)
+      const err = await resp.text()
+      console.error('Error:', err)
       return null
     }
 
     const arrayBuffer = await resp.arrayBuffer()
+    console.log('Downloaded from GreenAPI, size:', arrayBuffer.byteLength)
     return arrayBuffer
   } catch (e) {
     console.error('Download error:', e)
@@ -52,7 +55,7 @@ async function transcribeWithWhisper(audioData: ArrayBuffer): Promise<string | n
     console.log('Whisper status:', resp.status)
     if (!resp.ok) {
       const errText = await resp.text()
-      console.error('Whisper error:', errText)
+      console.error('Whisper error:', errText.substring(0, 500))
       return null
     }
 
@@ -85,31 +88,30 @@ Deno.serve(async (req) => {
     })
   }
 
-  const fileId = body.fileId
   const downloadUrl = body.downloadUrl
+  const idMessage = body.idMessage
+  const chatId = body.chatId
 
-  if (!fileId && !downloadUrl) {
-    return new Response(JSON.stringify({ error: 'fileId or downloadUrl required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' }
-    })
-  }
+  console.log('Request:', JSON.stringify({ downloadUrl: !!downloadUrl, idMessage: !!idMessage, chatId }))
 
   let audioData: ArrayBuffer | null = null
 
-  if (downloadUrl) {
-    console.log('Fetching from URL:', downloadUrl)
+  // Priority: download from GreenAPI using idMessage
+  if (idMessage && chatId) {
+    console.log('Downloading from GreenAPI...')
+    audioData = await downloadAudioFromGreenAPI(chatId, idMessage)
+  } else if (downloadUrl) {
+    // Fallback: try direct URL
+    console.log('Trying direct URL:', downloadUrl)
     const resp = await fetch(downloadUrl)
     if (!resp.ok) {
-      return new Response(JSON.stringify({ error: 'Failed to fetch audio from URL', status: resp.status }), {
+      console.error('URL fetch failed:', resp.status)
+      return new Response(JSON.stringify({ error: 'Failed to fetch audio from URL' }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' }
       })
     }
     audioData = await resp.arrayBuffer()
-  } else {
-    console.log('Downloading from GreenAPI:', fileId)
-    audioData = await downloadAudioFromGreenAPI(fileId)
   }
 
   if (!audioData) {

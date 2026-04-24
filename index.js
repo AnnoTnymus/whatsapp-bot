@@ -1188,9 +1188,10 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
       // ========================================================================
       if (msgType === 'audioMessage' || msgType === 'voiceMessage') {
         const downloadUrl = body.messageData?.fileMessageData?.downloadUrl
-        log('webhook', `Audio recibido de ${chatId}, downloadUrl: ${downloadUrl}`)
+        const idMessage = body.idMessage  // Added by OpenCode (Rolli) on 2026-04-24
+        log('webhook', `Audio recibido de ${chatId}, downloadUrl: ${downloadUrl}, idMessage: ${idMessage}`)
 
-        if (downloadUrl) {
+        if (downloadUrl || idMessage) {
           try {
             // Call STT function to transcribe audio
             // Added by OpenCode (Rolli) on 2026-04-24
@@ -1201,7 +1202,7 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY}`
               },
-              body: JSON.stringify({ downloadUrl })
+              body: JSON.stringify({ downloadUrl, idMessage, chatId })  // Added by OpenCode (Rolli)
             })
             const sttData = await sttResp.json()
 
