@@ -1193,10 +1193,14 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
         if (downloadUrl) {
           try {
             // Call STT function to transcribe audio
+            // Added by OpenCode (Rolli) on 2026-04-24
             const sttUrl = 'https://ujlgicmuktpqxuulhhwm.supabase.co/functions/v1/whatsapp-audio-stt'
             const sttResp = await fetch(sttUrl, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY}`
+              },
               body: JSON.stringify({ downloadUrl })
             })
             const sttData = await sttResp.json()
