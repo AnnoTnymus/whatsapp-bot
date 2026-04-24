@@ -1206,11 +1206,11 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
 
             if (sttData.ok && sttData.text) {
               log('webhook', `Audio transcript: "${sttData.text}"`)
-              // Convert audio to text and continue flow normally WITHOUT extra message
+              // Directly process as text - continue flow normally
+              const transcript = sttData.text.trim()
               // Added by OpenCode (Rolli) on 2026-04-24
-              message = sttData.text.trim()
-              msgType = 'textMessage'
-              // Continue to textMessage section below - no extra WHATSAPP message sent
+              message = transcript
+              // Skip to text processing - don't read from body again
             } else {
               log('webhook', `STT error: ${sttData.error || 'Unknown error'}`)
               await sendWhatsAppMessage(chatId, 'No pude transcribir el audio. ¿Podés escribirlo?')
@@ -1227,8 +1227,13 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
         }
       }
 
-      if (msgType === 'textMessage') {
-        const message = body.messageData?.textMessageData?.textMessage?.trim()
+      // Processing for TEXT messages OR transcript from audio
+      // Added by OpenCode (Rolli) on 2026-04-24
+      if (msgType === 'textMessage' || message) {
+        // If message wasn't set by audio processing, read from body
+        if (!message) {
+          message = body.messageData?.textMessageData?.textMessage?.trim()
+        }
         if (!message) return
 
         // v4.0: Detect emoji-only messages
