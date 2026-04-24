@@ -8,6 +8,89 @@ import { createClient } from '@supabase/supabase-js'
 import { SKILL_NAMES, invokeSkill, parseSkillMarker } from './skills.js'
 
 const app = express()
+
+// Admin HTML - Added by OpenCode (Rolli) 2026-04-24
+const ADMIN_CONFIG_HTML = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - WhatsApp Bot</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a1a; color: #fff; padding: 20px; }
+    h1 { color: #4ade80; margin-bottom: 20px; }
+    .card { background: #2a2a2a; padding: 20px; border-radius: 12px; margin-bottom: 20px; }
+    .card h2 { color: #4ade80; margin-bottom: 16px; font-size: 18px; }
+    .field { margin-bottom: 16px; }
+    .field label { display: block; color: #9ca3af; margin-bottom: 6px; font-size: 14px; }
+    .field input, .field textarea, .field select { width: 100%; padding: 10px; background: #333; border: 1px solid #444; border-radius: 8px; color: #fff; font-size: 14px; }
+    .field textarea { min-height: 80px; resize: vertical; }
+    .btn { background: #4ade80; color: #000; padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    .btn:hover { background: #22c55e; }
+    .btn:disabled { opacity: 0.5; }
+    .status { padding: 10px; border-radius: 8px; margin-bottom: 16px; }
+    .status.ok { background: #166534; color: #4ade80; }
+    .status.error { background: #991b1b; color: #f87171; }
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <h1>⚙️ Admin - WhatsApp Bot</h1>
+  <div id="status" class="status" style="display:none"></div>
+  <div class="card">
+    <h2>📝 Configuración del Bot</h2>
+    <form id="configForm">
+      <div class="grid">
+        <div class="field"><label>Nombre del Club</label><input type="text" id="club_nombre"></div>
+        <div class="field"><label>Modelo de IA</label><select id="modelo_ia"><option value="claude-opus-4-7">Claude Opus 4</option><option value="claude-sonnet-4-6">Claude Sonnet 4</option><option value="claude-haiku-3-5">Claude Haiku 3</option></select></div>
+      </div>
+      <div class="field"><label>Ubicación</label><input type="text" id="club_ubicacion"></div>
+      <div class="field"><label>Horarios</label><input type="text" id="horarios"></div>
+      <div class="field"><label>Genéticas</label><input type="text" id="geneticas"></div>
+      <div class="field"><label>URL REPROCANN</label><input type="text" id="reprocann_url"></div>
+      <div class="field"><label>Respuesta de Saludo</label><textarea id="respuesta_saludo"></textarea></div>
+      <div class="field"><label>Respuesta de Confirmación</label><textarea id="respuesta_confirmacion"></textarea></div>
+      <button type="submit" class="btn" id="saveBtn">Guardar</button>
+    </form>
+  </div>
+  <script>
+    const API_BASE = '';
+    function showStatus(msg, isError) { const el = document.getElementById('status'); el.textContent = msg; el.className = 'status ' + (isError ? 'error' : 'ok'); el.style.display = 'block'; }
+    async function loadConfig() {
+      try {
+        const res = await fetch(API_BASE + '/admin/config');
+        const data = await res.json();
+        if (data.ok) {
+          const c = data.config;
+          document.getElementById('club_nombre').value = c.club_nombre || '';
+          document.getElementById('club_ubicacion').value = c.club_ubicacion || '';
+          document.getElementById('horarios').value = c.horarios || '';
+          document.getElementById('geneticas').value = c.geneticas || '';
+          document.getElementById('reprocann_url').value = c.reprocann_url || '';
+          document.getElementById('respuesta_saludo').value = c.respuesta_saludo || '';
+          document.getElementById('respuesta_confirmacion').value = c.respuesta_confirmacion || '';
+          document.getElementById('modelo_ia').value = c.modelo_ia || 'claude-opus-4-7';
+        }
+      } catch (e) { showStatus('Error: ' + e.message, true); }
+    }
+    document.getElementById('configForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('saveBtn');
+      btn.disabled = true;
+      try {
+        const updates = { club_nombre: document.getElementById('club_nombre').value, club_ubicacion: document.getElementById('club_ubicacion').value, horarios: document.getElementById('horarios').value, geneticas: document.getElementById('geneticas').value, reprocann_url: document.getElementById('reprocann_url').value, respuesta_saludo: document.getElementById('respuesta_saludo').value, respuesta_confirmacion: document.getElementById('respuesta_confirmacion').value, modelo_ia: document.getElementById('modelo_ia').value };
+        const res = await fetch(API_BASE + '/admin/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) });
+        const data = await res.json();
+        showStatus(data.ok ? '✅ Guardado' : 'Error: ' + data.error, !data.ok);
+      } catch (e) { showStatus('Error: ' + e.message, true); }
+      finally { btn.disabled = false; }
+    });
+    loadConfig();
+  </script>
+</body>
+</html>`
 app.disable('x-powered-by')
 app.use(express.json({ limit: '1mb' }))
 
@@ -327,9 +410,13 @@ try {
   console.log('[startup] No knowledge/base.md, usando info generica')
 }
 
-const SYSTEM_PROMPT = `Sos el asistente de WhatsApp del club cannábico. Tu rol principal es ATENCIÓN AL CLIENTE: responder dudas, informar sobre el club, productos, horarios, REPROCANN.
+// [claude-opus-4.7] 2026-04-24: objetivo primario del agente = conseguir la inscripción.
+// Atención al cliente sigue siendo el vehículo, pero siempre orientado a que el lead se inscriba.
+const SYSTEM_PROMPT = `Sos el asistente de WhatsApp del club cannábico. Tu OBJETIVO PRIMARIO es lograr que el usuario se inscriba/afilie al club. Tu rol de atención al cliente (responder dudas, informar sobre el club, productos, horarios, REPROCANN) es el vehículo para llegar a la inscripción.
 
-SOLO guiás el proceso de afiliación cuando el usuario lo pide explícitamente.
+Mostrá una leve inclinación a guiar la conversación hacia la afiliación: cuando el usuario pregunta algo genérico, respondé su duda y conectá suavemente con la inscripción ("justo es parte de lo que te cubre la membresía", "cuando te asociás eso ya te lo damos resuelto", etc.).
+
+No fuerces la afiliación ni la pidas antes de que el usuario termine su consulta. Solo iniciás el flujo de documentos cuando el usuario lo pide explícitamente.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TONO (muy importante, seguí al pie de la letra):
@@ -352,7 +439,7 @@ CÓMO RESPONDER SEGÚN LA SITUACIÓN:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Si saluda (hola, buenas, etc.):
-→ Saludá cordialmente y preguntá en qué podés ayudar. NO pidas documentos. NO menciones afiliación a menos que te pregunten.
+→ Saludá cordialmente y preguntá en qué podés ayudar, mencionando como primera opción la inscripción/afiliación al club. NO pidas documentos todavía. Ejemplo: "¿En qué te puedo ayudar? Puedo guiarte para inscribirte al club, contarte cómo funciona, o responder consultas sobre REPROCANN, legales o genéticas."
 
 Si pregunta por horarios, dirección, ubicación:
 → Respondé brevemente con la info del knowledge base.
@@ -364,7 +451,7 @@ Si pregunta por REPROCANN (qué es, cómo tramitarlo):
 → Explicá que es el registro oficial para uso medicinal, se tramita en argentina.gob.ar/reprocann, es gratis.
 
 Si pide hablar con una persona:
-→ "Dale, te paso con alguien del club enseguida 👋 Puede demorar un ratito."
+→ Confirmale que ya notificaste al staff y que lo van a contactar, PERO ofrecele seguir la conversación mientras espera. Mencionale que podés contarle sobre el club, Indajaus (líderes del sector en Uruguay), genéticas, REPROCANN, o arrancar la inscripción. El objetivo es mantenerlo activo y avanzar hacia la afiliación aunque esté esperando al humano.
 
 Si manda algo raro, fuera de tema (chistes, stickers random, mensajes sin sentido):
 → Respondé casualmente (acá SÍ podés usar "che") y redirigí cordial: "¿En qué te puedo ayudar con el club?"
@@ -411,7 +498,7 @@ CÓMO USAR LOS MARCADORES:
 - Nunca menciones los marcadores al usuario — son invisibles para él.
 
 OFRECIMIENTO PROACTIVO (IMPORTANTE):
-Cuando el usuario se acaba de presentar con su nombre y preguntás "¿en qué te puedo ayudar?", podés mencionar brevemente los 3 temas disponibles. Ejemplo: "Puedo ayudarte con info legal del cannabis, el trámite REPROCANN, o consejos de genéticas según lo que busques 🌿 ¿Por dónde arrancamos?"
+Cuando el usuario se acaba de presentar con su nombre y preguntás "¿en qué te puedo ayudar?", la INSCRIPCIÓN AL CLUB va PRIMERA siempre, y luego mencionás las consultas posibles como alternativas. Ejemplo: "¿Querés que te guíe para inscribirte al club? 🌿 O si preferís primero te cuento cómo funciona, te ayudo con el REPROCANN, temas legales, o qué genéticas tenemos — lo que te sirva."
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REGLAS FIJAS:
@@ -1434,8 +1521,11 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
         log('webhook', `Texto recibido chat=${formatChatRef(chatId)} len=${message.length} step=${state.step}`)
 
         // Paso 1: Primer contacto — pedir nombre para trato direccional
-        if (state.step === 'inicio' && !state.nombre) {
-          await sendWhatsAppMessage(chatId, `¡Hola! 👋 Bienvenido/a al club. ¿Cuál es tu nombre?`)
+        // [claude-opus-4.7] 2026-04-24: tratar 'Amigo' (fallback) y nombre vacío como "sin nombre"
+        // Antes, si un estado quedaba con nombre='Amigo' de un fallback previo, el bot no volvía a preguntar.
+        const nombreInvalido = !state.nombre || state.nombre === 'Amigo' || state.nombre.trim() === '' || state.nombre === chatId
+        if (nombreInvalido && state.step !== 'solicitando_nombre' && state.step !== 'aclarando_nombre') {
+          await sendWhatsAppMessage(chatId, `¡Hola! 👋 Bienvenido al club. ¿Cómo te llamás así te puedo ayudar mejor?`)
           state.step = 'solicitando_nombre'
           state.last_greeting_at = new Date().toISOString()
           await saveState(chatId, state)
@@ -1474,7 +1564,8 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
             log('supabase', `⚠️ UPSERT members falló (no crítico): ${memberErr.message}`)
           }
 
-          await sendWhatsAppMessage(chatId, `¡Un gusto, ${state.nombre}! 🌿 ¿En qué te puedo ayudar? Puedo darte info legal del cannabis, guiarte con el trámite REPROCANN, o recomendarte genéticas según lo que busques.`)
+          // [claude-opus-4.7] 2026-04-24: inscripción primero, consultas secundarias.
+          await sendWhatsAppMessage(chatId, `¡Un gusto, ${state.nombre}! 🌿 ¿Querés que te guíe para inscribirte al club? Si preferís primero te cuento cómo funciona, o te ayudo con REPROCANN, temas legales o genéticas — lo que te sirva más.`)
           await saveState(chatId, state)
           return
         }
@@ -1510,12 +1601,24 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
           await notifyHumanHandover(chatId, state.nombre_completo || state.nombre, message)
 
           // Notificar también por WhatsApp si hay número admin configurado (best-effort)
-          if (ADMIN_WHATSAPP) {
+          // [claude-opus-4.7] 2026-04-24: jamás mandar la plantilla de admin al mismo chat que la disparó.
+          // Si ADMIN_WHATSAPP coincide con el chatId del usuario, el template interno leakea a la conversación.
+          if (ADMIN_WHATSAPP && ADMIN_WHATSAPP !== chatId) {
             const handoverMsg = `📞 SOLICITUD DE ATENCIÓN HUMANA\n\n👤 ${state.nombre_completo || state.nombre || 'Sin nombre'}\n📱 ${chatId}\n💬 "${message}"\n\nEl usuario quiere hablar con alguien del equipo.`
             await sendWhatsAppMessage(ADMIN_WHATSAPP, handoverMsg)
+          } else if (ADMIN_WHATSAPP === chatId) {
+            log('webhook', `⚠️ Skip admin WA: ADMIN_WHATSAPP===chatId (${formatChatRef(chatId)}) — habría leakeado plantilla al usuario`)
           }
 
-          await sendWhatsAppMessage(chatId, 'Dale, te paso con alguien del club enseguida 👋 Puede demorar un ratito.')
+          // [claude-opus-4.7] 2026-04-24: no cortar el chat. Mantener al usuario activo
+          // mientras espera al humano — objetivo primario sigue siendo la inscripción.
+          const nombreSaludo = state.nombre && state.nombre !== 'Amigo' ? `, ${state.nombre}` : ''
+          await sendWhatsAppMessage(
+            chatId,
+            `Listo${nombreSaludo} 👋 Ya notifiqué al staff y te van a contactar apenas puedan (a veces tarda un ratito).\n\nMientras tanto, si querés, te puedo contar sobre el club, sobre Indajaus (somos líderes del sector en Uruguay 🇺🇾), las genéticas que tenemos, cómo funciona el REPROCANN, o te arranco con la inscripción si preferís ir avanzando. ¿Te interesa alguna?`
+          )
+          // No cambiamos el step: el usuario sigue en 'conversando' y cualquier próximo
+          // mensaje suyo entra normal al orquestador/skills.
           return
         }
 
@@ -2018,6 +2121,46 @@ app.get('/admin/greenapi-status', (req, res) => {
     plan_info: 'Plan Developer limita a 3 números distintos por mes (auto-asignados por orden de llegada). Sin opción de whitelist manual.',
     rejectedNumbers: greenApiStats.rejectedChatIds.map(c => c.replace('@c.us', '')),
   })
+})
+
+// ========== ADMIN CONFIG (OpenCode/Rolli 2026-04-24) ==========
+
+app.get('/admin/config-html', (req, res) => {
+  res.setHeader('Content-Type', 'text/html')
+  res.send(ADMIN_CONFIG_HTML)
+})
+
+app.get('/admin/config', async (req, res) => {
+  if (!requireAdminAccess(req, res)) return
+  try {
+    const { data, error } = await supabase
+      .from('bot_config')
+      .select('*')
+      .eq('id', 'whatsapp_bot')
+      .single()
+    if (error) throw error
+    res.json({ ok: true, config: data })
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message })
+  }
+})
+
+app.post('/admin/config', async (req, res) => {
+  if (!requireAdminAccess(req, res)) return
+  try {
+    const updates = req.body
+    updates.updated_at = new Date().toISOString()
+    const { data, error } = await supabase
+      .from('bot_config')
+      .update(updates)
+      .eq('id', 'whatsapp_bot')
+      .select('*')
+      .single()
+    if (error) throw error
+    res.json({ ok: true, config: data })
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message })
+  }
 })
 
 // ========== END GREENAPI STATUS ==========
