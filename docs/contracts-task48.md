@@ -75,7 +75,14 @@ function parseEvaluatorReply(rawLLMOutput: string): {
 
 ## FASE 2 — Runtime de queryKnowledge
 
-**TODO**: La implementación va aquí.
+✅ **COMPLETADO** (2026-04-25)
+
+- [x] Runtime: `src/knowledge/query.js`
+  - `queryKnowledge(topic, limit=3)` — búsqueda por topic exact, tags overlap, content ILIKE
+  - Scoring: topic exact (100), topic partial (50), tags match (30), content (10)
+  - `getKnowledgeStats()` — row count + últimas 5 entries
+- [x] Exports: `src/knowledge/index.js`
+- [x] Endpoint: `/admin/knowledge-stats` (admin-gated)
 
 ---
 

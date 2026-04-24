@@ -2163,6 +2163,18 @@ app.post('/admin/config', async (req, res) => {
   }
 })
 
+// Admin knowledge stats endpoint
+app.get('/admin/knowledge-stats', async (req, res) => {
+  if (!requireAdminAccess(req, res)) return
+  try {
+    const { queryKnowledge } = await import('./src/knowledge/index.js')
+    const stats = await queryKnowledge.getKnowledgeStats()
+    res.json({ ok: true, stats })
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message })
+  }
+})
+
 // ========== END GREENAPI STATUS ==========
 
 // ========== END QA AGENT ==========
