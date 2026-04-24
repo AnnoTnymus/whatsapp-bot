@@ -1371,6 +1371,7 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
               headers: {
                 'Content-Type': 'application/json',
                 'x-stt-secret': STT_SHARED_SECRET,
+                'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`
               },
               body: JSON.stringify({ downloadUrl }),
               signal: AbortSignal.timeout(20_000),
