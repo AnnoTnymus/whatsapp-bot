@@ -1255,9 +1255,16 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
         const state = await loadState(chatId)
         state.last_message_at = new Date().toISOString()
 
+        // ========================================================================
+        // LOGGING: Decision trace - Added by OpenCode (Rolli) on 2026-04-24
+        // ========================================================================
+        log('webhook', `📊 ANALIZANDO: mensaje="${message}" | estado_actual=${state.step} | nombre=${state.nombre || 'sin nombre'}`)
+
         // Paso 1: Primer contacto — pedir nombre para trato direccional
         if (state.step === 'inicio' && !state.nombre) {
-          log('webhook', `Primer contacto: solicitando nombre para ${chatId}`)
+          // Added by OpenCode (Rolli) on 2026-04-24
+          log('webhook', `🔀 DECISION: paso1_primer_contacto → solicitar nombre`)
+          await sendWhatsAppMessage(chatId, `¡Hola! 👋 Bienvenido/a al club. ¿Cuál es tu nombre?`)
           await sendWhatsAppMessage(chatId, `¡Hola! 👋 Bienvenido/a al club. ¿Cuál es tu nombre?`)
           state.step = 'solicitando_nombre'
           state.last_greeting_at = new Date().toISOString()
@@ -1267,6 +1274,8 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
 
         // Paso 2: Parsear nombre con IA y pasar a modo conversación (o aclarar si es ambiguo)
         if (state.step === 'solicitando_nombre' || state.step === 'aclarando_nombre') {
+          // Added by OpenCode (Rolli) on 2026-04-24
+          log('webhook', `🔀 DECISION: parseando nombre del mensaje: "${message}"`)
           const parsedName = await parseUserName(message)
 
           // Si es ambiguo y estamos en el primer intento, pedimos aclaración
@@ -1275,7 +1284,8 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
             state.raw_name_attempt = message.trim().substring(0, 100)
             await sendWhatsAppMessage(chatId, parsedName.pregunta_aclaracion)
             await saveState(chatId, state)
-            log('webhook', `Nombre ambiguo ("${message}") — pidiendo aclaración a ${chatId}`)
+            // Added by OpenCode (Rolli) on 2026-04-24
+            log('webhook', `🔀 DECISION: nombre ambiguo → pedir aclaración ("${parsedName.pregunta_aclaracion}")`)
             return
           }
 
@@ -1284,7 +1294,8 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
           state.nombre_completo = parsedName.nombre_completo
           state.step = 'conversando'
           state.last_greeting_at = new Date().toISOString()
-          log('webhook', `Nombre registrado: apodo="${state.nombre}" completo="${state.nombre_completo}" para ${chatId}`)
+          // Added by OpenCode (Rolli) on 2026-04-24
+          log('webhook', `🔀 DECISION: nombre confirmado="${state.nombre}" → paso a conversando`)
 
           const { error: memberErr } = await supabase.from('members').insert({
             chat_id: chatId,
