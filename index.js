@@ -1,4 +1,5 @@
 import 'dotenv/config.js'
+import { timingSafeEqual } from 'crypto'
 import express from 'express'
 import fetch from 'node-fetch'
 import { readFileSync } from 'fs'
@@ -7,22 +8,37 @@ import { createClient } from '@supabase/supabase-js'
 import { SKILL_NAMES, invokeSkill, parseSkillMarker } from './skills.js'
 
 const app = express()
-app.use(express.json())
+app.disable('x-powered-by')
+app.use(express.json({ limit: '1mb' }))
 
+// Security hardening by Codex (GPT-5) on 2026-04-24:
+// production credentials must come from env vars, never from source defaults.
 const GREEN_URL = process.env.GREEN_API_URL ?? 'https://7107.api.greenapi.com'
-const GREEN_INSTANCE = process.env.GREEN_API_INSTANCE_ID ?? '7107588003'
-const GREEN_TOKEN = process.env.GREEN_API_TOKEN ?? '5d7a2dd449bd48deaed916c65ae197c86ceb73a683254677b5'
+const GREEN_INSTANCE = process.env.GREEN_API_INSTANCE_ID?.trim()
+const GREEN_TOKEN = process.env.GREEN_API_TOKEN?.trim()
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY?.replace(/[^\x20-\x7E]/g, '').trim()
 const MODEL = 'claude-opus-4-7'
 const RESEND_API_KEY = process.env.RESEND_API_KEY
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL
+const ADMIN_API_TOKEN = process.env.ADMIN_API_TOKEN?.trim()
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET?.trim()
+const REQUIRE_WEBHOOK_SECRET = process.env.REQUIRE_WEBHOOK_SECRET === 'true' || process.env.NODE_ENV === 'production'
+const ENABLE_TEST_ROUTES = process.env.ENABLE_TEST_ROUTES === 'true'
+const ENABLE_FOLLOWUP_CRON = process.env.ENABLE_FOLLOWUP_CRON !== 'false'
+const STT_FUNCTION_URL = process.env.STT_FUNCTION_URL?.trim()
+const STT_SHARED_SECRET = process.env.STT_SHARED_SECRET?.trim()
+const GREEN_API_CONFIGURED = Boolean(GREEN_INSTANCE && GREEN_TOKEN)
+const STT_CONFIGURED = Boolean(STT_FUNCTION_URL && STT_SHARED_SECRET)
 
 // Supabase client (v4.0 — persistence)
-// Uses service_role key if available (bypasses RLS), falls back to anon key
-const supabase = createClient(
-  process.env.SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || ''
-)
+// Server-side Supabase auth tightened by Codex (GPT-5) on 2026-04-24:
+// the bot only uses service_role, never anon, for patient/CRM data writes.
+const SUPABASE_URL = process.env.SUPABASE_URL || ''
+const SUPABASE_SERVER_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || ''
+const SUPABASE_USING_SERVICE_ROLE = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY)
+const supabase = SUPABASE_URL && SUPABASE_SERVER_KEY
+  ? createClient(SUPABASE_URL, SUPABASE_SERVER_KEY)
+  : null
 
 const conversationHistory = new Map()  // Still in-memory (reset hourly)
 const rateLimits = new Map()           // Still in-memory (reset hourly)
@@ -45,6 +61,61 @@ const TOKEN_BUDGET = {
 }
 
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null
+
+// Auth helpers added by Codex (GPT-5) on 2026-04-24 so admin/test routes and
+// public webhooks don't stay open in production.
+function safeCompare(expected, actual) {
+  if (!expected || !actual) return false
+  const expectedBuf = Buffer.from(expected)
+  const actualBuf = Buffer.from(actual)
+  if (expectedBuf.length !== actualBuf.length) return false
+  return timingSafeEqual(expectedBuf, actualBuf)
+}
+
+function getBearerToken(headerValue) {
+  if (!headerValue) return null
+  const match = headerValue.match(/^Bearer\s+(.+)$/i)
+  return match?.[1]?.trim() || null
+}
+
+function tokenMatches(expected, ...candidates) {
+  return candidates.some(candidate => safeCompare(expected, candidate))
+}
+
+function requireAdminAccess(req, res) {
+  if (!ADMIN_API_TOKEN) {
+    res.status(503).json({ ok: false, error: 'ADMIN_API_TOKEN no configurado' })
+    return false
+  }
+
+  const adminHeader = req.get('x-admin-token')?.trim()
+  const bearerToken = getBearerToken(req.get('authorization'))
+  if (!tokenMatches(ADMIN_API_TOKEN, adminHeader, bearerToken)) {
+    res.status(401).json({ ok: false, error: 'unauthorized' })
+    return false
+  }
+
+  return true
+}
+
+function isWebhookAuthorized(req) {
+  if (!REQUIRE_WEBHOOK_SECRET && !WEBHOOK_SECRET) return true
+  if (!WEBHOOK_SECRET) return false
+
+  const queryToken = typeof req.query.token === 'string' ? req.query.token.trim() : null
+  const headerToken = req.get('x-webhook-secret')?.trim()
+  const bearerToken = getBearerToken(req.get('authorization'))
+  return tokenMatches(WEBHOOK_SECRET, queryToken, headerToken, bearerToken)
+}
+
+function ensureTestRoutesEnabled(req, res) {
+  if (!ENABLE_TEST_ROUTES) {
+    res.status(404).json({ ok: false, error: 'disabled' })
+    return false
+  }
+
+  return requireAdminAccess(req, res)
+}
 
 function checkRateLimit(chatId) {
   const now = Date.now()
@@ -161,6 +232,7 @@ async function saveState(chatId, state) {
 }
 
 async function loadHistory(chatId) {
+  if (!supabase) return []
   try {
     const { data } = await supabase
       .from('conversation_history')
@@ -175,6 +247,7 @@ async function loadHistory(chatId) {
 }
 
 async function saveHistory(chatId, messages) {
+  if (!supabase) return
   try {
     await supabase.from('conversation_history').upsert(
       {
@@ -318,6 +391,11 @@ const greenApiStats = {
 }
 
 async function sendWhatsAppMessage(chatId, message) {
+  if (!GREEN_API_CONFIGURED) {
+    log('whatsapp', 'GreenAPI no configurado — no se puede enviar mensaje')
+    return { ok: false, reason: 'not_configured' }
+  }
+
   const url = `${GREEN_URL}/waInstance${GREEN_INSTANCE}/sendMessage/${GREEN_TOKEN}`
   try {
     const res = await fetch(url, {
@@ -404,6 +482,11 @@ async function notifyAdminQuotaExceeded(rawBody, rejectedChatId) {
 }
 
 async function downloadImage(idMessage, chatId) {
+  if (!GREEN_API_CONFIGURED) {
+    log('image', 'GreenAPI no configurado — no se puede descargar imagen')
+    return null
+  }
+
   const url = `${GREEN_URL}/waInstance${GREEN_INSTANCE}/downloadFile/${GREEN_TOKEN}`
   log('image', `Intentando descargar: ${idMessage} (chat: ${chatId})`)
   try {
@@ -1029,23 +1112,29 @@ async function insertMember(chatId, nombre, reprocannData, collectedData) {
       vencimiento = finalData.tramite.fecha_vencimiento
     }
 
-    const { error } = await supabase.from('members').insert({
-      chat_id: chatId,
-      nombre: nombre || finalData.nombre || 'Sin nombre',
-      dni: finalData.dni,
-      tipo_paciente: finalData.autorizacion?.tipo,
-      provincia: finalData.ubicacion?.provincia,
-      localidad: finalData.ubicacion?.localidad,
-      direccion: finalData.ubicacion?.direccion,
-      reprocann_vencimiento: vencimiento,
-      limite_transporte: finalData.autorizacion?.transporte,
-      estado_autorizacion: finalData.autorizacion?.estado,
-    })
+    // CRM upsert added by Codex (GPT-5) on 2026-04-24:
+    // the bot may create a provisional member early and complete it later.
+    const { error } = await supabase.from('members').upsert(
+      {
+        chat_id: chatId,
+        nombre: nombre || finalData.nombre || 'Sin nombre',
+        dni: finalData.dni,
+        tipo_paciente: finalData.autorizacion?.tipo,
+        provincia: finalData.ubicacion?.provincia,
+        localidad: finalData.ubicacion?.localidad,
+        direccion: finalData.ubicacion?.direccion,
+        reprocann_vencimiento: vencimiento,
+        limite_transporte: finalData.autorizacion?.transporte,
+        estado_autorizacion: finalData.autorizacion?.estado,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'chat_id' }
+    )
 
     if (error) {
-      log('members', `Error inserting member: ${error.message}`)
+      log('members', `Error upserting member: ${error.message}`)
     } else {
-      log('members', `Member inserted: ${nombre} (${chatId})`)
+      log('members', `Member upserted: ${nombre} (${chatId})`)
     }
   } catch (e) {
     log('members', `Exception inserting member: ${e.message}`)
@@ -1132,6 +1221,11 @@ function withChatLock(chatId, fn) {
 }
 
 app.post('/webhook', (req, res) => {
+  if (!isWebhookAuthorized(req)) {
+    log('auth', `Webhook rechazado por token inválido desde ${req.ip || 'unknown'}`)
+    return res.status(401).send('Unauthorized')
+  }
+
   res.send('OK')
 
   process.nextTick(async () => {
@@ -1193,27 +1287,41 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
 
         // Added by OpenCode (Rolli) on 2026-04-24
         if (downloadUrl) {
+          // STT auth/config hardening by Codex (GPT-5) on 2026-04-24:
+          // use a dedicated shared secret instead of broad Supabase credentials.
+          if (!STT_CONFIGURED) {
+            log('webhook', 'Audio recibido pero STT no está configurado de forma segura')
+            await sendWhatsAppMessage(chatId, 'Todavía no tengo la transcripción de audios habilitada. ¿Podés escribirlo?')
+            return
+          }
+
           try {
-            const sttUrl = 'https://ujlgicmuktpqxuulhhwm.supabase.co/functions/v1/whatsapp-audio-stt'
-            const sttResp = await fetch(sttUrl, {
+            const sttResp = await fetch(STT_FUNCTION_URL, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY}`
+                'x-stt-secret': STT_SHARED_SECRET,
               },
-              body: JSON.stringify({ downloadUrl })
+              body: JSON.stringify({ downloadUrl }),
+              signal: AbortSignal.timeout(20_000),
             })
-            const sttData = await sttResp.json()
+            const sttBody = await sttResp.text()
+            let sttData = null
+            try {
+              sttData = JSON.parse(sttBody)
+            } catch {
+              sttData = null
+            }
 
-            if (sttData.ok && sttData.text) {
-              log('webhook', `Audio transcript: "${sttData.text}"`)
+            if (sttResp.ok && sttData?.ok && typeof sttData.text === 'string' && sttData.text.trim()) {
+              log('webhook', `Audio transcript length=${sttData.text.trim().length}`)
               // Directly process as text - continue flow normally
               const transcript = sttData.text.trim()
               // Added by OpenCode (Rolli) on 2026-04-24
               message = transcript
               // Skip to text processing - don't read from body again
             } else {
-              log('webhook', `STT error: ${sttData.error || 'Unknown error'}`)
+              log('webhook', `STT error status=${sttResp.status}: ${(sttData?.error || sttBody || 'Unknown error').substring(0, 160)}`)
               await sendWhatsAppMessage(chatId, 'No pude transcribir el audio. ¿Podés escribirlo?')
               return
             }
@@ -1297,12 +1405,15 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
           // Added by OpenCode (Rolli) on 2026-04-24
           log('webhook', `🔀 DECISION: nombre confirmado="${state.nombre}" → paso a conversando`)
 
-          const { error: memberErr } = await supabase.from('members').insert({
+          // Member draft upsert added by Codex (GPT-5) on 2026-04-24 to avoid
+          // unique-key collisions when the same lead completes onboarding later.
+          const { error: memberErr } = await supabase.from('members').upsert({
             chat_id: chatId,
             nombre: state.nombre_completo || state.nombre,
-          })
-          if (memberErr && memberErr.code !== '23505') {
-            log('supabase', `⚠️ INSERT members falló (no crítico): ${memberErr.message}`)
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'chat_id' })
+          if (memberErr) {
+            log('supabase', `⚠️ UPSERT members falló (no crítico): ${memberErr.message}`)
           }
 
           await sendWhatsAppMessage(chatId, `¡Un gusto, ${state.nombre}! 🌿 ¿En qué te puedo ayudar? Puedo darte info legal del cannabis, guiarte con el trámite REPROCANN, o recomendarte genéticas según lo que busques.`)
@@ -1332,8 +1443,11 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
         }
 
         // Paso 4: Detectar pedido explícito de humano
+        // Added by OpenCode (Rolli) on 2026-04-24
         const wantHuman = /hablar.*persona|persona.*atienda|atender.*humano|atienda.*humano|pasar.*alguien|pasame.*con.*alguien|contactar.*equipo|speak.*human|hablar.*humano|agente.*humano|atenci[oó]n.*humana/i.test(message)
         if (wantHuman) {
+          // Added by OpenCode (Rolli) on 2026-04-24
+          log('webhook', `🔀 DECISION: usuario pidio humano → notificar al admin`)
           log('webhook', `User pidió hablar con humano: ${chatId}`)
 
           // Notificar al admin por email (principal — siempre que esté configurado)
@@ -1350,10 +1464,14 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
         }
 
         // Paso 5: Modo atención al cliente — Claude responde, detecta intent afiliación + skill
+        // Added by OpenCode (Rolli) on 2026-04-24
+        log('webhook', `🔀 DECISION: mensaje del usuario → llamar a Claude (orquestador)`)
         const { reply, wantsAffiliation, skillName, history: updatedHistory } = await askClaude(message, chatId)
 
         // Paso 5b: Si Claude pidió invocar una skill, ejecutarla — su respuesta reemplaza a la del orquestador
         if (skillName && SKILL_NAMES.includes(skillName)) {
+          // Added by OpenCode (Rolli) on 2026-04-24
+          log('webhook', `🔀 DECISION: Claude invocio skill=${skillName}`)
           log('webhook', `Invocando skill=${skillName} para ${chatId}`)
           const skillReply = await invokeSkill(skillName, message, updatedHistory || [], ANTHROPIC_KEY, MODEL)
           if (skillReply) {
@@ -1570,16 +1688,24 @@ app.get('/health', (req, res) => {
     threads: conversationHistory.size,
     inFlightWebhooks,
     activeChatLocks: chatLocks.size,
-    greenApi: greenApiStats,
+    // Public health payload minimized by Codex (GPT-5) on 2026-04-24.
+    greenApi: {
+      configured: GREEN_API_CONFIGURED,
+      sent: greenApiStats.sent,
+      failed: greenApiStats.failed,
+      quotaExceeded: greenApiStats.quotaExceeded,
+      quotaExceededAt: greenApiStats.quotaExceededAt,
+      lastErrorAt: greenApiStats.lastErrorAt,
+    },
     knowledgeBase: knowledgeBase.length > 0,
     anthropicKeySet: !!ANTHROPIC_KEY,
-    anthropicKeyPrefix: ANTHROPIC_KEY ? ANTHROPIC_KEY.substring(0, 20) + '...' : 'NOT SET',
-    anthropicKeyLength: ANTHROPIC_KEY?.length ?? 0,
-    anthropicKeyRaw: process.env.ANTHROPIC_API_KEY ? `len=${process.env.ANTHROPIC_API_KEY.length},codes=${[...process.env.ANTHROPIC_API_KEY.slice(-5)].map(c=>c.charCodeAt(0)).join(',')}` : 'NOT SET',
+    supabaseConfigured: !!supabase,
+    sttConfigured: STT_CONFIGURED,
   })
 })
 
 app.get('/test-claude', async (req, res) => {
+  if (!ensureTestRoutesEnabled(req, res)) return
   if (!ANTHROPIC_KEY) return res.json({ ok: false, error: 'ANTHROPIC_KEY not set' })
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
@@ -1696,9 +1822,14 @@ function buildFollowUpMessage(followup) {
   return opciones[Math.min(followup.intentos, opciones.length - 1)] || null
 }
 
-// Cron de followups — frecuencia configurable en notificaciones.config.json
-setInterval(runFollowUpCron, NOTIF_CFG.cronMinutos * 60 * 1000)
-log('cron', `Follow-up cron corriendo cada ${NOTIF_CFG.cronMinutos} minutos (modo=${NOTIF_CFG.modo})`)
+// Cron gating added by Codex (GPT-5) on 2026-04-24 so multi-instance deploys
+// can disable background jobs on replicas.
+if (ENABLE_FOLLOWUP_CRON) {
+  setInterval(runFollowUpCron, NOTIF_CFG.cronMinutos * 60 * 1000)
+  log('cron', `Follow-up cron corriendo cada ${NOTIF_CFG.cronMinutos} minutos (modo=${NOTIF_CFG.modo})`)
+} else {
+  log('cron', 'Follow-up cron deshabilitado por configuración')
+}
 
 // ========== v4.2: QA AGENT (manual, modo lectura) ==========
 
@@ -1721,6 +1852,7 @@ CATEGORÍAS:
 - <17 pts → DEFICIENTE`
 
 app.get('/admin/qa-report', async (req, res) => {
+  if (!requireAdminAccess(req, res)) return
   if (!supabase) return res.status(500).json({ ok: false, error: 'Supabase no configurado' })
   if (!ANTHROPIC_KEY) return res.status(500).json({ ok: false, error: 'ANTHROPIC_KEY no configurada' })
 
@@ -1822,6 +1954,7 @@ No inventes datos. Si no hay suficiente material, decilo en vez de rellenar.`
 // ========== v4.2: GREENAPI STATUS ==========
 
 app.get('/admin/greenapi-status', (req, res) => {
+  if (!requireAdminAccess(req, res)) return
   res.json({
     ok: true,
     ...greenApiStats,
@@ -1841,6 +1974,7 @@ app.get('/admin/greenapi-status', (req, res) => {
 
 // Endpoint de diagnóstico — muestra qué env vars tiene el bot (sin exponer secretos)
 app.get('/test/env-check', async (req, res) => {
+  if (!ensureTestRoutesEnabled(req, res)) return
   const url = process.env.SUPABASE_URL || ''
   const anon = process.env.SUPABASE_ANON_KEY || ''
   const svc = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
@@ -1879,6 +2013,7 @@ app.get('/test/env-check', async (req, res) => {
 })
 
 app.get('/test/seed-followups', async (req, res) => {
+  if (!ensureTestRoutesEnabled(req, res)) return
   if (!supabase) return res.json({ ok: false, error: 'Supabase not configured' })
 
   const testChatId = req.query.chat || '5491100000000@c.us'
@@ -1905,6 +2040,7 @@ app.get('/test/seed-followups', async (req, res) => {
 })
 
 app.get('/test/run-cron', async (req, res) => {
+  if (!ensureTestRoutesEnabled(req, res)) return
   await runFollowUpCron()
   res.json({ ok: true, message: 'Cron ejecutado manualmente' })
 })
@@ -1917,4 +2053,8 @@ app.listen(PORT, () => {
   log('server', `Modelo: ${MODEL}`)
   log('server', `API key configurada: ${!!ANTHROPIC_KEY}`)
   log('server', `Knowledge base: ${knowledgeBase.length} chars`)
+  log('server', `GreenAPI configurado: ${GREEN_API_CONFIGURED}`)
+  log('server', `Supabase configurado: ${!!supabase} (service_role=${SUPABASE_USING_SERVICE_ROLE})`)
+  log('server', `Webhook auth requerido: ${REQUIRE_WEBHOOK_SECRET}`)
+  log('server', `STT configurado: ${STT_CONFIGURED}`)
 })
