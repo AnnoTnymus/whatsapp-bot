@@ -6,7 +6,18 @@ import { createClient } from '@supabase/supabase-js'
 const SUPABASE_URL = process.env.SUPABASE_URL
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+let supabase = null
+
+function getSupabase() {
+  if (!supabase) {
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      console.warn('queryKnowledge: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set')
+      return null
+    }
+    supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+  }
+  return supabase
+}
 
 export async function queryKnowledge(topic, limit = 3) {
   if (!topic || typeof topic !== 'string') {
@@ -14,9 +25,12 @@ export async function queryKnowledge(topic, limit = 3) {
     return []
   }
 
+  const db = getSupabase()
+  if (!db) return []
+
   const searchTerm = topic.toLowerCase().trim()
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('bot_knowledge')
     .select('id, topic, content, tags, source_url, priority')
     .eq('active', true)
@@ -60,16 +74,20 @@ export async function queryKnowledge(topic, limit = 3) {
 }
 
 export async function getKnowledgeStats() {
-  const { count, error } = await supabase
+  const db = getSupabase()
+  if (!db) return { total: 0, recent: [] }
+
+  const { count, error } = await db
     .from('bot_knowledge')
     .select('*', { count: 'exact', head: true })
     .eq('active', true)
 
   if (error) {
-    throw new Error(`getKnowledgeStats failed: ${error.message}`)
+    console.error(`getKnowledgeStats failed: ${error.message}`)
+    return { total: 0, recent: [] }
   }
 
-  const { data: recent } = await supabase
+  const { data: recent } = await db
     .from('bot_knowledge')
     .select('id, topic, updated_at')
     .order('updated_at', { ascending: false })
