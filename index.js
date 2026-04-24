@@ -4,6 +4,7 @@ import fetch from 'node-fetch'
 import { readFileSync } from 'fs'
 import { Resend } from 'resend'
 import { createClient } from '@supabase/supabase-js'
+import { SKILL_NAMES, invokeSkill, parseSkillMarker } from './skills.js'
 
 const app = express()
 app.use(express.json())
@@ -249,6 +250,30 @@ Ejemplo de respuesta correcta ante "quiero afiliarme":
 NO pongas [[AFILIAR]] si el usuario solo pregunta "¿cómo funciona la afiliación?" o "¿qué necesito para ser socio?" sin decir que QUIERE hacerlo ahora. En ese caso solo explicale los requisitos.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SKILLS ESPECIALIZADAS — MARCADORES [[SKILL:nombre]]:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Tenés 3 skills (asistentes expertos) que podés invocar agregando un marcador al final de tu respuesta. El sistema detecta el marcador, invoca al experto, y su respuesta reemplaza la tuya:
+
+1. **[[SKILL:legal_faq]]** — Consultas sobre ley, marco legal, compliance, tenencia, Ley 27.350, REPROCANN desde lo legal, autocultivo legal, clubes cannábicos legales, Arriola, causas judiciales.
+   Ejemplos: "¿es legal tener plantas en casa?", "¿qué ley regula el cannabis?", "¿me pueden detener por tener aceite?"
+
+2. **[[SKILL:reprocann_guide]]** — Guía paso a paso del TRÁMITE REPROCANN (cómo hacerlo, requisitos, médicos, tiempos, costos, renovación, modalidades).
+   Ejemplos: "¿cómo arranco con el REPROCANN?", "¿cuánto tarda el trámite?", "¿qué médico me sirve?", "¿qué documentos piden?"
+
+3. **[[SKILL:genetics_expert]]** — Asesoramiento sobre CEPAS/genéticas según efecto buscado (dormir, dolor, creatividad, socializar), diferencias indica/sativa/híbrida, THC/CBD, terpenos, tolerancia.
+   Ejemplos: "¿qué genética me recomendás para dormir?", "¿cuál es más suave?", "diferencia entre indica y sativa"
+
+CÓMO USAR LOS MARCADORES:
+- Si detectás que la consulta encaja con una skill, podés dar una mini-intro de 1 línea ("Dale, te paso info") y en LÍNEA APARTE al final poné [[SKILL:nombre]].
+- Si invocás una skill, TU respuesta se reemplaza por la del experto — no duplicá info, mejor dejá que el experto responda.
+- Para saludos, datos del club, horarios, afiliación, o temas que NO son legales/REPROCANN/genéticas, NO invoques skill — respondé vos directo.
+- No inventés skills que no existan. Solo: legal_faq, reprocann_guide, genetics_expert.
+- Nunca menciones los marcadores al usuario — son invisibles para él.
+
+OFRECIMIENTO PROACTIVO (IMPORTANTE):
+Cuando el usuario se acaba de presentar con su nombre y preguntás "¿en qué te puedo ayudar?", podés mencionar brevemente los 3 temas disponibles. Ejemplo: "Puedo ayudarte con info legal del cannabis, el trámite REPROCANN, o consejos de genéticas según lo que busques 🌿 ¿Por dónde arrancamos?"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REGLAS FIJAS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - Nunca des una dirección exacta (solo zona: "Palermo").
@@ -260,6 +285,21 @@ function log(tag, ...args) {
   console.log(`[${new Date().toISOString()}] [${tag}]`, ...args)
 }
 
+// v4.2: Métricas de GreenAPI — cuota/whitelist, errores, último 466
+// NOTA: el plan "developer" de GreenAPI tiene WHITELIST de números. Solo responde a chatIds
+// autorizados en my.green-api.com. Si el bot recibe un mensaje de un número no autorizado,
+// GreenAPI acepta el incoming pero rechaza el outgoing con HTTP 466 "QUOTE_ALLOWED_EXCEEDED".
+// Workarounds: (a) agregar el número a la whitelist, (b) upgrade al plan de pago.
+const greenApiStats = {
+  sent: 0,
+  failed: 0,
+  quotaExceeded: false,
+  quotaExceededAt: null,
+  rejectedChatIds: [],  // chatIds que intentaron contactar pero no pudimos responder
+  lastError: null,
+  lastErrorAt: null,
+}
+
 async function sendWhatsAppMessage(chatId, message) {
   const url = `${GREEN_URL}/waInstance${GREEN_INSTANCE}/sendMessage/${GREEN_TOKEN}`
   try {
@@ -269,9 +309,80 @@ async function sendWhatsAppMessage(chatId, message) {
       body: JSON.stringify({ chatId, message }),
     })
     const text = await res.text()
+
+    // GreenAPI devuelve 466 cuando se agota la cuota mensual del plan
+    // El payload trae algo como: {"invokeStatus":{"method":"sendmessage","used":250,"total":0,"status":"QUOTE_ALLOWED_EXCEEDED"}}
+    if (res.status === 466 || /QUOTE_ALLOWED_EXCEEDED|quotaExceeded/i.test(text)) {
+      greenApiStats.quotaExceeded = true
+      greenApiStats.quotaExceededAt = new Date().toISOString()
+      greenApiStats.failed++
+      greenApiStats.lastError = `QUOTA/WHITELIST (466): ${text.substring(0, 150)}`
+      greenApiStats.lastErrorAt = new Date().toISOString()
+
+      // Guardar chatId rechazado para que el admin sepa a quién whitelistear
+      if (chatId && !greenApiStats.rejectedChatIds.includes(chatId)) {
+        greenApiStats.rejectedChatIds.push(chatId)
+        if (greenApiStats.rejectedChatIds.length > 20) greenApiStats.rejectedChatIds.shift()
+      }
+
+      log('whatsapp', `🚨 GREENAPI 466 — chat=${chatId} NO AUTORIZADO (whitelist) o cuota agotada. Agregá el número en my.green-api.com o upgradeá el plan. Body: ${text.substring(0, 200)}`)
+
+      await notifyAdminQuotaExceeded(text, chatId)
+      return { ok: false, reason: 'quota_or_whitelist', status: res.status }
+    }
+
+    if (!res.ok) {
+      greenApiStats.failed++
+      greenApiStats.lastError = `HTTP ${res.status}: ${text.substring(0, 150)}`
+      greenApiStats.lastErrorAt = new Date().toISOString()
+      log('whatsapp', `❌ Envío falló (${res.status}) chat=${chatId}: ${text.substring(0, 150)}`)
+      return { ok: false, reason: 'http_error', status: res.status }
+    }
+
+    greenApiStats.sent++
+    // Si venimos de cuota agotada y ahora funciona, limpiar el flag
+    if (greenApiStats.quotaExceeded) {
+      greenApiStats.quotaExceeded = false
+      log('whatsapp', `✅ Cuota restablecida, enviando de nuevo`)
+    }
     log('whatsapp', `Status: ${res.status} | ${text.substring(0, 80)}`)
+    return { ok: true, status: res.status }
   } catch (e) {
+    greenApiStats.failed++
+    greenApiStats.lastError = `Exception: ${e.message}`
+    greenApiStats.lastErrorAt = new Date().toISOString()
     log('whatsapp', `Error al enviar: ${e.message}`)
+    return { ok: false, reason: 'exception' }
+  }
+}
+
+// Alerta al admin cuando GreenAPI rechaza un envío (466). Causas posibles:
+//  1) número no está en la whitelist del plan developer (más común)
+//  2) cuota mensual agotada del plan
+// Throttled: 1 alerta por hora para no spamear.
+let lastQuotaAlertAt = 0
+async function notifyAdminQuotaExceeded(rawBody, rejectedChatId) {
+  const now = Date.now()
+  if (now - lastQuotaAlertAt < 60 * 60 * 1000) return  // 1 alerta por hora max
+  lastQuotaAlertAt = now
+
+  const subject = `🚨 GreenAPI rechazó envío (HTTP 466) — chat ${rejectedChatId || 'N/A'}`
+  const body = `GreenAPI devolvió 466 "QUOTE_ALLOWED_EXCEEDED".\n\nCausas probables:\n  1. El número NO está en la whitelist del plan developer.\n  2. Cuota mensual del plan agotada.\n\nChat afectado: ${rejectedChatId || 'desconocido'}\n\nAcción: abrí my.green-api.com → tu instancia → agregá el número a la whitelist, o upgradeá el plan.\n\nÚltimos rechazados: ${greenApiStats.rejectedChatIds.slice(-5).join(', ') || 'ninguno'}\n\nRaw: ${rawBody?.substring(0, 300) || 'sin detalle'}`
+
+  if (resend && ADMIN_EMAIL) {
+    try {
+      await resend.emails.send({
+        from: 'Bot Club <onboarding@resend.dev>',
+        to: ADMIN_EMAIL,
+        subject,
+        html: `<h2>${subject}</h2><pre>${body}</pre>`,
+      })
+      log('admin', `📧 Alerta de cuota enviada a ${ADMIN_EMAIL}`)
+    } catch (e) {
+      log('admin', `Error enviando alerta de cuota: ${e.message}`)
+    }
+  } else {
+    log('admin', `⚠️ Quota exceeded pero no hay ADMIN_EMAIL/resend configurado para alertar`)
   }
 }
 
@@ -754,18 +865,23 @@ async function askClaude(msg, chatId) {
 
     // Detectar marker de intent de afiliación
     const wantsAffiliation = /\[\[AFILIAR\]\]/i.test(rawReply)
-    const reply = rawReply.replace(/\[\[AFILIAR\]\]/gi, '').trim()
+    let reply = rawReply.replace(/\[\[AFILIAR\]\]/gi, '').trim()
 
-    log('claude', `Respuesta: ${reply.substring(0, 100)} | afiliacion=${wantsAffiliation}`)
+    // Detectar marker de skill especializada
+    const parsed = parseSkillMarker(reply)
+    reply = parsed.cleanReply
+    const skillName = parsed.skillName
+
+    log('claude', `Respuesta: ${reply.substring(0, 100)} | afiliacion=${wantsAffiliation} | skill=${skillName || 'none'}`)
 
     const updated = [...history, { role: 'user', content: msg }, { role: 'assistant', content: reply }]
     conversationHistory.set(chatId, updated)
     await saveHistory(chatId, updated)
 
-    return { reply, wantsAffiliation }
+    return { reply, wantsAffiliation, skillName, history: updated }
   } catch (e) {
     log('claude', `Excepcion: ${e.message}`)
-    return { reply: 'Disculpá, tuvimos un problema técnico. Intentá de nuevo en un momento 🙏', wantsAffiliation: false }
+    return { reply: 'Disculpá, tuvimos un problema técnico. Intentá de nuevo en un momento 🙏', wantsAffiliation: false, skillName: null, history: [] }
   }
 }
 
@@ -869,21 +985,60 @@ function randomRespuesta(tipo, chatId = null) {
 
 // ========== END OFF-FLOW ==========
 
+// v4.2: Concurrency control — lock por chatId para evitar que dos mensajes del
+// mismo usuario corran read-modify-write del state en paralelo.
+// Distintos chatIds NO se bloquean entre sí (procesamiento paralelo real).
+const chatLocks = new Map()  // chatId -> Promise (cola serializada)
+let inFlightWebhooks = 0
+
+function withChatLock(chatId, fn) {
+  const prev = chatLocks.get(chatId) || Promise.resolve()
+  const next = prev.then(fn, fn).finally(() => {
+    if (chatLocks.get(chatId) === next) chatLocks.delete(chatId)
+  })
+  chatLocks.set(chatId, next)
+  return next
+}
+
 app.post('/webhook', (req, res) => {
   res.send('OK')
 
   process.nextTick(async () => {
+    const t0 = Date.now()
+    inFlightWebhooks++
     try {
       const body = req.body
-      log('webhook', `Recibido: typeWebhook=${body.typeWebhook}`)
-
-      if (body.typeWebhook !== 'incomingMessageReceived') return
-
       const msgType = body.messageData?.typeMessage
       const chatId = body.senderData?.chatId
       const sender = body.senderData?.senderName
 
+      log('webhook', `Recibido: typeWebhook=${body.typeWebhook} msgType=${msgType} chat=${chatId} inFlight=${inFlightWebhooks}`)
+
+      // GreenAPI manda este webhook cuando se agota la cuota del plan
+      if (body.typeWebhook === 'quotaExceeded') {
+        greenApiStats.quotaExceeded = true
+        greenApiStats.quotaExceededAt = new Date().toISOString()
+        log('webhook', `🚨 GREENAPI QUOTA EXCEEDED webhook recibido — bot no puede enviar`)
+        await notifyAdminQuotaExceeded(JSON.stringify(body).substring(0, 300))
+        return
+      }
+
+      if (body.typeWebhook !== 'incomingMessageReceived') return
       if (!chatId) return
+
+      // Serializar mensajes del mismo chatId — distintos números procesan en paralelo
+      await withChatLock(chatId, () => handleMessage(body, msgType, chatId, sender, t0))
+    } catch (e) {
+      log('webhook', `Error inesperado outer: ${e.message}`)
+    } finally {
+      inFlightWebhooks--
+      log('webhook', `Done in ${Date.now() - t0}ms inFlight=${inFlightWebhooks}`)
+    }
+  })
+})
+
+async function handleMessage(body, msgType, chatId, sender, t0) {
+  try {
 
       // v4.1: Handle off-flow messages (stickers, audios, reactions)
       if (msgType === 'stickerMessage') {
@@ -949,7 +1104,7 @@ app.post('/webhook', (req, res) => {
             log('supabase', `⚠️ INSERT members falló (no crítico): ${memberErr.message}`)
           }
 
-          await sendWhatsAppMessage(chatId, `¡Un gusto, ${state.nombre}! 🌿 ¿En qué te puedo ayudar?`)
+          await sendWhatsAppMessage(chatId, `¡Un gusto, ${state.nombre}! 🌿 ¿En qué te puedo ayudar? Puedo darte info legal del cannabis, guiarte con el trámite REPROCANN, o recomendarte genéticas según lo que busques.`)
           await saveState(chatId, state)
           return
         }
@@ -985,10 +1140,33 @@ app.post('/webhook', (req, res) => {
           return
         }
 
-        // Paso 5: Modo atención al cliente — Claude responde, detecta intent afiliación
-        const { reply, wantsAffiliation } = await askClaude(message, chatId)
-        await sendWhatsAppMessage(chatId, reply)
-        log('webhook', `Respuesta enviada a ${chatId} | wantsAffiliation=${wantsAffiliation}`)
+        // Paso 5: Modo atención al cliente — Claude responde, detecta intent afiliación + skill
+        const { reply, wantsAffiliation, skillName, history: updatedHistory } = await askClaude(message, chatId)
+
+        // Paso 5b: Si Claude pidió invocar una skill, ejecutarla — su respuesta reemplaza a la del orquestador
+        if (skillName && SKILL_NAMES.includes(skillName)) {
+          log('webhook', `Invocando skill=${skillName} para ${chatId}`)
+          const skillReply = await invokeSkill(skillName, message, updatedHistory || [], ANTHROPIC_KEY, MODEL)
+          if (skillReply) {
+            await sendWhatsAppMessage(chatId, skillReply)
+            // Reemplazar la última entrada assistant en historial con la respuesta del experto
+            const hist = conversationHistory.get(chatId) || []
+            if (hist.length > 0 && hist[hist.length - 1].role === 'assistant') {
+              hist[hist.length - 1] = { role: 'assistant', content: skillReply }
+              conversationHistory.set(chatId, hist)
+              await saveHistory(chatId, hist)
+            }
+            log('webhook', `Skill ${skillName} respondió a ${chatId}`)
+          } else {
+            // Fallback: si la skill falla, mandamos la respuesta original del orquestador
+            log('webhook', `Skill ${skillName} falló, usando fallback del orquestador`)
+            await sendWhatsAppMessage(chatId, reply)
+          }
+        } else {
+          await sendWhatsAppMessage(chatId, reply)
+        }
+
+        log('webhook', `Respuesta enviada a ${chatId} | wantsAffiliation=${wantsAffiliation} | skill=${skillName || 'none'}`)
 
         // Paso 6: Si Claude detectó intent de afiliación, transicionar al flujo de documentos
         if (wantsAffiliation && state.step !== 'recibiendo_documentos' && state.step !== 'completando_datos' && state.step !== 'completado') {
@@ -1170,11 +1348,10 @@ app.post('/webhook', (req, res) => {
       } else {
         log('webhook', `Tipo no soportado: ${msgType}`)
       }
-    } catch (e) {
-      log('webhook', `Error inesperado: ${e.message}`)
-    }
-  })
-})
+  } catch (e) {
+    log('webhook', `Error inesperado handler (chat=${chatId}, t=${Date.now() - t0}ms): ${e.message}`)
+  }
+}
 
 app.get('/health', (req, res) => {
   res.json({
@@ -1182,6 +1359,9 @@ app.get('/health', (req, res) => {
     uptime: Math.floor(process.uptime()),
     model: MODEL,
     threads: conversationHistory.size,
+    inFlightWebhooks,
+    activeChatLocks: chatLocks.size,
+    greenApi: greenApiStats,
     knowledgeBase: knowledgeBase.length > 0,
     anthropicKeySet: !!ANTHROPIC_KEY,
     anthropicKeyPrefix: ANTHROPIC_KEY ? ANTHROPIC_KEY.substring(0, 20) + '...' : 'NOT SET',
@@ -1310,6 +1490,142 @@ function buildFollowUpMessage(followup) {
 // Cron de followups — frecuencia configurable en notificaciones.config.json
 setInterval(runFollowUpCron, NOTIF_CFG.cronMinutos * 60 * 1000)
 log('cron', `Follow-up cron corriendo cada ${NOTIF_CFG.cronMinutos} minutos (modo=${NOTIF_CFG.modo})`)
+
+// ========== v4.2: QA AGENT (manual, modo lectura) ==========
+
+// Endpoint manual — lee últimas N conversaciones y pide a Claude evaluarlas
+// contra rúbrica (tono, claridad, empatía, conversión, cobertura).
+// Devuelve markdown con resumen, fallos y sugerencias al SYSTEM_PROMPT.
+// NO aplica cambios automáticos — solo lectura.
+
+const QA_RUBRIC = `RÚBRICA DE EVALUACIÓN (cada conversación, puntaje 1-5 por criterio):
+
+1. **Tono** — ¿Cordial, profesional, rioplatense sin "boludo"? ¿Usa "che" solo en off-topic?
+2. **Claridad** — ¿Se entiende fácil? ¿Frases cortas estilo WhatsApp?
+3. **Empatía** — ¿Reconoce la situación del usuario? ¿Lo hace sentir escuchado?
+4. **Conversión** — ¿Guía hacia el próximo paso útil (afiliación si aplica, info si consulta)?
+5. **Cobertura** — ¿Responde lo que el usuario pregunta? ¿Sin inventar datos?
+
+CATEGORÍAS:
+- 22-25 pts → EXCELENTE
+- 17-21 pts → ACEPTABLE
+- <17 pts → DEFICIENTE`
+
+app.get('/admin/qa-report', async (req, res) => {
+  if (!supabase) return res.status(500).json({ ok: false, error: 'Supabase no configurado' })
+  if (!ANTHROPIC_KEY) return res.status(500).json({ ok: false, error: 'ANTHROPIC_KEY no configurada' })
+
+  const limit = Math.min(parseInt(req.query.limit) || 20, 50)
+  const format = (req.query.format || 'markdown').toLowerCase()
+
+  log('qa', `Ejecutando QA report sobre últimas ${limit} conversaciones`)
+
+  try {
+    const { data: convs, error } = await supabase
+      .from('conversation_history')
+      .select('chat_id, messages, updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(limit)
+
+    if (error) return res.status(500).json({ ok: false, error: error.message })
+    if (!convs || convs.length === 0) {
+      return res.json({ ok: true, report: '# QA Report\n\nNo hay conversaciones para evaluar todavía.' })
+    }
+
+    // Compactar conversaciones para el evaluador
+    const dossier = convs.map((c, i) => {
+      const msgs = (c.messages || []).slice(-10).map(m => {
+        const who = m.role === 'user' ? 'USER' : 'BOT'
+        const content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content).substring(0, 200)
+        return `  ${who}: ${content.substring(0, 300)}`
+      }).join('\n')
+      return `### Conversación #${i + 1} (chat: ${c.chat_id})\n${msgs}`
+    }).join('\n\n')
+
+    const evalPrompt = `Sos un QA agent especializado en evaluar calidad de atención de un bot de WhatsApp de un club cannábico argentino.
+
+${QA_RUBRIC}
+
+CONVERSACIONES A EVALUAR (últimas ${convs.length}):
+
+${dossier}
+
+ENTREGÁ un reporte en MARKDOWN con EXACTAMENTE esta estructura:
+
+# QA Report — ${new Date().toLocaleString('es-AR')}
+
+## Resumen
+- Total evaluadas: ${convs.length}
+- Excelentes: X (X%)
+- Aceptables: X (X%)
+- Deficientes: X (X%)
+
+## Top 5 mensajes problemáticos
+(Listá los 5 peores intercambios con: chat_id abreviado, cita literal del mensaje del bot, y qué falló en 1 línea)
+
+## Patrones detectados
+(2-4 bullets con problemas recurrentes: ej. "el bot no ofrece las skills cuando corresponde", "a veces usa tono muy formal")
+
+## Sugerencias para el SYSTEM_PROMPT
+(3-5 sugerencias concretas, accionables, como una lista. Ej: "Agregar regla: cuando el usuario pregunte por dormir, invocar genetics_expert")
+
+## Fortalezas observadas
+(2-3 bullets con lo que el bot hace bien y no hay que romper)
+
+No inventes datos. Si no hay suficiente material, decilo en vez de rellenar.`
+
+    const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': ANTHROPIC_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 2000,
+        messages: [{ role: 'user', content: evalPrompt }],
+      }),
+    })
+
+    if (!aiRes.ok) {
+      const err = await aiRes.text()
+      log('qa', `Error de Claude: ${err.substring(0, 200)}`)
+      return res.status(500).json({ ok: false, error: `Claude API error: ${aiRes.status}` })
+    }
+
+    const aiData = await aiRes.json()
+    const report = aiData.content[0].text.trim()
+
+    log('qa', `Reporte generado: ${report.length} chars`)
+
+    if (format === 'json') {
+      return res.json({ ok: true, evaluated: convs.length, report })
+    }
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8')
+    return res.send(report)
+  } catch (e) {
+    log('qa', `Excepción: ${e.message}`)
+    return res.status(500).json({ ok: false, error: e.message })
+  }
+})
+
+// ========== v4.2: GREENAPI STATUS ==========
+
+app.get('/admin/greenapi-status', (req, res) => {
+  res.json({
+    ok: true,
+    ...greenApiStats,
+    hint: greenApiStats.quotaExceeded
+      ? 'GreenAPI está rechazando envíos con 466. Revisá whitelist en my.green-api.com o upgradeá el plan.'
+      : 'GreenAPI funcionando OK',
+    rejectedNumbers: greenApiStats.rejectedChatIds.map(c => c.replace('@c.us', '')),
+  })
+})
+
+// ========== END GREENAPI STATUS ==========
+
+// ========== END QA AGENT ==========
 
 // ========== v4.0: TEST ROUTES (Fase 5) ==========
 

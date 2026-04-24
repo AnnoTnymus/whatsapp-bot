@@ -85,9 +85,9 @@ console.log('\n🧪 Suite 3: Detección de intent de afiliación vía marker [[A
 
 assert('SYSTEM_PROMPT menciona el marker [[AFILIAR]]', () => /\[\[AFILIAR\]\]/.test(src))
 
-assert('askClaude devuelve { reply, wantsAffiliation }', () => {
-  if (!/return\s*\{\s*reply,\s*wantsAffiliation\s*\}/.test(src))
-    throw new Error('askClaude no retorna object con wantsAffiliation')
+assert('askClaude devuelve { reply, wantsAffiliation, ... }', () => {
+  if (!/return\s*\{\s*reply,\s*wantsAffiliation/.test(src))
+    throw new Error('askClaude no retorna object con reply y wantsAffiliation')
   return true
 })
 
@@ -214,6 +214,178 @@ assert('audio tiene tono jocoso ("oídos"/"tacaño"/"mudo")', () => {
   const m = offFlowBlock.match(/audio:\s*\[([\s\S]*?)\]/)
   if (!/oídos|tacaño|mudo|nanai|kryptonita|jefe/i.test(m[1]))
     throw new Error('audio no tiene tono jocoso')
+  return true
+})
+
+// ============ SUITE 9: Skills (v4.2) — legal_faq, reprocann_guide, genetics_expert ============
+console.log('\n🧪 Suite 9: Skills integration (v4.2)')
+
+const skillsSrc = readFileSync('./skills.js', 'utf-8')
+
+assert('skills.js exporta SKILL_NAMES con los 3 nombres correctos', () => {
+  if (!/SKILL_NAMES\s*=\s*\[\s*'legal_faq'\s*,\s*'reprocann_guide'\s*,\s*'genetics_expert'/.test(skillsSrc))
+    throw new Error('SKILL_NAMES no contiene los 3 skills esperados')
+  return true
+})
+
+assert('skills.js exporta invokeSkill y parseSkillMarker', () => {
+  if (!/export (async )?function invokeSkill/.test(skillsSrc)) throw new Error('falta invokeSkill')
+  if (!/export function parseSkillMarker/.test(skillsSrc)) throw new Error('falta parseSkillMarker')
+  return true
+})
+
+assert('SKILL_PROMPTS tiene las 3 skills con contenido sustancial', () => {
+  for (const s of ['legal_faq', 'reprocann_guide', 'genetics_expert']) {
+    const re = new RegExp(`${s}:\\s*\``)
+    if (!re.test(skillsSrc)) throw new Error(`falta prompt para ${s}`)
+  }
+  // Cada prompt debería tener > 500 chars
+  const prompts = skillsSrc.match(/`[^`]{500,}`/g) || []
+  if (prompts.length < 3) throw new Error(`prompts muy cortos: ${prompts.length}`)
+  return true
+})
+
+assert('parseSkillMarker detecta [[SKILL:nombre]] correctamente', () => {
+  if (!/\\\[\\\[SKILL:\(\\w\+\)\\\]\\\]/.test(skillsSrc))
+    throw new Error('regex de parseSkillMarker no está bien')
+  return true
+})
+
+assert('index.js importa skills.js', () => {
+  if (!/from '\.\/skills\.js'/.test(src)) throw new Error('falta import de skills.js')
+  if (!/SKILL_NAMES.*invokeSkill.*parseSkillMarker|parseSkillMarker.*invokeSkill.*SKILL_NAMES/.test(src))
+    throw new Error('import no trae los 3 símbolos esperados')
+  return true
+})
+
+assert('SYSTEM_PROMPT documenta los 3 markers [[SKILL:...]]', () => {
+  if (!/\[\[SKILL:legal_faq\]\]/.test(src)) throw new Error('falta documentación [[SKILL:legal_faq]]')
+  if (!/\[\[SKILL:reprocann_guide\]\]/.test(src)) throw new Error('falta documentación [[SKILL:reprocann_guide]]')
+  if (!/\[\[SKILL:genetics_expert\]\]/.test(src)) throw new Error('falta documentación [[SKILL:genetics_expert]]')
+  return true
+})
+
+assert('askClaude retorna skillName además de reply/wantsAffiliation', () => {
+  if (!/return\s*\{\s*reply,\s*wantsAffiliation,\s*skillName/.test(src))
+    throw new Error('askClaude no retorna skillName')
+  return true
+})
+
+assert('webhook invoca skill cuando Claude la marca', () => {
+  if (!/invokeSkill\(skillName/.test(src)) throw new Error('webhook no invoca invokeSkill')
+  if (!/SKILL_NAMES\.includes\(skillName\)/.test(src))
+    throw new Error('webhook no valida skillName contra SKILL_NAMES')
+  return true
+})
+
+assert('Saludo post-nombre menciona los 3 temas (legal, REPROCANN, genéticas)', () => {
+  const m = src.match(/¡Un gusto[^`]*`/)
+  if (!m) throw new Error('no encontré saludo post-nombre')
+  const txt = m[0]
+  if (!/legal/i.test(txt)) throw new Error('saludo no menciona legal')
+  if (!/reprocann/i.test(txt)) throw new Error('saludo no menciona REPROCANN')
+  if (!/gen[eé]tica/i.test(txt)) throw new Error('saludo no menciona genéticas')
+  return true
+})
+
+// ============ SUITE 10: QA Agent endpoint ============
+console.log('\n🧪 Suite 10: QA Agent endpoint /admin/qa-report')
+
+assert('Existe endpoint GET /admin/qa-report', () => {
+  if (!/app\.get\(['"]\/admin\/qa-report['"]/.test(src))
+    throw new Error('no existe ruta /admin/qa-report')
+  return true
+})
+
+assert('QA endpoint lee conversation_history con limit', () => {
+  if (!/from\(['"]conversation_history['"]\)/.test(src))
+    throw new Error('QA no consulta conversation_history')
+  if (!/\.limit\(limit\)/.test(src)) throw new Error('QA no aplica limit')
+  return true
+})
+
+assert('QA tiene rúbrica definida', () => {
+  if (!/QA_RUBRIC/.test(src)) throw new Error('falta QA_RUBRIC')
+  if (!/Tono|Claridad|Empat[ií]a|Conversi[oó]n|Cobertura/.test(src))
+    throw new Error('rúbrica no menciona los 5 criterios')
+  return true
+})
+
+assert('QA no aplica cambios automáticos al prompt (solo lectura)', () => {
+  // No debería haber ningún UPDATE/PATCH sobre el SYSTEM_PROMPT desde /admin/qa-report
+  const qaBlock = src.match(/app\.get\(['"]\/admin\/qa-report['"][^}]*?\}\)/s)
+  if (qaBlock && /SYSTEM_PROMPT\s*=/.test(qaBlock[0]))
+    throw new Error('QA modifica SYSTEM_PROMPT — debería ser solo lectura')
+  return true
+})
+
+// ============ SUITE 11: Concurrencia (v4.2) — per-chat lock, sin bloqueo cross-chat ============
+console.log('\n🧪 Suite 11: Concurrencia — lock por chatId, distintos números procesan en paralelo')
+
+assert('Existe chatLocks Map para serializar mensajes del mismo chat', () => {
+  if (!/const chatLocks = new Map\(\)/.test(src)) throw new Error('falta chatLocks Map')
+  return true
+})
+
+assert('Existe withChatLock para envolver el procesamiento', () => {
+  if (!/function withChatLock\(chatId,\s*fn\)/.test(src)) throw new Error('falta withChatLock')
+  return true
+})
+
+assert('Webhook llama a withChatLock antes de handleMessage', () => {
+  if (!/withChatLock\(chatId,\s*\(\)\s*=>\s*handleMessage/.test(src))
+    throw new Error('webhook no envuelve handleMessage en withChatLock')
+  return true
+})
+
+assert('Se contabiliza inFlightWebhooks para observabilidad', () => {
+  if (!/inFlightWebhooks\+\+/.test(src)) throw new Error('falta incremento de inFlightWebhooks')
+  if (!/inFlightWebhooks--/.test(src)) throw new Error('falta decremento de inFlightWebhooks')
+  return true
+})
+
+assert('/health expone inFlightWebhooks y activeChatLocks', () => {
+  if (!/inFlightWebhooks[,\s]/.test(src)) throw new Error('/health no expone inFlightWebhooks')
+  if (!/activeChatLocks/.test(src)) throw new Error('/health no expone activeChatLocks')
+  return true
+})
+
+assert('Locks se limpian del Map cuando terminan (evita leak)', () => {
+  if (!/chatLocks\.delete\(chatId\)/.test(src)) throw new Error('locks no se limpian del Map')
+  return true
+})
+
+// ============ SUITE 12: GreenAPI quota handling (v4.2) ============
+console.log('\n🧪 Suite 12: Detección de cuota agotada en GreenAPI')
+
+assert('sendWhatsAppMessage detecta HTTP 466 y QUOTE_ALLOWED_EXCEEDED', () => {
+  if (!/res\.status === 466|QUOTE_ALLOWED_EXCEEDED/.test(src))
+    throw new Error('no detecta 466 / QUOTE_ALLOWED_EXCEEDED')
+  return true
+})
+
+assert('Existe greenApiStats con contadores sent/failed/quotaExceeded', () => {
+  if (!/greenApiStats\s*=\s*\{/.test(src)) throw new Error('falta greenApiStats')
+  if (!/sent:\s*0/.test(src) || !/failed:\s*0/.test(src) || !/quotaExceeded:\s*false/.test(src))
+    throw new Error('greenApiStats no tiene los campos esperados')
+  return true
+})
+
+assert('Webhook maneja typeWebhook=quotaExceeded', () => {
+  if (!/body\.typeWebhook === 'quotaExceeded'/.test(src))
+    throw new Error('webhook no maneja quotaExceeded')
+  return true
+})
+
+assert('notifyAdminQuotaExceeded existe y está throttleado', () => {
+  if (!/async function notifyAdminQuotaExceeded/.test(src))
+    throw new Error('falta notifyAdminQuotaExceeded')
+  if (!/lastQuotaAlertAt/.test(src)) throw new Error('falta throttle de alertas')
+  return true
+})
+
+assert('/health expone greenApi stats', () => {
+  if (!/greenApi:\s*greenApiStats/.test(src)) throw new Error('/health no expone greenApiStats')
   return true
 })
 
