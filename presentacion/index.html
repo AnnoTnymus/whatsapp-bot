@@ -9,10 +9,46 @@
   html, body {
     height: 100%;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: #0a0f0a;
+    background:
+      radial-gradient(ellipse at 20% 15%, rgba(76,175,80,0.18) 0%, transparent 45%),
+      radial-gradient(ellipse at 85% 85%, rgba(46,125,50,0.22) 0%, transparent 50%),
+      radial-gradient(ellipse at 70% 20%, rgba(124,219,124,0.08) 0%, transparent 40%),
+      linear-gradient(135deg, #050905 0%, #0a0f0a 50%, #0d1410 100%);
     color: #e8f5e9;
     overflow: hidden;
+    position: relative;
   }
+  /* Patrón de hojas de cannabis SVG, muy sutil, como marca de agua */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320' viewBox='0 0 320 320'><g fill='none' stroke='%237cdb7c' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round' opacity='0.35'><g transform='translate(80 80) rotate(-15)'><path d='M0,0 L0,-60 M0,0 L-18,-52 M0,0 L18,-52 M0,0 L-34,-42 M0,0 L34,-42 M0,0 L-46,-26 M0,0 L46,-26 M0,0 L-28,-8 M0,0 L28,-8'/><circle cx='0' cy='-60' r='2'/><circle cx='-18' cy='-52' r='2'/><circle cx='18' cy='-52' r='2'/><circle cx='-34' cy='-42' r='2'/><circle cx='34' cy='-42' r='2'/><circle cx='-46' cy='-26' r='2'/><circle cx='46' cy='-26' r='2'/><circle cx='-28' cy='-8' r='2'/><circle cx='28' cy='-8' r='2'/></g><g transform='translate(240 220) rotate(45) scale(0.75)'><path d='M0,0 L0,-60 M0,0 L-18,-52 M0,0 L18,-52 M0,0 L-34,-42 M0,0 L34,-42 M0,0 L-46,-26 M0,0 L46,-26 M0,0 L-28,-8 M0,0 L28,-8'/></g><g transform='translate(40 240) rotate(-70) scale(0.6)'><path d='M0,0 L0,-60 M0,0 L-18,-52 M0,0 L18,-52 M0,0 L-34,-42 M0,0 L34,-42 M0,0 L-46,-26 M0,0 L46,-26'/></g></g></svg>");
+    background-repeat: repeat;
+    opacity: 0.28;
+    animation: drift 120s linear infinite;
+  }
+  /* Resplandor superior tipo spotlight */
+  body::after {
+    content: "";
+    position: fixed;
+    top: -30%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90vw;
+    height: 70vh;
+    pointer-events: none;
+    z-index: 0;
+    background: radial-gradient(ellipse at center, rgba(124,219,124,0.10) 0%, transparent 60%);
+    filter: blur(30px);
+  }
+  @keyframes drift {
+    from { background-position: 0 0; }
+    to   { background-position: 320px 320px; }
+  }
+  .deck, .nav, .progress { position: relative; z-index: 1; }
   .deck { position: relative; width: 100vw; height: 100vh; }
   .slide {
     position: absolute; inset: 0;
@@ -139,27 +175,17 @@
   .leaf-tl { top: -40px; left: -40px; transform: rotate(-30deg); }
   .leaf-br { bottom: -40px; right: -40px; transform: rotate(150deg); }
 
-  .logo-corner {
-    position: fixed;
-    top: 20px;
-    right: 24px;
-    height: 56px;
-    width: auto;
-    opacity: 0.85;
-    z-index: 50;
-    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4));
+  /* Hoja decorativa grande para la slide de cierre/portada */
+  .hero-leaf {
+    font-size: 140px;
+    margin-bottom: 20px;
+    filter: drop-shadow(0 8px 24px rgba(124,219,124,0.35));
+    animation: float 4s ease-in-out infinite;
+    display: inline-block;
   }
-  .logo-hero {
-    height: 180px;
-    width: auto;
-    margin-bottom: 30px;
-    filter: drop-shadow(0 8px 24px rgba(124,219,124,0.3));
-  }
-  .logo-cierre {
-    height: 140px;
-    width: auto;
-    margin-bottom: 30px;
-    opacity: 0.95;
+  @keyframes float {
+    0%, 100% { transform: translateY(0) rotate(-3deg); }
+    50%      { transform: translateY(-10px) rotate(3deg); }
   }
 </style>
 </head>
@@ -167,15 +193,13 @@
 
 <div class="progress" id="progress"></div>
 
-<img src="logo.png" alt="Indajaus" class="logo-corner">
-
 <div class="deck" id="deck">
 
   <!-- SLIDE 1: TITLE -->
   <section class="slide active">
     <div class="leaf leaf-tl">🌿</div>
     <div class="leaf leaf-br">🌿</div>
-    <img src="logo.png" alt="Indajaus" class="logo-hero">
+    <div class="hero-leaf">🌿</div>
     <h1>WhatsApp Bot<br>Cannabis Club</h1>
     <p class="subtitle">Sistema de atención automatizada — v4.1</p>
     <div style="margin-top: 40px;">
@@ -584,7 +608,7 @@
   <section class="slide">
     <div class="leaf leaf-tl">🌿</div>
     <div class="leaf leaf-br">🌿</div>
-    <img src="logo.png" alt="Indajaus" class="logo-cierre">
+    <div class="hero-leaf" style="font-size:110px;">🌿</div>
     <h1 style="font-size: 88px;">Gracias 🌿</h1>
     <p class="subtitle">¿Preguntas?</p>
     <div style="margin-top: 60px;">
