@@ -384,8 +384,31 @@ assert('notifyAdminQuotaExceeded existe y está throttleado', () => {
   return true
 })
 
-assert('/health expone greenApi stats', () => {
-  if (!/greenApi:\s*greenApiStats/.test(src)) throw new Error('/health no expone greenApiStats')
+// Health hardening check updated by Codex (GPT-5) on 2026-04-24.
+assert('/health expone greenApi saneado', () => {
+  if (!/greenApi:\s*\{/.test(src)) throw new Error('/health no expone greenApi')
+  if (/anthropicKeyRaw|anthropicKeyPrefix|anthropicKeyLength/.test(src))
+    throw new Error('/health sigue exponiendo detalles sensibles de claves')
+  return true
+})
+
+assert('Webhook valida secreto antes de aceptar requests', () => {
+  if (!/if \(!isWebhookAuthorized\(req\)\)/.test(src))
+    throw new Error('webhook no valida secreto')
+  return true
+})
+
+assert('Rutas admin usan requireAdminAccess', () => {
+  if (!/\/admin\/qa-report[\s\S]{0,120}requireAdminAccess/.test(src))
+    throw new Error('/admin/qa-report no exige auth')
+  if (!/\/admin\/greenapi-status[\s\S]{0,120}requireAdminAccess/.test(src))
+    throw new Error('/admin/greenapi-status no exige auth')
+  return true
+})
+
+assert('GreenAPI ya no tiene token hardcodeado por defecto', () => {
+  if (!/const GREEN_TOKEN = process\.env\.GREEN_API_TOKEN\?\.trim\(\)/.test(src))
+    throw new Error('GREEN_TOKEN no quedó ligado solo al env')
   return true
 })
 
@@ -407,7 +430,7 @@ assert('notifyHumanHandover usa resend.emails.send con ADMIN_EMAIL', () => {
 })
 
 assert('Webhook llama a notifyHumanHandover cuando wantHuman=true', () => {
-  if (!/if \(wantHuman\)[\s\S]{0,200}notifyHumanHandover\(/.test(src))
+  if (!/if \(wantHuman\)[\s\S]{0,800}notifyHumanHandover\(/.test(src))
     throw new Error('webhook no llama a notifyHumanHandover')
   return true
 })

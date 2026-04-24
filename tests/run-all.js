@@ -4,7 +4,9 @@ import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
+  // Test DB access hardened by Codex (GPT-5) on 2026-04-24:
+  // the suite should use service_role to match production server permissions.
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
 let passed = 0, failed = 0

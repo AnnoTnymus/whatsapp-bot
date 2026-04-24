@@ -3,51 +3,55 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WhatsApp Bot Cannabis Club — v4.1</title>
+<title>WhatsApp Bot Cannabis Club — v4.3</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
     height: 100%;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     background:
-      radial-gradient(ellipse at 20% 15%, rgba(76,175,80,0.18) 0%, transparent 45%),
-      radial-gradient(ellipse at 85% 85%, rgba(46,125,50,0.22) 0%, transparent 50%),
-      radial-gradient(ellipse at 70% 20%, rgba(124,219,124,0.08) 0%, transparent 40%),
-      linear-gradient(135deg, #050905 0%, #0a0f0a 50%, #0d1410 100%);
+      radial-gradient(1200px 800px at 12% 12%, rgba(94,234,212,0.14), transparent 55%),
+      radial-gradient(1000px 700px at 88% 88%, rgba(52,211,153,0.14), transparent 60%),
+      radial-gradient(900px 900px at 50% 55%, rgba(110,231,183,0.05), transparent 65%),
+      linear-gradient(135deg, #04080a 0%, #071014 55%, #050d10 100%);
     color: #e8f5e9;
     overflow: hidden;
     position: relative;
   }
-  /* Patrón de hojas de cannabis SVG, muy sutil, como marca de agua */
+
+  /* Grid sutil de puntos estilo "tech/AI blueprint" */
   body::before {
     content: "";
     position: fixed;
     inset: 0;
     pointer-events: none;
     z-index: 0;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320' viewBox='0 0 320 320'><g fill='none' stroke='%237cdb7c' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round' opacity='0.35'><g transform='translate(80 80) rotate(-15)'><path d='M0,0 L0,-60 M0,0 L-18,-52 M0,0 L18,-52 M0,0 L-34,-42 M0,0 L34,-42 M0,0 L-46,-26 M0,0 L46,-26 M0,0 L-28,-8 M0,0 L28,-8'/><circle cx='0' cy='-60' r='2'/><circle cx='-18' cy='-52' r='2'/><circle cx='18' cy='-52' r='2'/><circle cx='-34' cy='-42' r='2'/><circle cx='34' cy='-42' r='2'/><circle cx='-46' cy='-26' r='2'/><circle cx='46' cy='-26' r='2'/><circle cx='-28' cy='-8' r='2'/><circle cx='28' cy='-8' r='2'/></g><g transform='translate(240 220) rotate(45) scale(0.75)'><path d='M0,0 L0,-60 M0,0 L-18,-52 M0,0 L18,-52 M0,0 L-34,-42 M0,0 L34,-42 M0,0 L-46,-26 M0,0 L46,-26 M0,0 L-28,-8 M0,0 L28,-8'/></g><g transform='translate(40 240) rotate(-70) scale(0.6)'><path d='M0,0 L0,-60 M0,0 L-18,-52 M0,0 L18,-52 M0,0 L-34,-42 M0,0 L34,-42 M0,0 L-46,-26 M0,0 L46,-26'/></g></g></svg>");
-    background-repeat: repeat;
-    opacity: 0.28;
-    animation: drift 120s linear infinite;
+    background-image: radial-gradient(circle at 1px 1px, rgba(94,234,212,0.10) 1px, transparent 0);
+    background-size: 26px 26px;
+    mask-image: radial-gradient(ellipse at center, #000 40%, transparent 85%);
+    -webkit-mask-image: radial-gradient(ellipse at center, #000 40%, transparent 85%);
   }
-  /* Resplandor superior tipo spotlight */
-  body::after {
-    content: "";
+
+  /* Orbes flotantes con blur para dar profundidad tipo aurora */
+  .orb {
     position: fixed;
-    top: -30%;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 90vw;
-    height: 70vh;
+    border-radius: 50%;
+    filter: blur(90px);
+    opacity: 0.55;
     pointer-events: none;
     z-index: 0;
-    background: radial-gradient(ellipse at center, rgba(124,219,124,0.10) 0%, transparent 60%);
-    filter: blur(30px);
+    animation: drift 22s ease-in-out infinite;
   }
+  .orb.o1 { width: 480px; height: 480px; background: radial-gradient(circle, #2dd4bf 0%, transparent 70%); top: -140px; left: -140px; animation-delay: -2s; }
+  .orb.o2 { width: 560px; height: 560px; background: radial-gradient(circle, #10b981 0%, transparent 70%); bottom: -180px; right: -160px; animation-delay: -8s; }
+  .orb.o3 { width: 360px; height: 360px; background: radial-gradient(circle, #34d399 0%, transparent 70%); top: 40%; left: 55%; animation-delay: -14s; opacity: 0.35; }
+
   @keyframes drift {
-    from { background-position: 0 0; }
-    to   { background-position: 320px 320px; }
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33%      { transform: translate(40px, -30px) scale(1.08); }
+    66%      { transform: translate(-30px, 40px) scale(0.95); }
   }
+
   .deck, .nav, .progress { position: relative; z-index: 1; }
   .deck { position: relative; width: 100vw; height: 100vh; }
   .slide {
@@ -57,139 +61,375 @@
     justify-content: center;
     align-items: center;
     padding: 60px 80px;
+    overflow-y: auto;
     animation: fadeIn 0.5s ease;
   }
   .slide.active { display: flex; }
   @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 
-  h1 { font-size: 72px; font-weight: 800; background: linear-gradient(135deg, #7cdb7c 0%, #4caf50 50%, #2e7d32 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 24px; text-align: center; }
-  h2 { font-size: 48px; font-weight: 700; color: #7cdb7c; margin-bottom: 32px; text-align: center; }
-  h3 { font-size: 28px; font-weight: 600; color: #a5d6a7; margin-bottom: 16px; }
-  p { font-size: 22px; line-height: 1.6; color: #c8e6c9; max-width: 900px; text-align: center; }
-  .subtitle { font-size: 28px; color: #81c784; margin-bottom: 40px; }
-  .tag { display: inline-block; padding: 8px 20px; background: rgba(124,219,124,0.15); border: 1px solid #4caf50; border-radius: 20px; color: #7cdb7c; font-size: 16px; font-weight: 600; margin: 4px; }
+  h1 { font-size: 72px; font-weight: 800; background: linear-gradient(135deg, #5eead4 0%, #34d399 50%, #10b981 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 24px; text-align: center; letter-spacing: -1.5px; }
+  h2 { font-size: 46px; font-weight: 700; color: #5eead4; margin-bottom: 28px; text-align: center; letter-spacing: -0.5px; }
+  h3 { font-size: 26px; font-weight: 600; color: #a7f3d0; margin-bottom: 14px; }
+  p  { font-size: 20px; line-height: 1.6; color: #c7e7d3; max-width: 900px; text-align: center; }
+  .subtitle { font-size: 26px; color: #6ee7b7; margin-bottom: 36px; }
+  .tag { display: inline-block; padding: 8px 18px; background: rgba(52,211,153,0.12); border: 1px solid rgba(94,234,212,0.45); border-radius: 20px; color: #5eead4; font-size: 15px; font-weight: 600; margin: 4px; backdrop-filter: blur(8px); }
 
-  .grid { display: grid; gap: 24px; width: 100%; max-width: 1100px; }
+  .grid { display: grid; gap: 22px; width: 100%; max-width: 1200px; }
   .grid-2 { grid-template-columns: 1fr 1fr; }
   .grid-3 { grid-template-columns: repeat(3, 1fr); }
   .grid-4 { grid-template-columns: repeat(4, 1fr); }
 
   .card {
-    background: rgba(30,40,30,0.6);
-    border: 1px solid rgba(124,219,124,0.3);
+    background: rgba(15,30,25,0.55);
+    border: 1px solid rgba(94,234,212,0.22);
     border-radius: 16px;
-    padding: 28px;
+    padding: 26px;
     transition: all 0.3s;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.25);
   }
-  .card:hover { border-color: #7cdb7c; transform: translateY(-4px); }
-  .card .icon { font-size: 40px; margin-bottom: 12px; }
-  .card h3 { font-size: 22px; color: #7cdb7c; margin-bottom: 10px; }
-  .card p { font-size: 16px; text-align: left; color: #c8e6c9; }
+  .card:hover { border-color: rgba(94,234,212,0.55); transform: translateY(-4px); box-shadow: 0 16px 50px rgba(16,185,129,0.12); }
+  .card .icon { font-size: 36px; margin-bottom: 10px; }
+  .card h3 { font-size: 20px; color: #5eead4; margin-bottom: 8px; }
+  .card p { font-size: 15px; text-align: left; color: #c7e7d3; line-height: 1.55; }
 
-  table { border-collapse: collapse; width: 100%; max-width: 1100px; font-size: 18px; }
-  th, td { padding: 14px 18px; text-align: left; border-bottom: 1px solid rgba(124,219,124,0.2); }
-  th { background: rgba(76,175,80,0.15); color: #7cdb7c; font-weight: 700; }
-  td.v1 { color: #ef9a9a; }
-  td.v4 { color: #7cdb7c; font-weight: 600; }
-  tr:hover { background: rgba(124,219,124,0.05); }
+  table { border-collapse: collapse; width: 100%; max-width: 1100px; font-size: 17px; background: rgba(15,30,25,0.45); border-radius: 12px; overflow: hidden; backdrop-filter: blur(10px); }
+  th, td { padding: 13px 18px; text-align: left; border-bottom: 1px solid rgba(94,234,212,0.12); }
+  th { background: rgba(52,211,153,0.12); color: #5eead4; font-weight: 700; }
+  td.v1 { color: #fca5a5; }
+  td.v4 { color: #5eead4; font-weight: 600; }
+  tr:hover { background: rgba(94,234,212,0.04); }
 
   .metric { text-align: center; padding: 24px; }
-  .metric .num { font-size: 72px; font-weight: 800; background: linear-gradient(135deg, #7cdb7c, #2e7d32); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1; }
-  .metric .label { font-size: 18px; color: #a5d6a7; margin-top: 8px; }
+  .metric .num { font-size: 68px; font-weight: 800; background: linear-gradient(135deg, #5eead4, #10b981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1; }
+  .metric .label { font-size: 16px; color: #a7f3d0; margin-top: 6px; }
 
   .nav {
-    position: fixed;
-    bottom: 30px;
-    left: 50%;
+    position: fixed; bottom: 24px; left: 50%;
     transform: translateX(-50%);
-    display: flex;
-    gap: 16px;
-    align-items: center;
-    background: rgba(20,30,20,0.8);
-    backdrop-filter: blur(10px);
-    padding: 10px 20px;
+    display: flex; gap: 14px; align-items: center;
+    background: rgba(10,20,15,0.75);
+    backdrop-filter: blur(14px);
+    padding: 10px 18px;
     border-radius: 30px;
-    border: 1px solid rgba(124,219,124,0.3);
+    border: 1px solid rgba(94,234,212,0.3);
     z-index: 100;
   }
   .nav button {
-    background: rgba(76,175,80,0.2);
-    border: 1px solid #4caf50;
-    color: #7cdb7c;
-    padding: 8px 16px;
-    border-radius: 20px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 600;
+    background: rgba(52,211,153,0.18);
+    border: 1px solid rgba(94,234,212,0.45);
+    color: #5eead4;
+    padding: 8px 16px; border-radius: 20px;
+    cursor: pointer; font-size: 13px; font-weight: 600;
     transition: all 0.2s;
   }
-  .nav button:hover { background: #4caf50; color: #fff; }
-  .nav .counter { color: #a5d6a7; font-size: 14px; font-weight: 600; }
+  .nav button:hover { background: #10b981; color: #fff; }
+  .nav .counter { color: #a7f3d0; font-size: 13px; font-weight: 600; }
 
   .progress {
-    position: fixed;
-    top: 0; left: 0;
-    height: 4px;
-    background: linear-gradient(90deg, #7cdb7c, #4caf50);
+    position: fixed; top: 0; left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #5eead4, #10b981);
     transition: width 0.3s;
     z-index: 100;
+    box-shadow: 0 0 20px rgba(94,234,212,0.5);
   }
 
-  .arch-diagram {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
-    width: 100%;
-    max-width: 900px;
-  }
-  .arch-row { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+  /* ===== Diagrama de arquitectura / orquestador ===== */
+  .arch-diagram { display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%; max-width: 1050px; }
+  .arch-row { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
   .arch-box {
-    background: rgba(30,40,30,0.7);
-    border: 2px solid #4caf50;
+    background: rgba(15,30,25,0.6);
+    border: 1px solid rgba(94,234,212,0.3);
     border-radius: 12px;
-    padding: 18px 24px;
+    padding: 14px 20px;
     min-width: 180px;
     text-align: center;
+    backdrop-filter: blur(10px);
   }
-  .arch-box .title { font-weight: 700; color: #7cdb7c; font-size: 18px; margin-bottom: 4px; }
-  .arch-box .desc { font-size: 13px; color: #a5d6a7; }
-  .arch-arrow { color: #4caf50; font-size: 32px; }
+  .arch-box.primary { border-color: #5eead4; background: rgba(52,211,153,0.16); box-shadow: 0 0 30px rgba(94,234,212,0.18); }
+  .arch-box.skill   { border-color: rgba(167,243,208,0.5); background: rgba(16,185,129,0.08); }
+  .arch-box .title { font-weight: 700; color: #5eead4; font-size: 16px; margin-bottom: 3px; }
+  .arch-box .desc  { font-size: 12px; color: #a7f3d0; line-height: 1.3; }
+  .arch-arrow { color: #5eead4; font-size: 26px; opacity: 0.7; }
+
+  /* ===== Flujo de decisión (pipeline visual) ===== */
+  .flow {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    width: 100%;
+    max-width: 1150px;
+    align-items: stretch;
+  }
+  .flow-step {
+    background: rgba(15,30,25,0.6);
+    border: 1px solid rgba(94,234,212,0.25);
+    border-radius: 12px;
+    padding: 18px 14px;
+    text-align: center;
+    position: relative;
+    backdrop-filter: blur(10px);
+  }
+  .flow-step .num {
+    position: absolute; top: -12px; left: 50%;
+    transform: translateX(-50%);
+    background: #10b981; color: #04080a;
+    width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 13px;
+  }
+  .flow-step h4 { color: #5eead4; font-size: 15px; margin: 8px 0 6px; }
+  .flow-step p  { font-size: 12px; color: #a7f3d0; text-align: left; line-height: 1.4; }
+  .flow-arrow-h {
+    display: flex; align-items: center; justify-content: center;
+    color: #5eead4; font-size: 22px;
+  }
+
+  /* ===== Skill cards ===== */
+  .skill-card {
+    background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(5,150,105,0.05));
+    border: 1px solid rgba(94,234,212,0.35);
+    border-radius: 16px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(12px);
+  }
+  .skill-card::before {
+    content: "";
+    position: absolute;
+    top: 0; right: 0;
+    width: 80px; height: 80px;
+    background: radial-gradient(circle, rgba(94,234,212,0.2) 0%, transparent 70%);
+    filter: blur(20px);
+  }
+  .skill-card .marker { font-family: "SF Mono", Monaco, monospace; font-size: 13px; color: #5eead4; background: rgba(0,0,0,0.3); padding: 4px 10px; border-radius: 6px; display: inline-block; margin-bottom: 10px; }
+  .skill-card h3 { font-size: 20px; color: #5eead4; margin-bottom: 8px; }
+  .skill-card p  { text-align: left; font-size: 14px; line-height: 1.55; color: #c7e7d3; }
+  .skill-card .when { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(94,234,212,0.15); font-size: 12px; color: #6ee7b7; font-style: italic; }
 
   .checklist { list-style: none; padding: 0; max-width: 800px; }
-  .checklist li { padding: 14px 0; font-size: 20px; color: #c8e6c9; display: flex; align-items: center; gap: 14px; }
-  .checklist li::before { content: "✓"; color: #7cdb7c; font-weight: 800; font-size: 24px; }
+  .checklist li { padding: 12px 0; font-size: 19px; color: #c7e7d3; display: flex; align-items: center; gap: 14px; }
+  .checklist li::before { content: "✓"; color: #5eead4; font-weight: 800; font-size: 22px; }
 
-  .footer-note {
-    position: absolute;
-    bottom: 80px;
-    font-size: 14px;
-    color: #66bb6a;
-    opacity: 0.7;
+  code {
+    background: rgba(0,0,0,0.35); padding: 2px 8px; border-radius: 4px;
+    color: #5eead4; font-family: "SF Mono", Monaco, monospace; font-size: 0.85em;
   }
 
-  .leaf { position: absolute; font-size: 200px; opacity: 0.05; }
-  .leaf-tl { top: -40px; left: -40px; transform: rotate(-30deg); }
-  .leaf-br { bottom: -40px; right: -40px; transform: rotate(150deg); }
+  .footer-note { font-size: 13px; color: #6ee7b7; opacity: 0.7; }
 
-  /* Hoja decorativa grande para la slide de cierre/portada */
-  .hero-leaf {
-    font-size: 140px;
-    margin-bottom: 20px;
-    filter: drop-shadow(0 8px 24px rgba(124,219,124,0.35));
-    animation: float 4s ease-in-out infinite;
-    display: inline-block;
+  /* Título de cover sin iconos kitsch */
+  .cover-logo {
+    width: 88px; height: 88px; margin-bottom: 28px;
+    border-radius: 24px;
+    background: linear-gradient(135deg, #5eead4, #10b981);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 20px 60px rgba(16,185,129,0.35), inset 0 2px 0 rgba(255,255,255,0.2);
+    position: relative;
   }
-  @keyframes float {
-    0%, 100% { transform: translateY(0) rotate(-3deg); }
-    50%      { transform: translateY(-10px) rotate(3deg); }
+  .cover-logo::before {
+    content: ""; position: absolute; inset: 6px;
+    border-radius: 18px;
+    background: rgba(4,8,10,0.92);
+  }
+  .cover-logo span {
+    position: relative;
+    font-size: 40px; font-weight: 800;
+    background: linear-gradient(135deg, #5eead4, #34d399);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -2px;
+  }
+
+  /* [claude-opus-4.7] WhatsApp mockup — pure HTML/CSS */
+  .demo-slide { flex-direction: row !important; align-items: center !important; gap: 50px; padding: 40px 70px !important; justify-content: center !important; }
+  .demo-explain { max-width: 520px; flex-shrink: 1; }
+  .demo-explain h2 { text-align: left !important; margin-bottom: 8px; font-size: 38px; }
+  .demo-explain .sub { color: #6ee7b7; font-size: 15px; margin-bottom: 22px; line-height: 1.5; }
+  .demo-step { background: rgba(15,30,25,0.55); border: 1px solid rgba(94,234,212,0.25); border-radius: 10px; padding: 11px 14px; margin-bottom: 9px; backdrop-filter: blur(10px); }
+  .demo-step .tag-num { display: inline-block; background: #10b981; color: #04080a; width: 20px; height: 20px; border-radius: 50%; font-weight: 800; font-size: 11px; text-align: center; line-height: 20px; margin-right: 8px; vertical-align: middle; }
+  .demo-step h4 { display: inline; color: #5eead4; font-size: 14px; font-weight: 700; vertical-align: middle; }
+  .demo-step p { font-size: 12.5px; color: #c7e7d3; text-align: left; margin-top: 5px; line-height: 1.5; }
+  .demo-step code { font-size: 11px; }
+
+  .wa-phone {
+    width: 310px; background: #0d0d0f;
+    border-radius: 40px; padding: 11px;
+    box-shadow: 0 30px 70px rgba(0,0,0,0.7), inset 0 0 0 2px rgba(94,234,212,0.10);
+    position: relative; flex-shrink: 0;
+  }
+  .wa-phone::before {
+    content: ""; position: absolute;
+    top: 18px; left: 50%; transform: translateX(-50%);
+    width: 100px; height: 24px;
+    background: #000; border-radius: 14px; z-index: 2;
+  }
+  .wa-screen {
+    background: #0b141a;
+    border-radius: 30px; overflow: hidden;
+    height: 580px; display: flex; flex-direction: column;
+  }
+  .wa-header {
+    background: #202c33;
+    padding: 48px 14px 10px;
+    display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    flex-shrink: 0;
+  }
+  .wa-back { color: #aebac1; font-size: 16px; margin-right: 2px; }
+  .wa-avatar {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: linear-gradient(135deg, #25d366, #128c7e);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 800; font-size: 15px;
+    flex-shrink: 0;
+  }
+  .wa-contact { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .wa-contact .name { color: #e9edef; font-weight: 600; font-size: 14px; }
+  .wa-contact .status { color: #8696a0; font-size: 11px; }
+  .wa-icons { color: #aebac1; font-size: 14px; display: flex; gap: 14px; }
+  .wa-chat {
+    flex: 1;
+    background-color: #0b141a;
+    background-image:
+      radial-gradient(circle at 20% 20%, rgba(16,185,129,0.04), transparent 40%),
+      radial-gradient(circle at 80% 80%, rgba(94,234,212,0.03), transparent 40%);
+    padding: 10px 8px 14px;
+    overflow-y: auto;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .wa-chat::-webkit-scrollbar { width: 4px; }
+  .wa-chat::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+  .wa-day {
+    align-self: center;
+    background: rgba(22,34,42,0.85);
+    color: #a8bcc7;
+    font-size: 11px; padding: 3px 9px;
+    border-radius: 6px;
+    margin: 4px 0 8px;
+  }
+  .wa-bubble {
+    max-width: 82%;
+    padding: 6px 9px 18px 10px;
+    border-radius: 7px;
+    font-size: 12.5px; line-height: 1.38;
+    position: relative;
+    word-wrap: break-word;
+    box-shadow: 0 1px 0.5px rgba(0,0,0,0.15);
+    color: #e9edef;
+    white-space: pre-wrap;
+  }
+  .wa-bubble.in {
+    background: #202c33;
+    align-self: flex-start;
+    border-top-left-radius: 0;
+    margin-left: 4px;
+  }
+  .wa-bubble.out {
+    background: #005c4b;
+    align-self: flex-end;
+    border-top-right-radius: 0;
+    margin-right: 4px;
+  }
+  .wa-bubble .time {
+    position: absolute; bottom: 3px; right: 7px;
+    font-size: 10px; color: rgba(233,237,239,0.55);
+    white-space: nowrap;
+  }
+  .wa-bubble .tick { color: #53bdeb; margin-left: 2px; font-size: 11px; }
+  .wa-sticker {
+    align-self: flex-end;
+    font-size: 58px;
+    padding: 6px 12px 12px;
+    line-height: 1;
+    position: relative;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+  }
+  .wa-sticker .time { position: absolute; bottom: -2px; right: 10px; font-size: 10px; color: rgba(233,237,239,0.55); }
+  .wa-audio {
+    background: #005c4b;
+    align-self: flex-end;
+    padding: 8px 10px 18px;
+    border-radius: 7px;
+    border-top-right-radius: 0;
+    display: flex; align-items: center; gap: 8px;
+    margin-right: 4px;
+    position: relative;
+    min-width: 200px;
+  }
+  .wa-audio .play {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    display: flex; align-items: center; justify-content: center;
+    color: #e9edef; font-size: 11px;
+    flex-shrink: 0;
+  }
+  .wa-audio .wave {
+    flex: 1;
+    height: 16px;
+    background: repeating-linear-gradient(90deg, rgba(255,255,255,0.32) 0 2px, transparent 2px 5px);
+  }
+  .wa-audio .dur { font-size: 10px; color: rgba(233,237,239,0.65); }
+  .wa-audio .time { position: absolute; bottom: 3px; right: 8px; font-size: 10px; color: rgba(233,237,239,0.55); }
+  .wa-transcript {
+    align-self: flex-end;
+    background: rgba(0,92,75,0.55);
+    border: 1px dashed rgba(94,234,212,0.35);
+    margin-right: 4px;
+    padding: 5px 9px;
+    border-radius: 7px;
+    font-size: 10.5px;
+    color: #a7f3d0;
+    font-style: italic;
+    max-width: 82%;
+  }
+  .wa-marker-hint {
+    align-self: flex-start;
+    margin-left: 4px;
+    font-size: 10px;
+    font-family: "SF Mono", Monaco, monospace;
+    color: #5eead4;
+    background: rgba(94,234,212,0.08);
+    border: 1px dashed rgba(94,234,212,0.4);
+    padding: 3px 7px;
+    border-radius: 5px;
+    margin-top: 2px;
+  }
+  .wa-input {
+    background: #202c33;
+    padding: 8px 10px;
+    display: flex; align-items: center; gap: 8px;
+    flex-shrink: 0;
+  }
+  .wa-input .field {
+    flex: 1;
+    background: #2a3942;
+    border-radius: 20px;
+    padding: 8px 14px;
+    color: #8696a0;
+    font-size: 12px;
+  }
+  .wa-input .mic {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: #00a884;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 14px;
+    flex-shrink: 0;
   }
 </style>
 </head>
 <body>
+
+<div class="orb o1"></div>
+<div class="orb o2"></div>
+<div class="orb o3"></div>
 
 <div class="progress" id="progress"></div>
 
@@ -197,18 +437,18 @@
 
   <!-- SLIDE 1: TITLE -->
   <section class="slide active">
-    <div class="leaf leaf-tl">🌿</div>
-    <div class="leaf leaf-br">🌿</div>
-    <div class="hero-leaf">🌿</div>
+    <div class="cover-logo"><span>AI</span></div>
     <h1>WhatsApp Bot<br>Cannabis Club</h1>
-    <p class="subtitle">Sistema de atención automatizada — v4.1</p>
-    <div style="margin-top: 40px;">
-      <span class="tag">🤖 Claude Sonnet 4.5</span>
-      <span class="tag">💾 Supabase</span>
-      <span class="tag">📱 GreenAPI WhatsApp</span>
-      <span class="tag">☁️ Render.com</span>
+    <p class="subtitle">Orquestador con IA + agentes especializados — v4.3</p>
+    <div style="margin-top: 32px;">
+      <span class="tag">Claude Opus 4.7</span>
+      <span class="tag">3 skills especializadas</span>
+      <span class="tag">Audio STT (Deepgram)</span>
+      <span class="tag">Seguridad end-to-end</span>
+      <span class="tag">Supabase Postgres + Edge Functions</span>
+      <span class="tag">GreenAPI</span>
     </div>
-    <p class="footer-note" style="position: static; margin-top: 60px;">Abril 2026 — Presentación técnica y comercial</p>
+    <p class="footer-note" style="margin-top: 48px;">Abril 2026 — Presentación técnica y comercial</p>
   </section>
 
   <!-- SLIDE 2: PROBLEMA -->
@@ -216,19 +456,19 @@
     <h2>El problema</h2>
     <div class="grid grid-2" style="max-width: 1000px;">
       <div class="card">
-        <div class="icon">😓</div>
+        <div class="icon">⏱️</div>
         <h3>Atención manual 24/7</h3>
-        <p>Cada consulta de un socio o prospecto requería respuesta humana inmediata. Preguntas repetidas sobre horarios, documentación, genéticas, REPROCANN.</p>
+        <p>Cada consulta de un socio o prospecto requería respuesta humana inmediata. Dudas repetidas sobre horarios, documentación, genéticas, REPROCANN.</p>
       </div>
       <div class="card">
         <div class="icon">📋</div>
         <h3>Sin CRM ni seguimiento</h3>
-        <p>Leads se perdían. No había forma de recontactar automáticamente a quien no completó la documentación o está tramitando el REPROCANN.</p>
+        <p>Leads se perdían. No había forma de recontactar automáticamente a quien no completó la documentación.</p>
       </div>
       <div class="card">
         <div class="icon">🔀</div>
         <h3>Proceso inconsistente</h3>
-        <p>Cada operador preguntaba cosas distintas. Sin flujo estándar para validar documentación, tono de comunicación, o criterios de aceptación.</p>
+        <p>Cada operador preguntaba cosas distintas. Sin flujo estándar ni criterios uniformes de validación.</p>
       </div>
       <div class="card">
         <div class="icon">📉</div>
@@ -238,196 +478,368 @@
     </div>
   </section>
 
-  <!-- SLIDE 3: EVOLUCIÓN V1→V4 -->
+  <!-- SLIDE 3: ARQUITECTURA GENERAL -->
   <section class="slide">
-    <h2>Evolución v1 → v4</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Capacidad</th>
-          <th>v1 (MVP)</th>
-          <th>v4 (actual)</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><strong>IA</strong></td>
-          <td class="v1">Respuestas hardcodeadas</td>
-          <td class="v4">Claude Sonnet 4.5 + contexto</td>
-        </tr>
-        <tr>
-          <td><strong>Persistencia</strong></td>
-          <td class="v1">RAM (se perdía al reiniciar)</td>
-          <td class="v4">Supabase PostgreSQL (4 tablas)</td>
-        </tr>
-        <tr>
-          <td><strong>Flujo de afiliación</strong></td>
-          <td class="v1">No existía</td>
-          <td class="v4">Opt-in: consulta libre → afiliación a demanda</td>
-        </tr>
-        <tr>
-          <td><strong>Atención al cliente</strong></td>
-          <td class="v1">Solo pedía docs</td>
-          <td class="v4">Prioridad — responde dudas primero</td>
-        </tr>
-        <tr>
-          <td><strong>Validación de documentos</strong></td>
-          <td class="v1">Manual</td>
-          <td class="v4">Vision permisivo — pide texto si falta dato</td>
-        </tr>
-        <tr>
-          <td><strong>Seguimiento (follow-up)</strong></td>
-          <td class="v1">Ninguno</td>
-          <td class="v4">Cron configurable (test/prod)</td>
-        </tr>
-        <tr>
-          <td><strong>Tono</strong></td>
-          <td class="v1">Neutro / "boludo" sin contexto</td>
-          <td class="v4">Cordial + casual jocoso en off-topic</td>
-        </tr>
-        <tr>
-          <td><strong>Respuestas off-topic</strong></td>
-          <td class="v1">Forzaban a mandar docs</td>
-          <td class="v4">Variantes rotativas con humor</td>
-        </tr>
-        <tr>
-          <td><strong>CRM</strong></td>
-          <td class="v1">–</td>
-          <td class="v4">Members + conversation history</td>
-        </tr>
-        <tr>
-          <td><strong>Tests</strong></td>
-          <td class="v1">0</td>
-          <td class="v4">113 tests automatizados</td>
-        </tr>
-      </tbody>
-    </table>
-  </section>
-
-  <!-- SLIDE 4: ARQUITECTURA -->
-  <section class="slide">
-    <h2>Arquitectura actual</h2>
+    <h2>Arquitectura general</h2>
     <div class="arch-diagram">
       <div class="arch-row">
-        <div class="arch-box">
-          <div class="title">📱 WhatsApp</div>
-          <div class="desc">Usuario final</div>
-        </div>
+        <div class="arch-box"><div class="title">📱 WhatsApp</div><div class="desc">Usuario final</div></div>
       </div>
       <div class="arch-arrow">↓</div>
       <div class="arch-row">
-        <div class="arch-box">
-          <div class="title">🟢 GreenAPI</div>
-          <div class="desc">Gateway WhatsApp Business</div>
-        </div>
+        <div class="arch-box"><div class="title">🟢 GreenAPI</div><div class="desc">Gateway WhatsApp Business</div></div>
       </div>
       <div class="arch-arrow">↓</div>
       <div class="arch-row">
-        <div class="arch-box" style="border-color:#7cdb7c; background: rgba(76,175,80,0.15);">
+        <div class="arch-box primary">
           <div class="title">☁️ Bot Node.js (Render)</div>
-          <div class="desc">Webhook + state machine + cron</div>
+          <div class="desc">Webhook firmado · concurrencia por chat · cron de follow-ups · rate limit</div>
         </div>
       </div>
       <div class="arch-arrow">↓</div>
       <div class="arch-row">
-        <div class="arch-box">
-          <div class="title">🧠 Claude API</div>
-          <div class="desc">Sonnet 4.5 + Vision</div>
-        </div>
-        <div class="arch-box">
-          <div class="title">💾 Supabase</div>
-          <div class="desc">PostgreSQL + RLS</div>
-        </div>
-        <div class="arch-box">
-          <div class="title">📄 knowledge/</div>
-          <div class="desc">base.md + config JSON</div>
-        </div>
+        <div class="arch-box"><div class="title">🧠 Claude Opus 4.7</div><div class="desc">Orquestador + skills + Vision</div></div>
+        <div class="arch-box"><div class="title">💾 Supabase</div><div class="desc">Postgres + RLS + service_role</div></div>
+        <div class="arch-box"><div class="title">🎙️ Edge Function (Deno)</div><div class="desc">whatsapp-audio-stt → Deepgram</div></div>
+        <div class="arch-box"><div class="title">📄 knowledge/</div><div class="desc">base.md + config JSON</div></div>
+        <div class="arch-box"><div class="title">📧 Resend</div><div class="desc">Alertas al admin</div></div>
       </div>
     </div>
   </section>
 
-  <!-- SLIDE 5: FEATURES -->
+  <!-- SLIDE 4: ORQUESTADOR + SUBAGENTES -->
   <section class="slide">
-    <h2>Funcionalidades clave</h2>
+    <h2>Anatomía del agente</h2>
+    <p style="margin-bottom: 28px; font-size:17px;">Un <strong>orquestador central</strong> coordina <strong>4 subagentes especializados</strong>, cada uno con su propio prompt y contexto. El orquestador decide a quién derivar según la intención del usuario.</p>
+    <div class="arch-diagram">
+      <div class="arch-row">
+        <div class="arch-box primary" style="min-width:320px;">
+          <div class="title">🧠 Orquestador (Claude Opus 4.7)</div>
+          <div class="desc">Lee mensaje + historial + knowledge base → decide tono, flujo, derivación. Emite markers especiales: <code style="font-size:11px;">[[AFILIAR]]</code> · <code style="font-size:11px;">[[SKILL:nombre]]</code></div>
+        </div>
+      </div>
+      <div class="arch-arrow">↓ deriva según intención ↓</div>
+      <div class="arch-row">
+        <div class="arch-box skill"><div class="title">⚖️ legal_faq</div><div class="desc">Ley 27.350, fallo Arriola, marco legal AR</div></div>
+        <div class="arch-box skill"><div class="title">📝 reprocann_guide</div><div class="desc">Trámite paso a paso, requisitos, costos</div></div>
+        <div class="arch-box skill"><div class="title">🌱 genetics_expert</div><div class="desc">Catálogo de cepas, efectos, terpenos</div></div>
+      </div>
+      <div class="arch-row" style="margin-top: 8px;">
+        <div class="arch-box skill"><div class="title">🆔 parseUserName</div><div class="desc">Extrae apodo + nombre completo</div></div>
+        <div class="arch-box skill"><div class="title">👁️ Vision (DNI / REPROCANN)</div><div class="desc">Lee documentos, extrae campos</div></div>
+        <div class="arch-box skill"><div class="title">🔍 QA Agent (on-demand)</div><div class="desc"><code style="font-size:11px;">/admin/qa-report</code> audita conversaciones</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 5: CÓMO DECIDE EL ORQUESTADOR -->
+  <section class="slide">
+    <h2>¿Cómo decide el orquestador?</h2>
+    <p style="margin-bottom: 26px; font-size:17px;">El orquestador no "llama funciones": emite <strong>markers de texto</strong> que el runtime detecta con regex. Simple, determinista, auditable.</p>
+    <div class="flow" style="grid-template-columns: 1fr 24px 1fr 24px 1fr;">
+      <div class="flow-step">
+        <div class="num">1</div>
+        <h4>Mensaje entra</h4>
+        <p>GreenAPI webhook → <code>withChatLock</code> serializa por chatId. Distintos números corren en paralelo.</p>
+      </div>
+      <div class="flow-arrow-h">→</div>
+      <div class="flow-step">
+        <div class="num">2</div>
+        <h4>Orquestador razona</h4>
+        <p>Claude lee mensaje + últimos 8 turnos + knowledge base. Elige tono (cordial vs off-topic). Decide si necesita un experto.</p>
+      </div>
+      <div class="flow-arrow-h">→</div>
+      <div class="flow-step">
+        <div class="num">3</div>
+        <h4>Emite marker si aplica</h4>
+        <p>Al final de su reply agrega <code>[[SKILL:legal_faq]]</code> o <code>[[AFILIAR]]</code>. Si no, responde directo.</p>
+      </div>
+    </div>
+    <div class="flow" style="margin-top: 14px; grid-template-columns: 1fr 24px 1fr;">
+      <div class="flow-step">
+        <div class="num">4</div>
+        <h4>Runtime intercepta</h4>
+        <p><code>parseSkillMarker(reply)</code> detecta el marker → invoca skill con un prompt especializado + mismo historial.</p>
+      </div>
+      <div class="flow-arrow-h">→</div>
+      <div class="flow-step">
+        <div class="num">5</div>
+        <h4>Respuesta al usuario</h4>
+        <p>La skill reemplaza la reply del orquestador. El marker se strippea. El usuario nunca ve el protocolo.</p>
+      </div>
+    </div>
+    <p style="margin-top: 22px; font-size: 15px; color: #6ee7b7;">💡 Ventaja: cada skill tiene contexto focalizado (500-1000 tokens) en vez de un system prompt gigante mezclando todo.</p>
+  </section>
+
+  <!-- SLIDE 6: LAS 3 SKILLS EN DETALLE -->
+  <section class="slide">
+    <h2>Las 3 skills especializadas</h2>
+    <div class="grid grid-3" style="max-width: 1200px;">
+      <div class="skill-card">
+        <span class="marker">[[SKILL:legal_faq]]</span>
+        <h3>⚖️ Legal FAQ</h3>
+        <p>Experto en marco legal del cannabis en Argentina. Conoce <strong>Ley 27.350</strong>, <strong>Decreto 883/2020</strong>, <strong>Ley 27.669</strong>, <strong>fallo Arriola</strong>, figura de asociación civil para clubes.</p>
+        <div class="when">Se activa con: "¿es legal?", "me pararon", "qué dice la ley sobre..."</div>
+      </div>
+      <div class="skill-card">
+        <span class="marker">[[SKILL:reprocann_guide]]</span>
+        <h3>📝 REPROCANN Guide</h3>
+        <p>Guía paso a paso del trámite. Requisitos, patologías aprobadas, modalidades (autocultivo / solidario / farmacia), tiempos, costos, renovación.</p>
+        <div class="when">Se activa con: "cómo saco el reprocann", "qué necesito", "cuánto demora"</div>
+      </div>
+      <div class="skill-card">
+        <span class="marker">[[SKILL:genetics_expert]]</span>
+        <h3>🌱 Genetics Expert</h3>
+        <p>Asesor de cepas según efecto buscado. Catálogo del club: indicas, sativas, híbridas. Conoce perfiles de THC/CBD, terpenos, tolerancia.</p>
+        <div class="when">Se activa con: "qué me recomendás", "quiero algo para dormir", "cepas para..."</div>
+      </div>
+    </div>
+    <p style="margin-top: 28px; font-size: 15px; color: #a7f3d0;">Cada skill tiene su propio <code>system prompt</code> de ~500-1000 tokens. El orquestador solo sabe cuándo invocarlas, no necesita "saber de genéticas" él mismo.</p>
+  </section>
+
+  <!-- [claude-opus-4.7] DEMO 1: Flujo de afiliación con parseo IA del nombre -->
+  <section class="slide demo-slide">
+    <div class="wa-phone">
+      <div class="wa-screen">
+        <div class="wa-header">
+          <div class="wa-back">‹</div>
+          <div class="wa-avatar">🌿</div>
+          <div class="wa-contact"><span class="name">Green Leaf Club</span><span class="status">en línea</span></div>
+          <div class="wa-icons"><span>📹</span><span>📞</span></div>
+        </div>
+        <div class="wa-chat">
+          <div class="wa-day">HOY</div>
+          <div class="wa-bubble out">Hola<span class="time">14:02 <span class="tick">✓✓</span></span></div>
+          <div class="wa-bubble in">¡Hola! 🌿 Soy el asistente de Green Leaf Cannabis Club.<br>¿Cómo te llamás?<span class="time">14:02</span></div>
+          <div class="wa-bubble out">Martin pero me dicen Tincho<span class="time">14:02 <span class="tick">✓✓</span></span></div>
+          <div class="wa-bubble in">¡Dale Tincho! 👌<br>¿En qué puedo ayudarte?<br><br>• <b>Afiliación al club</b><br>• Trámite REPROCANN<br>• Genéticas disponibles<br>• Precios / horarios<span class="time">14:02</span></div>
+          <div class="wa-bubble out">quiero anotarme en el club<span class="time">14:03 <span class="tick">✓✓</span></span></div>
+          <div class="wa-bubble in">¡Buenísimo Tincho! Para afiliarte necesito:<br><br>1️⃣ Foto del DNI (ambos lados)<br>2️⃣ Certificado REPROCANN (si tenés)<br><br>Mandame primero el frente del DNI 📸<span class="time">14:03</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="demo-explain">
+      <h2>Flujo de afiliación</h2>
+      <p class="sub">El bot parsea el nombre con IA, ofrece <b>afiliación como primera opción</b> y solo arranca el flujo de docs cuando el usuario lo pide.</p>
+      <div class="demo-step"><span class="tag-num">1</span><h4>parseUserName IA</h4><p>"Martin pero me dicen Tincho" → apodo=<code>Tincho</code>, completo=<code>Martin</code>. El CRM guarda ambos.</p></div>
+      <div class="demo-step"><span class="tag-num">2</span><h4>Menú con foco en inscripción</h4><p>Afiliación es el <b>primer</b> ítem ofrecido. El objetivo del agente siempre es conseguir el alta.</p></div>
+      <div class="demo-step"><span class="tag-num">3</span><h4>Marker invisible <code>[[AFILIAR]]</code></h4><p>"quiero anotarme" → orquestador emite el marker. Runtime lo strippea, cambia el state a <code>recibiendo_documentos</code>.</p></div>
+      <div class="demo-step"><span class="tag-num">4</span><h4>Persistencia</h4><p>Todo queda en Supabase: <code>patient_state</code>, <code>conversation_history</code>, <code>members</code>. Si el usuario vuelve en 3 días, retoma donde quedó.</p></div>
+    </div>
+  </section>
+
+  <!-- [claude-opus-4.7] DEMO 2: Derivación a skill legal_faq -->
+  <section class="slide demo-slide">
+    <div class="wa-phone">
+      <div class="wa-screen">
+        <div class="wa-header">
+          <div class="wa-back">‹</div>
+          <div class="wa-avatar">🌿</div>
+          <div class="wa-contact"><span class="name">Green Leaf Club</span><span class="status">escribiendo...</span></div>
+          <div class="wa-icons"><span>📹</span><span>📞</span></div>
+        </div>
+        <div class="wa-chat">
+          <div class="wa-day">HOY</div>
+          <div class="wa-bubble out">che una pregunta, si me para la policia con plantas en mi casa que onda?<span class="time">18:41 <span class="tick">✓✓</span></span></div>
+          <div class="wa-marker-hint">orquestador → [[SKILL:legal_faq]]</div>
+          <div class="wa-bubble in">Buena pregunta 👀<br><br>En Argentina el autocultivo para uso personal está amparado por el <b>fallo Arriola (2009)</b>: la tenencia en el ámbito privado no es delito si no hay peligro a terceros.<br><br>Si tenés <b>REPROCANN</b> vigente, tu cultivo está específicamente autorizado por la <b>Ley 27.350</b>. Mostrás el certificado y deberían respetarlo.<br><br>Sin REPROCANN quedás en zona gris — defensa más trabajosa. De todos modos, no pueden allanar sin orden.<span class="time">18:41</span></div>
+          <div class="wa-bubble in">¿Querés que te explique cómo sacar el REPROCANN? Es clave para blindarte 🛡️<span class="time">18:41</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="demo-explain">
+      <h2>Derivación a skill</h2>
+      <p class="sub">El orquestador no sabe de leyes, pero <b>sabe cuándo llamar al experto legal</b>. El usuario nunca ve el protocolo.</p>
+      <div class="demo-step"><span class="tag-num">1</span><h4>Detección de intención</h4><p>Pregunta menciona "policía" + "plantas" → el orquestador razona que es consulta legal.</p></div>
+      <div class="demo-step"><span class="tag-num">2</span><h4>Emite marker <code>[[SKILL:legal_faq]]</code></h4><p>Al final de su reply agrega el marker. El runtime lo detecta con regex y descarta la reply del orquestador.</p></div>
+      <div class="demo-step"><span class="tag-num">3</span><h4>Experto legal invocado</h4><p>System prompt de ~800 tokens con Ley 27.350, Decreto 883/2020, fallo Arriola. Recibe el mismo historial.</p></div>
+      <div class="demo-step"><span class="tag-num">4</span><h4>Cierre orientado al objetivo</h4><p>Termina ofreciendo ayuda con el REPROCANN → conecta la consulta legal con el <b>próximo paso hacia la afiliación</b>.</p></div>
+    </div>
+  </section>
+
+  <!-- [claude-opus-4.7] DEMO 3: Audio STT + off-topic con personalidad -->
+  <section class="slide demo-slide">
+    <div class="wa-phone">
+      <div class="wa-screen">
+        <div class="wa-header">
+          <div class="wa-back">‹</div>
+          <div class="wa-avatar">🌿</div>
+          <div class="wa-contact"><span class="name">Green Leaf Club</span><span class="status">en línea</span></div>
+          <div class="wa-icons"><span>📹</span><span>📞</span></div>
+        </div>
+        <div class="wa-chat">
+          <div class="wa-day">HOY</div>
+          <div class="wa-audio">
+            <div class="play">▶</div>
+            <div class="wave"></div>
+            <div class="dur">0:08</div>
+            <span class="time">20:15 <span class="tick">✓✓</span></span>
+          </div>
+          <div class="wa-transcript">🎙️ Deepgram: "hola che, me interesa el club, cómo funciona"</div>
+          <div class="wa-bubble in">¡Hola! Qué bueno que te interese 🙌<br><br>El club es una asociación civil sin fines de lucro. Tenemos genéticas premium, validación REPROCANN on-site y eventos mensuales para socios.<br><br>¿Cómo te llamás así arrancamos?<span class="time">20:15</span></div>
+          <div class="wa-sticker">🌿<span class="time">20:16 <span class="tick">✓✓</span></span></div>
+          <div class="wa-bubble in">Jajaja, te definís bien clarito 😂<br><br>Vamos que tenemos que arrancar por lo básico igual — decime tu nombre primero ✌️<span class="time">20:16</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="demo-explain">
+      <h2>Audio + personalidad</h2>
+      <p class="sub">Notas de voz transcritas en segundos. Stickers y emojis respondidos con <b>humor rioplatense</b>, no con "no entiendo".</p>
+      <div class="demo-step"><span class="tag-num">1</span><h4>Audio → Edge Function</h4><p><code>msgType=audioMessage</code> + <code>downloadUrl</code> → Supabase <code>whatsapp-audio-stt</code> con <code>STT_SHARED_SECRET</code>.</p></div>
+      <div class="demo-step"><span class="tag-num">2</span><h4>Deepgram ES en ~1-2s</h4><p>Validación de hostname contra allowlist, POST con <code>language=es</code>. Si falla → el bot pide escribirlo.</p></div>
+      <div class="demo-step"><span class="tag-num">3</span><h4>Pipeline reusado</h4><p>El transcript entra como si fuera texto — orquestador, skills, state machine, todo igual. No hay rama especial.</p></div>
+      <div class="demo-step"><span class="tag-num">4</span><h4>Off-topic con rotación</h4><p>Sticker detectado → respuesta jocosa. Memoria anti-repetición por chat para no repetir el mismo chiste.</p></div>
+    </div>
+  </section>
+
+  <!-- SLIDE 7: CAPACIDADES COMPLETAS -->
+  <section class="slide">
+    <h2>Capacidades del sistema</h2>
     <div class="grid grid-3" style="max-width: 1200px;">
       <div class="card">
         <div class="icon">💬</div>
         <h3>Atención al cliente primero</h3>
-        <p>El bot prioriza responder consultas (horarios, genéticas, REPROCANN). Solo entra al flujo de afiliación cuando el usuario lo pide explícitamente.</p>
+        <p>Prioriza responder dudas (horarios, precios, productos). Solo entra al flujo de afiliación cuando el usuario lo pide explícitamente.</p>
       </div>
       <div class="card">
-        <div class="icon">📋</div>
-        <h3>Flujo opt-in de afiliación</h3>
-        <p>Saludo → nombre → conversación libre → detección de intent "quiero afiliarme" → pide DNI y REPROCANN.</p>
+        <div class="icon">🎯</div>
+        <h3>Detección de intención</h3>
+        <p>Marker <code>[[AFILIAR]]</code> cuando el usuario quiere anotarse. Regex <code>wantHuman</code> detecta pedido de atención humana → email al admin.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🆔</div>
+        <h3>Parseo inteligente del nombre</h3>
+        <p>"Martin pero me dicen Tincho" → apodo=Tincho, completo=Martin. Pide aclaración si es ambiguo. CRM guarda nombre completo, saludos usan apodo.</p>
       </div>
       <div class="card">
         <div class="icon">👁️</div>
-        <h3>Vision AI permisivo</h3>
-        <p>Claude analiza DNI y REPROCANN. Si un dato no se lee, lo pide por texto — no fuerza al usuario a sacar otra foto.</p>
+        <h3>Vision de documentos</h3>
+        <p>Claude analiza DNI y REPROCANN. Si no puede leer un dato, lo pide por texto en vez de rechazar la foto.</p>
       </div>
       <div class="card">
         <div class="icon">⏰</div>
-        <h3>Follow-ups inteligentes</h3>
-        <p>Recontacta automáticamente según motivo: sin REPROCANN, tramitando, docs incompletos, inactivo.</p>
-      </div>
-      <div class="card">
-        <div class="icon">🗃️</div>
-        <h3>CRM integrado</h3>
-        <p>Historial completo de cada chat. Base de miembros con estado, intentos, timestamps.</p>
+        <h3>Follow-ups automáticos</h3>
+        <p>Recontacta según motivo: sin REPROCANN, tramitando, docs incompletos, inactivo. Cron configurable en minutos o días.</p>
       </div>
       <div class="card">
         <div class="icon">🎭</div>
-        <h3>Personalidad variada</h3>
-        <p>Respuestas jocosas a stickers y audios con rotación anti-repetición. Cada usuario recibe experiencia distinta.</p>
+        <h3>Respuestas off-topic variadas</h3>
+        <p>Stickers, audios, emoji-only: respuestas jocosas con rotación anti-repetición por chat (memoria de última variante usada).</p>
+      </div>
+      <div class="card">
+        <div class="icon">⚡</div>
+        <h3>Concurrencia por chatId</h3>
+        <p>Lock por chat evita race conditions. Chats distintos procesan en paralelo. Contador <code>inFlightWebhooks</code> en <code>/health</code>.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🔔</div>
+        <h3>Alertas al admin</h3>
+        <p>Email vía Resend cuando: usuario pide atención humana, cuota GreenAPI agotada (HTTP 466), error crítico.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🔍</div>
+        <h3>QA Agent on-demand</h3>
+        <p>Endpoint <code>/admin/qa-report</code>: audita últimas N conversaciones contra una rúbrica (tono, precisión, cierre). Solo lectura.</p>
       </div>
     </div>
   </section>
 
-  <!-- SLIDE 5B: MEJORAS v4.1 -->
+  <!-- SLIDE 8: STATE MACHINE -->
   <section class="slide">
-    <h2>Mejoras v4.1 — experiencia del cliente</h2>
-    <p style="margin-bottom: 30px;">Rediseño basado en feedback de testing real</p>
-    <div class="grid grid-3" style="max-width: 1200px;">
+    <h2>Máquina de estados del chat</h2>
+    <p style="margin-bottom: 26px; font-size:17px;">El bot mantiene un estado por chat en <code>patient_state</code>. Cada mensaje transiciona entre estados según reglas determinísticas.</p>
+    <div class="arch-diagram">
+      <div class="arch-row">
+        <div class="arch-box"><div class="title">inicio</div><div class="desc">primer saludo</div></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-box"><div class="title">solicitando_nombre</div><div class="desc">"¿Cómo te llamás?"</div></div>
+        <div class="arch-arrow">⇄</div>
+        <div class="arch-box"><div class="title">aclarando_nombre</div><div class="desc">IA no entendió, repregunta</div></div>
+      </div>
+      <div class="arch-row">
+        <div class="arch-arrow" style="transform: rotate(90deg);">→</div>
+      </div>
+      <div class="arch-row">
+        <div class="arch-box primary"><div class="title">conversando</div><div class="desc">atención abierta + skills</div></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-box"><div class="title">recibiendo_documentos</div><div class="desc">DNI + REPROCANN (Vision)</div></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-box"><div class="title">completando_datos</div><div class="desc">campos faltantes por texto</div></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-box"><div class="title">completado</div><div class="desc">miembro activo</div></div>
+      </div>
+    </div>
+    <p style="margin-top: 22px; font-size: 14px; color: #6ee7b7;">El flujo de afiliación solo arranca cuando el orquestador detecta intención (emite <code>[[AFILIAR]]</code>). Desde <code>conversando</code> se puede volver infinitamente sin forzar el alta.</p>
+  </section>
+
+  <!-- SLIDE: AUDIO STT -->
+  <section class="slide">
+    <h2>🎙️ Audio → Texto (Deepgram)</h2>
+    <p style="margin-bottom: 26px; font-size:17px;">Los usuarios mandan notas de voz. El bot las transcribe en segundos y las procesa como si fueran texto — sin pedirles que repitan por escrito.</p>
+    <div class="flow" style="grid-template-columns: 1fr 24px 1fr 24px 1fr;">
+      <div class="flow-step">
+        <div class="num">1</div>
+        <h4>Audio entra</h4>
+        <p>GreenAPI webhook con <code>msgType=audioMessage</code> + <code>downloadUrl</code> (hospedado en DO Spaces de GreenAPI).</p>
+      </div>
+      <div class="flow-arrow-h">→</div>
+      <div class="flow-step">
+        <div class="num">2</div>
+        <h4>Edge Function (Deno)</h4>
+        <p>Bot llama a <code>whatsapp-audio-stt</code> en Supabase con <code>x-stt-secret</code>. La función valida el hostname del URL contra una allowlist.</p>
+      </div>
+      <div class="flow-arrow-h">→</div>
+      <div class="flow-step">
+        <div class="num">3</div>
+        <h4>Deepgram ES</h4>
+        <p>POST con <code>language=es</code>. Transcript vuelve en ~1-2 s. Si falla → el bot pide escribirlo.</p>
+      </div>
+    </div>
+    <p style="margin-top: 22px; font-size: 15px; color: #6ee7b7;">💡 El transcript entra al mismo pipeline que un mensaje de texto — orquestador, skills, state machine, todo reusado. No hay rama especial.</p>
+  </section>
+
+  <!-- SLIDE: SEGURIDAD -->
+  <section class="slide">
+    <h2>🔒 Seguridad end-to-end</h2>
+    <p style="margin-bottom: 24px; font-size:17px;">Hardening por capa: cada superficie expuesta tiene su propio secret, y las comparaciones son <code>timingSafeEqual</code> para evitar leaks.</p>
+    <div class="grid grid-2" style="max-width: 1100px;">
       <div class="card">
-        <div class="icon">🔁</div>
-        <h3>Flujo opt-in</h3>
-        <p><strong>Antes:</strong> Hola → "mandame DNI".<br>
-        <strong>Ahora:</strong> Hola → "¿En qué te ayudo?" → responde consultas → si el usuario dice "quiero afiliarme" arranca proceso.</p>
+        <div class="icon">🔑</div>
+        <h3>Webhook firmado</h3>
+        <p><code>WEBHOOK_SECRET</code> obligatorio en prod. GreenAPI lo envía como <code>Authorization: Bearer</code>. Acepta también query <code>?token=</code> y header <code>x-webhook-secret</code>.</p>
       </div>
       <div class="card">
-        <div class="icon">🗣️</div>
-        <h3>Tono cordial</h3>
-        <p><strong>Antes:</strong> "Boludo, mandame los papeles che".<br>
-        <strong>Ahora:</strong> Cordial y profesional. "Che" solo en respuestas casuales (stickers, audios).</p>
+        <div class="icon">🛡️</div>
+        <h3>Admin & test routes</h3>
+        <p><code>ADMIN_API_TOKEN</code> gate en <code>/admin/*</code> y <code>/test/*</code>. <code>ENABLE_TEST_ROUTES=false</code> en prod apaga todo el namespace de test.</p>
       </div>
       <div class="card">
-        <div class="icon">📸</div>
-        <h3>Vision permisivo</h3>
-        <p><strong>Antes:</strong> Rechazaba fotos "borrosas" aunque se leyeran.<br>
-        <strong>Ahora:</strong> Acepta docs legibles. Si falta algún dato, lo pide por texto.</p>
+        <div class="icon">🎙️</div>
+        <h3>STT con secret propio</h3>
+        <p>La Edge Function valida <code>STT_SHARED_SECRET</code> + <code>STT_ALLOWED_HOSTS</code> (solo descarga audios del CDN oficial de GreenAPI).</p>
       </div>
       <div class="card">
-        <div class="icon">🎤</div>
-        <h3>Audios con humor</h3>
-        <p>"Uyyy boluuu no puedo escuchar audios todavía, el jefe no me dio oídos jaja" — 5 variantes rotativas.</p>
+        <div class="icon">💾</div>
+        <h3>Supabase service_role only</h3>
+        <p>El bot nunca usa <code>anon</code>. RLS habilitado en las 4 tablas — clientes públicos no pueden escribir CRM ni historial.</p>
       </div>
       <div class="card">
-        <div class="icon">🎨</div>
-        <h3>Stickers con personalidad</h3>
-        <p>"Me faltan superpoderes para entender stickers 🦸 pero seguro estuvo re piola" — tono jocoso y útil.</p>
+        <div class="icon">⏱️</div>
+        <h3>Rate limit por chat</h3>
+        <p>30 mensajes/hora por <code>chat_id</code>. Evita abuso accidental y spam. Reset automático por ventana deslizante.</p>
       </div>
       <div class="card">
-        <div class="icon">🔀</div>
-        <h3>Rotación anti-repetición</h3>
-        <p>El bot recuerda qué respuesta usó por chat y no repite dos veces seguidas la misma variante.</p>
+        <div class="icon">📧</div>
+        <h3>Alertas proactivas</h3>
+        <p>Email al admin cuando: usuario pide humano, cuota GreenAPI exhausta (HTTP 466), error crítico. Throttling 1/hora para no spamear.</p>
       </div>
     </div>
   </section>
 
-  <!-- SLIDE 6: BASE DE DATOS -->
+  <!-- SLIDE 9: BASE DE DATOS -->
   <section class="slide">
     <h2>Base de datos</h2>
-    <p style="margin-bottom: 40px;">4 tablas en Supabase con RLS y service_role bypass para el bot</p>
+    <p style="margin-bottom: 32px;">4 tablas en Supabase con RLS habilitado y service_role bypass para el bot</p>
     <div class="grid grid-2" style="max-width: 1000px;">
       <div class="card">
         <div class="icon">👥</div>
@@ -437,182 +849,136 @@
       <div class="card">
         <div class="icon">💬</div>
         <h3>conversation_history</h3>
-        <p><strong>Historial completo.</strong> Cada mensaje entrante/saliente, timestamp, tipo (texto/imagen/audio).</p>
+        <p><strong>Historial completo.</strong> Últimos 8 mensajes por chat, texto + timestamp. Base del contexto que se pasa al orquestador.</p>
       </div>
       <div class="card">
         <div class="icon">🔔</div>
-        <h3>followups</h3>
-        <p><strong>Cola de seguimientos.</strong> motivo, proxima_notificacion, intento, status (pendiente/enviado/cancelado).</p>
+        <h3>patient_followups</h3>
+        <p><strong>Cola de seguimientos.</strong> motivo, próxima notificación, intento actual, status. Cron procesa pendientes.</p>
       </div>
       <div class="card">
         <div class="icon">📊</div>
-        <h3>bot_state</h3>
-        <p><strong>Estado conversacional.</strong> chat_id + estado actual + datos temporales del flujo de afiliación.</p>
+        <h3>patient_state</h3>
+        <p><strong>Estado conversacional.</strong> chat_id + step + documentos + collected_data (JSON con nombre_completo, datos del DNI, etc.).</p>
       </div>
     </div>
   </section>
 
-  <!-- SLIDE 7: FOLLOW-UPS -->
+  <!-- SLIDE 10: EVOLUCIÓN -->
   <section class="slide">
-    <h2>Follow-ups inteligentes</h2>
-    <p style="margin-bottom: 30px;">El bot recontacta solo cuando tiene sentido — configurable en minutos o días</p>
-    <table style="max-width: 900px; font-size: 17px;">
+    <h2>Evolución v1 → v4.3</h2>
+    <table>
       <thead>
-        <tr>
-          <th>Motivo</th>
-          <th>Test (min)</th>
-          <th>Producción</th>
-          <th>Máx intentos</th>
-        </tr>
+        <tr><th>Capacidad</th><th>v1 (MVP)</th><th>v4.3 (actual)</th></tr>
       </thead>
       <tbody>
-        <tr>
-          <td><strong>Sin REPROCANN (1°)</strong></td>
-          <td>3 min</td>
-          <td class="v4">3 días</td>
-          <td>2</td>
-        </tr>
-        <tr>
-          <td><strong>Sin REPROCANN (2°)</strong></td>
-          <td>5 min</td>
-          <td class="v4">7 días</td>
-          <td>—</td>
-        </tr>
-        <tr>
-          <td><strong>Tramitando</strong></td>
-          <td>4 min</td>
-          <td class="v4">7 días</td>
-          <td>1</td>
-        </tr>
-        <tr>
-          <td><strong>Docs incompletos</strong></td>
-          <td>3 min</td>
-          <td class="v4">3 días</td>
-          <td>1</td>
-        </tr>
-        <tr>
-          <td><strong>Inactivo</strong></td>
-          <td>5 min</td>
-          <td class="v4">7 días</td>
-          <td>1</td>
-        </tr>
+        <tr><td><strong>IA</strong></td><td class="v1">Respuestas hardcodeadas</td><td class="v4">Claude Opus 4.7 + orquestador</td></tr>
+        <tr><td><strong>Subagentes</strong></td><td class="v1">Ninguno</td><td class="v4">3 skills + Vision + QA</td></tr>
+        <tr><td><strong>Persistencia</strong></td><td class="v1">RAM (se perdía al reiniciar)</td><td class="v4">Supabase Postgres (4 tablas)</td></tr>
+        <tr><td><strong>Flujo de afiliación</strong></td><td class="v1">Forzado desde el "hola"</td><td class="v4">Opt-in vía marker <code>[[AFILIAR]]</code></td></tr>
+        <tr><td><strong>Parseo de nombre</strong></td><td class="v1">Guardaba el mensaje entero</td><td class="v4">IA extrae apodo + completo</td></tr>
+        <tr><td><strong>Validación de docs</strong></td><td class="v1">Manual</td><td class="v4">Vision permisivo, pide faltantes</td></tr>
+        <tr><td><strong>Concurrencia</strong></td><td class="v1">Race conditions</td><td class="v4">Lock por chatId, paralelismo entre chats</td></tr>
+        <tr><td><strong>Follow-ups</strong></td><td class="v1">Ninguno</td><td class="v4">Cron configurable (test / prod)</td></tr>
+        <tr><td><strong>Handover humano</strong></td><td class="v1">–</td><td class="v4">Email al admin vía Resend</td></tr>
+        <tr><td><strong>QA</strong></td><td class="v1">–</td><td class="v4">/admin/qa-report on-demand</td></tr>
+        <tr><td><strong>Audio</strong></td><td class="v1">Ignorado</td><td class="v4">STT vía Edge Function + Deepgram</td></tr>
+        <tr><td><strong>Seguridad</strong></td><td class="v1">Todo público</td><td class="v4">Webhook firmado + admin token + rate limit</td></tr>
+        <tr><td><strong>Tests</strong></td><td class="v1">0</td><td class="v4">72 tests automatizados</td></tr>
       </tbody>
     </table>
-    <p style="margin-top: 30px; font-size: 16px; color: #81c784;">📝 Editable en <code style="background:#1b2a1b;padding:2px 8px;border-radius:4px;color:#7cdb7c;">knowledge/notificaciones.config.json</code></p>
   </section>
 
-  <!-- SLIDE 8: MÉTRICAS / TESTING -->
+  <!-- SLIDE 11: FOLLOW-UPS -->
+  <section class="slide">
+    <h2>Follow-ups inteligentes</h2>
+    <p style="margin-bottom: 28px;">El bot recontacta solo cuando tiene sentido — configurable en minutos (test) o días (producción)</p>
+    <table style="max-width: 900px; font-size: 16px;">
+      <thead>
+        <tr><th>Motivo</th><th>Test</th><th>Producción</th><th>Máx intentos</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>Sin REPROCANN (1°)</strong></td><td>3 min</td><td class="v4">3 días</td><td>2</td></tr>
+        <tr><td><strong>Sin REPROCANN (2°)</strong></td><td>5 min</td><td class="v4">7 días</td><td>—</td></tr>
+        <tr><td><strong>Tramitando</strong></td><td>4 min</td><td class="v4">7 días</td><td>1</td></tr>
+        <tr><td><strong>Docs incompletos</strong></td><td>3 min</td><td class="v4">3 días</td><td>1</td></tr>
+        <tr><td><strong>Inactivo</strong></td><td>5 min</td><td class="v4">7 días</td><td>1</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top: 26px; font-size: 14px; color: #6ee7b7;">Editable en <code>knowledge/notificaciones.config.json</code> sin redeploy.</p>
+  </section>
+
+  <!-- SLIDE 12: MÉTRICAS -->
   <section class="slide">
     <h2>Calidad del sistema</h2>
     <div class="grid grid-4" style="max-width: 1100px;">
-      <div class="metric card">
-        <div class="num">113</div>
-        <div class="label">Tests automatizados</div>
-      </div>
-      <div class="metric card">
-        <div class="num">100%</div>
-        <div class="label">Tests passing</div>
-      </div>
-      <div class="metric card">
-        <div class="num">14</div>
-        <div class="label">Suites de testing</div>
-      </div>
-      <div class="metric card">
-        <div class="num">4</div>
-        <div class="label">Bugs críticos fixeados</div>
-      </div>
+      <div class="metric card"><div class="num">72</div><div class="label">Tests automatizados</div></div>
+      <div class="metric card"><div class="num">100%</div><div class="label">Tests passing</div></div>
+      <div class="metric card"><div class="num">14</div><div class="label">Suites de testing</div></div>
+      <div class="metric card"><div class="num">3</div><div class="label">Skills especializadas</div></div>
     </div>
-    <div style="margin-top: 40px; max-width: 900px;">
-      <h3 style="text-align:center; margin-bottom: 20px;">Cobertura</h3>
+    <div style="margin-top: 36px; max-width: 900px;">
+      <h3 style="text-align:center; margin-bottom: 18px;">Cobertura</h3>
       <div class="grid grid-2">
         <ul class="checklist">
-          <li>Persistencia Supabase</li>
-          <li>CRM members</li>
-          <li>Follow-ups cron</li>
-          <li>Historial conversaciones</li>
-          <li>Flujo E2E afiliación</li>
-          <li>Edge cases</li>
-          <li>Tono cordial sin "boludo"</li>
-          <li>Marker [[AFILIAR]] funciona</li>
+          <li>Orquestador + markers</li>
+          <li>Skills integration (3×)</li>
+          <li>Parseo IA del nombre</li>
+          <li>Vision permisivo</li>
+          <li>Audio STT (Deepgram)</li>
+          <li>Concurrencia por chatId</li>
+          <li>Auth gates (admin / webhook / STT)</li>
         </ul>
         <ul class="checklist">
-          <li>Respuestas fuera de flujo</li>
-          <li>Tono rioplatense + emojis</li>
-          <li>Detector emoji-only</li>
-          <li>Mensajes de follow-up</li>
-          <li>Procesamiento de texto</li>
-          <li>State machine</li>
-          <li>Vision permisivo</li>
+          <li>Persistencia Supabase</li>
+          <li>Follow-ups cron</li>
+          <li>State machine completa</li>
+          <li>Detección quota GreenAPI</li>
+          <li>Handover humano + email</li>
           <li>Rotación anti-repetición</li>
+          <li>QA agent endpoint</li>
         </ul>
       </div>
     </div>
   </section>
 
-  <!-- SLIDE 9: VALOR COMERCIAL -->
+  <!-- SLIDE 13: VALOR COMERCIAL -->
   <section class="slide">
     <h2>Valor comercial</h2>
     <div class="grid grid-2" style="max-width: 1100px;">
-      <div class="card">
-        <div class="icon">⚡</div>
-        <h3>Respuesta 24/7 instantánea</h3>
-        <p>0 leads perdidos por horarios. Cada consulta atendida en segundos, sin importar el volumen.</p>
-      </div>
-      <div class="card">
-        <div class="icon">📈</div>
-        <h3>Conversión aumentada</h3>
-        <p>Follow-ups automáticos recuperan socios que abandonaron el proceso de afiliación a mitad de camino.</p>
-      </div>
-      <div class="card">
-        <div class="icon">🎯</div>
-        <h3>Campañas segmentadas</h3>
-        <p>Base de miembros permite broadcast a segmentos: nuevos stocks, eventos, promos, por estado o genética preferida.</p>
-      </div>
-      <div class="card">
-        <div class="icon">💰</div>
-        <h3>Costo operativo bajo</h3>
-        <p>Render + Supabase free tier + Claude API por uso. Escala lineal sin sumar personal.</p>
-      </div>
-      <div class="card">
-        <div class="icon">📊</div>
-        <h3>Data real</h3>
-        <p>Cada interacción queda registrada. Métricas de conversión, tiempos, motivos de abandono, genéticas más consultadas.</p>
-      </div>
-      <div class="card">
-        <div class="icon">🔒</div>
-        <h3>Compliance REPROCANN</h3>
-        <p>Validación automatizada de certificados. Documentación archivada y auditable.</p>
-      </div>
+      <div class="card"><div class="icon">⚡</div><h3>Respuesta 24/7 instantánea</h3><p>0 leads perdidos por horarios. Cada consulta atendida en segundos, sin importar el volumen.</p></div>
+      <div class="card"><div class="icon">📈</div><h3>Conversión aumentada</h3><p>Follow-ups automáticos recuperan socios que abandonaron el proceso de afiliación a mitad.</p></div>
+      <div class="card"><div class="icon">🎯</div><h3>Campañas segmentadas</h3><p>Base de miembros permite broadcast a segmentos: stocks nuevos, eventos, promos por estado o genética preferida.</p></div>
+      <div class="card"><div class="icon">💰</div><h3>Costo operativo bajo</h3><p>Render + Supabase free tier + Claude API por uso. Escala lineal sin sumar personal.</p></div>
+      <div class="card"><div class="icon">📊</div><h3>Data real auditable</h3><p>Cada interacción queda registrada. Métricas de conversión, tiempos, abandono, top consultas.</p></div>
+      <div class="card"><div class="icon">🔒</div><h3>Compliance REPROCANN</h3><p>Validación automatizada de certificados. Documentación archivada y auditable.</p></div>
     </div>
   </section>
 
-  <!-- SLIDE 10: PRÓXIMOS PASOS -->
+  <!-- SLIDE 14: PRÓXIMOS PASOS -->
   <section class="slide">
     <h2>Próximos pasos</h2>
     <ul class="checklist" style="max-width: 900px;">
+      <li><strong>Knowledge-driven agent</strong> — Router + Generator + Evaluator + Training (proyecto unificado, 4 fases)</li>
       <li>Migrar config a modo <strong>producción</strong> (días en vez de minutos)</li>
-      <li>Activar <strong>ping UptimeRobot</strong> para evitar cold starts en Render</li>
-      <li>Panel admin en la app <strong>clubes-app</strong> (stock, socios, broadcasts)</li>
+      <li>Upgrade GreenAPI a plan <strong>Business</strong> (>3 chats/mes simultáneos)</li>
+      <li>Panel admin para stock, socios y broadcasts</li>
       <li>Campañas segmentadas (ej: "nueva genética Blue Dream disponible")</li>
-      <li>Integración con <strong>stock en tiempo real</strong></li>
-      <li>Reportes semanales automáticos (nuevos socios, conversión, top consultas)</li>
-      <li>Soporte completo de <strong>imágenes + audio</strong></li>
+      <li>Dashboard con métricas en tiempo real (scores del Evaluator, knowledge gaps)</li>
     </ul>
-    <div style="margin-top: 50px; padding: 24px 40px; background: linear-gradient(135deg, rgba(76,175,80,0.2), rgba(46,125,50,0.2)); border: 1px solid #4caf50; border-radius: 16px;">
-      <p style="font-size: 24px; color: #7cdb7c; font-weight: 600;">Sistema en producción ✅</p>
-      <p style="font-size: 16px; margin-top: 8px;">whatsapp-bot-h85o.onrender.com</p>
+    <div style="margin-top: 44px; padding: 22px 40px; background: linear-gradient(135deg, rgba(16,185,129,0.2), rgba(5,150,105,0.2)); border: 1px solid rgba(94,234,212,0.45); border-radius: 16px; backdrop-filter: blur(10px);">
+      <p style="font-size: 22px; color: #5eead4; font-weight: 600;">Sistema en producción ✅</p>
+      <p style="font-size: 15px; margin-top: 6px;">whatsapp-bot-h85o.onrender.com</p>
     </div>
   </section>
 
-  <!-- SLIDE 11: CIERRE -->
+  <!-- SLIDE 15: CIERRE -->
   <section class="slide">
-    <div class="leaf leaf-tl">🌿</div>
-    <div class="leaf leaf-br">🌿</div>
-    <div class="hero-leaf" style="font-size:110px;">🌿</div>
-    <h1 style="font-size: 88px;">Gracias 🌿</h1>
+    <div class="cover-logo"><span>AI</span></div>
+    <h1 style="font-size: 84px;">Gracias</h1>
     <p class="subtitle">¿Preguntas?</p>
-    <div style="margin-top: 60px;">
-      <span class="tag">v4.1 — Abril 2026</span>
+    <div style="margin-top: 50px;">
+      <span class="tag">v4.3 — Abril 2026</span>
     </div>
   </section>
 
@@ -620,7 +986,7 @@
 
 <div class="nav">
   <button onclick="prev()">← Anterior</button>
-  <span class="counter"><span id="current">1</span> / <span id="total">11</span></span>
+  <span class="counter"><span id="current">1</span> / <span id="total">20</span></span>
   <button onclick="next()">Siguiente →</button>
 </div>
 

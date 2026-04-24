@@ -1,5 +1,29 @@
 # Club de Cannabis - Información
 
+## Sobre Nosotros — Indajaus
+
+**Indajaus** fue fundada el **17/10/2017** y es actualmente **líder del sector en Uruguay**. En estos años nos posicionamos como una de las marcas y grow shops de mayor prestigio a nivel latinoamericano, gracias a un servicio de atención al cliente excepcional, precios competitivos y una organización empresarial como pocas en el rubro.
+
+### Qué hacemos
+- Distribuidores para grow shops
+- Mayoristas de clubes cannábicos
+- Proveedores de empresas estatales
+- Venta al público auto-cultivador
+- Líderes en redes sociales y plataformas online (Mercado Libre)
+
+### Nuestros valores
+- **Vocación por el servicio** como pilar central
+- Equipo formado por profesionales del rubro en todas las áreas
+- Políticas de empresa multinacional: ambiente laboral cuidado, responsabilidad social, políticas medioambientales y de seguridad
+- Evaluación interna anual con formulario **Feedback to Grow** (estándares internacionales)
+- Áreas: gerencia, ventas y operaciones, administración, marketing, logística
+
+### Qué ofrecemos
+- Todos los productos necesarios para cultivar cannabis (y cualquier cultivo agrícola)
+- Accesorios e indumentaria
+- **Atención personalizada gratuita** para llevar tus cultivos a los máximos estándares
+- Experiencia de compra enfocada en el cliente como "socio principal"
+
 ## Ubicación
 - **Dirección**: Palermo, Buenos Aires, Argentina
 - **Zona**: Centro de la ciudad

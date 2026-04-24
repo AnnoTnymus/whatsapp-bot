@@ -23,8 +23,9 @@ CREATE TABLE IF NOT EXISTS patient_state (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_patient_state_step ON patient_state(step);
-CREATE INDEX idx_patient_state_updated ON patient_state(updated_at);
+-- Idempotent index creation updated by Codex (GPT-5) on 2026-04-24.
+CREATE INDEX IF NOT EXISTS idx_patient_state_step ON patient_state(step);
+CREATE INDEX IF NOT EXISTS idx_patient_state_updated ON patient_state(updated_at);
 
 ---
 --- TABLE 2: conversation_history (replaces conversationHistory Map)
@@ -36,7 +37,7 @@ CREATE TABLE IF NOT EXISTS conversation_history (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_conversation_updated ON conversation_history(updated_at);
+CREATE INDEX IF NOT EXISTS idx_conversation_updated ON conversation_history(updated_at);
 
 ---
 --- TABLE 3: patient_followups (for smart follow-up notifications)
@@ -54,9 +55,9 @@ CREATE TABLE IF NOT EXISTS patient_followups (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_followups_status ON patient_followups(status);
-CREATE INDEX idx_followups_proxima ON patient_followups(proxima_notificacion);
-CREATE INDEX idx_followups_chat_id ON patient_followups(chat_id);
+CREATE INDEX IF NOT EXISTS idx_followups_status ON patient_followups(status);
+CREATE INDEX IF NOT EXISTS idx_followups_proxima ON patient_followups(proxima_notificacion);
+CREATE INDEX IF NOT EXISTS idx_followups_chat_id ON patient_followups(chat_id);
 
 ---
 --- TABLE 4: members (CRM — future campaigns: renewal, outbound, retention)
@@ -80,10 +81,10 @@ CREATE TABLE IF NOT EXISTS members (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_members_chat_id ON members(chat_id);
-CREATE INDEX idx_members_vencimiento ON members(reprocann_vencimiento);
-CREATE INDEX idx_members_provincia ON members(provincia);
-CREATE INDEX idx_members_tipo ON members(tipo_paciente);
+CREATE INDEX IF NOT EXISTS idx_members_chat_id ON members(chat_id);
+CREATE INDEX IF NOT EXISTS idx_members_vencimiento ON members(reprocann_vencimiento);
+CREATE INDEX IF NOT EXISTS idx_members_provincia ON members(provincia);
+CREATE INDEX IF NOT EXISTS idx_members_tipo ON members(tipo_paciente);
 
 ---
 --- COMMENTS (optional, for documentation)
@@ -100,13 +101,15 @@ COMMENT ON TABLE members IS 'Completed members CRM. Enables: REPROCANN renewal (
 COMMENT ON COLUMN members.reprocann_vencimiento IS 'CRITICAL: enables renewal campaigns 30/60 days before expiry';
 
 ---
---- RLS POLICIES (disable for anon key, or restrict as needed)
+--- RLS POLICIES
+--- Security hardening by Codex (GPT-5) on 2026-04-24:
+--- keep RLS enabled so anon/authenticated clients have no direct write access.
 ---
 
-ALTER TABLE patient_state DISABLE ROW LEVEL SECURITY;
-ALTER TABLE conversation_history DISABLE ROW LEVEL SECURITY;
-ALTER TABLE patient_followups DISABLE ROW LEVEL SECURITY;
-ALTER TABLE members DISABLE ROW LEVEL SECURITY;
+ALTER TABLE patient_state ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conversation_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE patient_followups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE members ENABLE ROW LEVEL SECURITY;
 
 ---
 --- DONE
