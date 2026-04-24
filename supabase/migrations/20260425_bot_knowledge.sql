@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS bot_knowledge (
   content TEXT NOT NULL,
   tags TEXT[] DEFAULT '{}',
   source_url TEXT,
-  embedding vector(1536),
+  priority INTEGER DEFAULT 0,
+  active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -19,12 +20,8 @@ ALTER TABLE bot_knowledge ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "service_role_all_knowledge" ON bot_knowledge;
 CREATE POLICY "service_role_all_knowledge" ON bot_knowledge FOR ALL USING (auth.role() = 'service_role');
 
--- Allow anon read for bot queries
-DROP POLICY IF EXISTS "anon_read_knowledge" ON bot_knowledge;
-CREATE POLICY "anon_read_knowledge" ON bot_knowledge FOR SELECT USING (true);
-
 -- Index for topic queries
-CREATE INDEX IF NOT EXISTS idx_knowledge_topic ON bot_knowledge(topic);
+CREATE INDEX IF NOT EXISTS idx_knowledge_topic ON bot_knowledge(topic) WHERE active = true;
 
 -- Index for tags search
-CREATE INDEX IF NOT EXISTS idx_knowledge_tags ON bot_knowledge USING GIN(tags);
+CREATE INDEX IF NOT EXISTS idx_knowledge_tags ON bot_knowledge USING GIN(tags) WHERE active = true;

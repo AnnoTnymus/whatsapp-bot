@@ -63,11 +63,13 @@ function parseEvaluatorReply(rawLLMOutput: string): {
 ✅ **COMPLETADO** (2026-04-25)
 
 - [x] Tabla: `supabase/migrations/20260425_bot_knowledge.sql`
-  - Schema: `id UUID, topic, content, tags text[], source_url, embedding vector(1536), timestamps`
-  - RLS: service_role only
-  - Índices: btree(topic), GIN(tags)
-- [x] Seeds: `knowledge/seeds/bot_knowledge.jsonl` (~30 entries)
-- [x] Script: `scripts/seed-knowledge.js` (upsert by topic)
+  - Schema: `id UUID, topic, content, tags text[], source_url, priority, active, timestamps`
+  - RLS: **service_role only** (anon_read eliminada - hardening)
+  - Índices: btree(topic) WHERE active, GIN(tags) WHERE active
+  - Sin seeds en migración (solo schema)
+- [x] Seeds: `knowledge/seeds/bot_knowledge.jsonl` (32 entriesparseadas de base.md)
+- [x] Seed script: `scripts/seed-knowledge.js` (upsert by topic)
+- [x] Test: `tests/knowledge-query.test.js` (seed + queryKnowledge('indajaus') ≥1)
 
 ---
 
