@@ -1188,13 +1188,13 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
       // ========================================================================
       if (msgType === 'audioMessage' || msgType === 'voiceMessage') {
         const downloadUrl = body.messageData?.fileMessageData?.downloadUrl
-        const idMessage = body.idMessage  // Added by OpenCode (Rolli) on 2026-04-24
+        const idMessage = body.idMessage
         log('webhook', `Audio recibido de ${chatId}, downloadUrl: ${downloadUrl}, idMessage: ${idMessage}`)
 
+        // Try direct URL first, fallback to idMessage
+        // Added by OpenCode (Rolli) on 2026-04-24
         if (downloadUrl || idMessage) {
           try {
-            // Call STT function to transcribe audio
-            // Added by OpenCode (Rolli) on 2026-04-24
             const sttUrl = 'https://ujlgicmuktpqxuulhhwm.supabase.co/functions/v1/whatsapp-audio-stt'
             const sttResp = await fetch(sttUrl, {
               method: 'POST',
@@ -1202,7 +1202,7 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY}`
               },
-              body: JSON.stringify({ downloadUrl, idMessage, chatId })  // Added by OpenCode (Rolli)
+              body: JSON.stringify({ downloadUrl, idMessage, chatId })
             })
             const sttData = await sttResp.json()
 
