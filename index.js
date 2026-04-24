@@ -1187,17 +1187,17 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
       // Uses HuggingFace Whisper via Supabase Edge Function
       // ========================================================================
       if (msgType === 'audioMessage' || msgType === 'voiceMessage') {
-        const fileId = body.messageData?.fileMessageData?.idFile
-        log('webhook', `Audio recibido de ${chatId}, fileId: ${fileId}`)
+        const downloadUrl = body.messageData?.fileMessageData?.downloadUrl
+        log('webhook', `Audio recibido de ${chatId}, downloadUrl: ${downloadUrl}`)
 
-        if (fileId) {
+        if (downloadUrl) {
           try {
             // Call STT function to transcribe audio
             const sttUrl = 'https://ujlgicmuktpqxuulhhwm.supabase.co/functions/v1/whatsapp-audio-stt'
             const sttResp = await fetch(sttUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ fileId })
+              body: JSON.stringify({ downloadUrl })
             })
             const sttData = await sttResp.json()
 

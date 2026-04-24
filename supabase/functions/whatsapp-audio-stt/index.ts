@@ -1,6 +1,7 @@
 /**
  * WhatsApp Audio STT - Hugging Face Whisper
  * Proyecto: whatsapp-bot (ujlgicmuktpqxuulhhwm)
+ * Added by OpenCode (Rolli) on 2026-04-24
  */
 
 const HF_TOKEN = Deno.env.get('HF_TOKEN')!
@@ -81,15 +82,31 @@ Deno.serve(async (req) => {
   }
 
   const fileId = body.fileId
-  if (!fileId) {
-    return new Response(JSON.stringify({ error: 'fileId required' }), {
+  const downloadUrl = body.downloadUrl
+
+  if (!fileId && !downloadUrl) {
+    return new Response(JSON.stringify({ error: 'fileId or downloadUrl required' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' }
     })
   }
 
-  console.log('Downloading audio:', fileId)
-  const audioData = await downloadAudioFromGreenAPI(fileId)
+  let audioData: ArrayBuffer | null = null
+
+  if (downloadUrl) {
+    console.log('Fetching audio from URL:', downloadUrl)
+    const resp = await fetch(downloadUrl)
+    if (!resp.ok) {
+      return new Response(JSON.stringify({ error: 'Failed to fetch audio from URL' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    }
+    audioData = await resp.arrayBuffer()
+  } else {
+    console.log('Downloading audio:', fileId)
+    audioData = await downloadAudioFromGreenAPI(fileId)
+  }
 
   if (!audioData) {
     return new Response(JSON.stringify({ error: 'Failed to download audio' }), {
