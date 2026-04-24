@@ -60,7 +60,14 @@ function parseEvaluatorReply(rawLLMOutput: string): {
 
 ## FASE 1 — Tabla bot_knowledge + seeds
 
-**TODO**: La implementación va aquí.
+✅ **COMPLETADO** (2026-04-25)
+
+- [x] Tabla: `supabase/migrations/20260425_bot_knowledge.sql`
+  - Schema: `id UUID, topic, content, tags text[], source_url, embedding vector(1536), timestamps`
+  - RLS: service_role only
+  - Índices: btree(topic), GIN(tags)
+- [x] Seeds: `knowledge/seeds/bot_knowledge.jsonl` (~30 entries)
+- [x] Script: `scripts/seed-knowledge.js` (upsert by topic)
 
 ---
 
