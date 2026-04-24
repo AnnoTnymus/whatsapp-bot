@@ -29,7 +29,7 @@ const STT_FUNCTION_URL = process.env.STT_FUNCTION_URL?.trim()
 const STT_SHARED_SECRET = process.env.STT_SHARED_SECRET?.trim()
 const GREEN_API_CONFIGURED = Boolean(GREEN_INSTANCE && GREEN_TOKEN)
 // Added by OpenCode (Rolli) on 2026-04-24
-const STT_CONFIGURED = Boolean(STT_FUNCTION_URL && process.env.SUPABASE_ANON_KEY)
+const STT_CONFIGURED = Boolean(STT_FUNCTION_URL && STT_SHARED_SECRET)
 
 // Supabase client (v4.0 — persistence)
 // Server-side Supabase auth tightened by Codex (GPT-5) on 2026-04-24:
@@ -1370,7 +1370,7 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`
+                'x-stt-secret': STT_SHARED_SECRET,
               },
               body: JSON.stringify({ downloadUrl }),
               signal: AbortSignal.timeout(20_000),
