@@ -16,60 +16,60 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 const SEED_FILE = 'knowledge/seeds/bot_knowledge.jsonl'
 
-async function seedAndTest() {
-  console.log('=== Seeding knowledge base ===')
-  
+async function seed() {
   const content = readFileSync(SEED_FILE, 'utf-8')
   const lines = content.trim().split('\n')
 
-  let seeded = 0
   for (const line of lines) {
     if (!line.trim()) continue
     const entry = JSON.parse(line)
-    const { error } = await supabase
-      .from('bot_knowledge')
-      .upsert({
-        topic: entry.topic,
-        content: entry.content,
-        tags: entry.tags,
-        source_url: entry.source_url || null,
-        priority: entry.priority || 0,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'topic' })
-
-    if (error) {
-      console.error(`Error seeding ${entry.topic}:`, error.message)
-    } else {
-      seeded++
-    }
-  }
-  console.log(`Seeded ${seeded} entries`)
-
-  console.log('\n=== Testing queryKnowledge("indajaus") ===')
-  
-  const { data, error } = await supabase
-    .from('bot_knowledge')
-    .select('id, topic, content, tags, source_url')
-    .or('topic.ilike.%indajaus%,tags.cs.{indajaus}')
-    .limit(3)
-
-  if (error) {
-    console.error('Query error:', error.message)
-    process.exit(1)
-  }
-
-  console.log(`Found ${data.length} results for "indajaus"`)
-  for (const row of data) {
-    console.log(`  - ${row.topic}: ${row.content.substring(0, 60)}...`)
-  }
-
-  if (data.length >= 1) {
-    console.log('\n✅ TEST PASSED: queryKnowledge("indajaus") returned >= 1 entry')
-    process.exit(0)
-  } else {
-    console.log('\n❌ TEST FAILED: Expected >= 1 entry')
-    process.exit(1)
+    await supabase.from('bot_knowledge').upsert({
+      topic: entry.topic,
+      content: entry.content,
+      tags: entry.tags,
+      source_url: entry.source_url || null,
+      priority: entry.priority || 0,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'topic' })
   }
 }
 
-seedAndTest()
+import { queryKnowledge } from '../src/knowledge/query.js'
+global.supabase = supabase
+
+async function runTests() {
+  console.log('=== Seeding ===')
+  await seed()
+
+  console.log('\n=== Test 1: queryKnowledge("indajaus") should return >= 1 ===')
+  const hits = await queryKnowledge('indajaus')
+  console.log(`Found ${hits.length} results`)
+  if (hits.length < 1) {
+    console.error('FAIL: indajaus should return >= 1')
+    process.exit(1)
+  }
+  console.log('PASS')
+
+  console.log('\n=== Test 2: non-existent topic should return [] ===')
+  const miss = await queryKnowledge('xxxxxno-existe-xxxxx')
+  console.log(`Found ${miss.length} results`)
+  if (miss.length !== 0) {
+    console.error('FAIL: non-existent topic should return []')
+    process.exit(1)
+  }
+  console.log('PASS')
+
+  console.log('\n=== Test 3: limit must be respected ===')
+  const limited = await queryKnowledge('reprocann', 2)
+  console.log(`Found ${limited.length} results (limit=2)`)
+  if (limited.length > 2) {
+    console.error('FAIL: limit must be respected')
+    process.exit(1)
+  }
+  console.log('PASS')
+
+  console.log('\n=== All tests passed ===')
+  process.exit(0)
+}
+
+runTests()

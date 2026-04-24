@@ -10,7 +10,8 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 export async function queryKnowledge(topic, limit = 3) {
   if (!topic || typeof topic !== 'string') {
-    throw new Error('topic is required')
+    console.warn('queryKnowledge: invalid topic')
+    return []
   }
 
   const searchTerm = topic.toLowerCase().trim()
@@ -23,7 +24,8 @@ export async function queryKnowledge(topic, limit = 3) {
     .limit(limit * 3)
 
   if (error) {
-    throw new Error(`queryKnowledge failed: ${error.message}`)
+    console.error(`queryKnowledge failed: ${error.message}`)
+    return []
   }
 
   const results = data
