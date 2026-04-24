@@ -1170,8 +1170,9 @@ app.post('/webhook', (req, res) => {
 
 async function handleMessage(body, msgType, chatId, sender, t0) {
   try {
+    let message = null  // Added by OpenCode (Rolli) on 2026-04-24
 
-      // v4.1: Handle off-flow messages (stickers, audios, reactions)
+    // v4.1: Handle off-flow messages (stickers, audios, reactions)
       if (msgType === 'stickerMessage') {
         await sendWhatsAppMessage(chatId, randomRespuesta('sticker', chatId))
         return
