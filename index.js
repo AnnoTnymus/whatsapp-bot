@@ -8,6 +8,7 @@ import { createClient } from '@supabase/supabase-js'
 import { SKILL_NAMES, invokeSkill, parseSkillMarker } from './skills.js'
 
 const app = express()
+app.use(express.static('public'))
 
 // Admin HTML - Added by OpenCode (Rolli) 2026-04-24
 const ADMIN_CONFIG_HTML = `<!DOCTYPE html>
