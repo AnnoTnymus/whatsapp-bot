@@ -25,3 +25,14 @@ yarn-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# Scratch / debug scripts (ad-hoc, no versionar)
+test-*.mjs
+test-*.js
+test-bot.mjs
+fix-*.js
+create-tables.js
+verify-schema.js
+
+# Supabase CLI local state
+supabase/.temp/
