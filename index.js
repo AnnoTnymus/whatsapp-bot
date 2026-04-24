@@ -1182,10 +1182,47 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
         return
       }
 
+      // ========================================================================
+      // AUDIO/VOICE PROCESSING - Added by OpenCode (Rolli) on 2026-04-24
+      // Uses HuggingFace Whisper via Supabase Edge Function
+      // ========================================================================
       if (msgType === 'audioMessage' || msgType === 'voiceMessage') {
-        log('webhook', `Audio recibido de ${chatId} — respondiendo que no se procesan`)
-        await sendWhatsAppMessage(chatId, randomRespuesta('audio', chatId))
-        return
+        const fileId = body.messageData?.fileMessageData?.idFile
+        log('webhook', `Audio recibido de ${chatId}, fileId: ${fileId}`)
+
+        if (fileId) {
+          try {
+            // Call STT function to transcribe audio
+            const sttUrl = 'https://ujlgicmuktpqxuulhhwm.supabase.co/functions/v1/whatsapp-audio-stt'
+            const sttResp = await fetch(sttUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ fileId })
+            })
+            const sttData = await sttResp.json()
+
+            if (sttData.ok && sttData.text) {
+              log('webhook', `Audio transcript: "${sttData.text}"`)
+              // Process transcript as text message
+              const transcript = sttData.text.trim()
+              await sendWhatsAppMessage(chatId, `¡Te escuché! "${transcript}". ¿Continuamos?`)
+              // Continue with normal flow using transcript as message
+              message = transcript
+              msgType = 'textMessage'
+            } else {
+              log('webhook', `STT error: ${sttData.error || 'Unknown error'}`)
+              await sendWhatsAppMessage(chatId, 'No entendí el audio 😕 ¿Podés escribirlo o mandame otro mensaje de voz?')
+              return
+            }
+          } catch (sttErr) {
+            log('webhook', `STT exception: ${sttErr.message}`)
+            await sendWhatsAppMessage(chatId, 'Tuve un problema con el audio. ¿Podés escribirlo?')
+            return
+          }
+        } else {
+          await sendWhatsAppMessage(chatId, randomRespuesta('audio', chatId))
+          return
+        }
       }
 
       if (msgType === 'textMessage') {
