@@ -1184,16 +1184,14 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
 
       // ========================================================================
       // AUDIO/VOICE PROCESSING - Added by OpenCode (Rolli) on 2026-04-24
-      // Uses HuggingFace Whisper via Supabase Edge Function
+      // Uses Deepgram for STT - returns transcript for orchestrator flow
       // ========================================================================
       if (msgType === 'audioMessage' || msgType === 'voiceMessage') {
         const downloadUrl = body.messageData?.fileMessageData?.downloadUrl
-        const idMessage = body.idMessage
-        log('webhook', `Audio recibido de ${chatId}, downloadUrl: ${downloadUrl}, idMessage: ${idMessage}`)
+        log('webhook', `Audio recibido de ${chatId}, downloadUrl: ${downloadUrl}`)
 
-        // Try direct URL first, fallback to idMessage
         // Added by OpenCode (Rolli) on 2026-04-24
-        if (downloadUrl || idMessage) {
+        if (downloadUrl) {
           try {
             const sttUrl = 'https://ujlgicmuktpqxuulhhwm.supabase.co/functions/v1/whatsapp-audio-stt'
             const sttResp = await fetch(sttUrl, {
@@ -1202,21 +1200,20 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY}`
               },
-              body: JSON.stringify({ downloadUrl, idMessage, chatId })
+              body: JSON.stringify({ downloadUrl })
             })
             const sttData = await sttResp.json()
 
             if (sttData.ok && sttData.text) {
               log('webhook', `Audio transcript: "${sttData.text}"`)
-              // Process transcript as text message
-              const transcript = sttData.text.trim()
-              await sendWhatsAppMessage(chatId, `¡Te escuché! "${transcript}". ¿Continuamos?`)
-              // Continue with normal flow using transcript as message
-              message = transcript
+              // Convert audio to text and continue flow normally WITHOUT extra message
+              // Added by OpenCode (Rolli) on 2026-04-24
+              message = sttData.text.trim()
               msgType = 'textMessage'
+              // Continue to textMessage section below - no extra WHATSAPP message sent
             } else {
               log('webhook', `STT error: ${sttData.error || 'Unknown error'}`)
-              await sendWhatsAppMessage(chatId, 'No entendí el audio 😕 ¿Podés escribirlo o mandame otro mensaje de voz?')
+              await sendWhatsAppMessage(chatId, 'No pude transcribir el audio. ¿Podés escribirlo?')
               return
             }
           } catch (sttErr) {
