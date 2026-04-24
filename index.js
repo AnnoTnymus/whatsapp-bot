@@ -285,11 +285,16 @@ function log(tag, ...args) {
   console.log(`[${new Date().toISOString()}] [${tag}]`, ...args)
 }
 
-// v4.2: Métricas de GreenAPI — cuota/whitelist, errores, último 466
-// NOTA: el plan "developer" de GreenAPI tiene WHITELIST de números. Solo responde a chatIds
-// autorizados en my.green-api.com. Si el bot recibe un mensaje de un número no autorizado,
-// GreenAPI acepta el incoming pero rechaza el outgoing con HTTP 466 "QUOTE_ALLOWED_EXCEEDED".
-// Workarounds: (a) agregar el número a la whitelist, (b) upgrade al plan de pago.
+// v4.2: Métricas de GreenAPI — límite de correspondents, errores, último 466
+// NOTA: el plan "Developer" (gratuito) de GreenAPI permite SOLO 3 CHATS (números distintos)
+// por mes. Esos 3 slots se auto-asignan a los primeros 3 números que contactan al bot —
+// no hay forma de whitelistear ni elegir. Cuando llega un 4º número, GreenAPI acepta el
+// incoming (webhook) pero rechaza el outgoing con HTTP 466 "CORRESPONDENTS_QUOTE_EXCEEDED".
+// Única solución: upgrade al plan pago ("Business") en https://console.green-api.com
+// Referencias:
+//   https://green-api.com/en/docs/api/466-error-example-body/
+//   https://green-api.com/en/docs/api/receiving/notifications-format/QuotaExceeded/
+//   https://green-api.com/en/docs/news/2024/05/20/
 const greenApiStats = {
   sent: 0,
   failed: 0,
@@ -325,7 +330,7 @@ async function sendWhatsAppMessage(chatId, message) {
         if (greenApiStats.rejectedChatIds.length > 20) greenApiStats.rejectedChatIds.shift()
       }
 
-      log('whatsapp', `🚨 GREENAPI 466 — chat=${chatId} NO AUTORIZADO (whitelist) o cuota agotada. Agregá el número en my.green-api.com o upgradeá el plan. Body: ${text.substring(0, 200)}`)
+      log('whatsapp', `🚨 GREENAPI 466 CORRESPONDENTS_QUOTE_EXCEEDED — chat=${chatId} FUERA del cupo de 3 chats/mes del plan Developer. Única solución: upgrade a Business en console.green-api.com. Body: ${text.substring(0, 200)}`)
 
       await notifyAdminQuotaExceeded(text, chatId)
       return { ok: false, reason: 'quota_or_whitelist', status: res.status }
@@ -367,7 +372,7 @@ async function notifyAdminQuotaExceeded(rawBody, rejectedChatId) {
   lastQuotaAlertAt = now
 
   const subject = `🚨 GreenAPI rechazó envío (HTTP 466) — chat ${rejectedChatId || 'N/A'}`
-  const body = `GreenAPI devolvió 466 "QUOTE_ALLOWED_EXCEEDED".\n\nCausas probables:\n  1. El número NO está en la whitelist del plan developer.\n  2. Cuota mensual del plan agotada.\n\nChat afectado: ${rejectedChatId || 'desconocido'}\n\nAcción: abrí my.green-api.com → tu instancia → agregá el número a la whitelist, o upgradeá el plan.\n\nÚltimos rechazados: ${greenApiStats.rejectedChatIds.slice(-5).join(', ') || 'ninguno'}\n\nRaw: ${rawBody?.substring(0, 300) || 'sin detalle'}`
+  const body = `GreenAPI devolvió 466 "CORRESPONDENTS_QUOTE_EXCEEDED".\n\nCAUSA: el plan "Developer" (gratuito) de GreenAPI permite SOLO 3 CHATS distintos por mes. Los primeros 3 números que contactaron al bot ocuparon los 3 slots. Cualquier nuevo número queda fuera hasta el reset mensual.\n\nChat afectado (fuera de cupo): ${rejectedChatId || 'desconocido'}\n\nACCIÓN: upgradeá al plan pago "Business" en https://console.green-api.com — no hay whitelist manual en el plan gratuito, es auto-asignación por orden de llegada.\n\nÚltimos rechazados: ${greenApiStats.rejectedChatIds.slice(-5).join(', ') || 'ninguno'}\n\nRaw: ${rawBody?.substring(0, 300) || 'sin detalle'}`
 
   if (resend && ADMIN_EMAIL) {
     try {
@@ -1617,8 +1622,9 @@ app.get('/admin/greenapi-status', (req, res) => {
     ok: true,
     ...greenApiStats,
     hint: greenApiStats.quotaExceeded
-      ? 'GreenAPI está rechazando envíos con 466. Revisá whitelist en my.green-api.com o upgradeá el plan.'
+      ? 'Plan Developer de GreenAPI = máx 3 chats/mes. Ya llegaste al límite. Upgradeá a plan Business en console.green-api.com para habilitar todos los números.'
       : 'GreenAPI funcionando OK',
+    plan_info: 'Plan Developer limita a 3 números distintos por mes (auto-asignados por orden de llegada). Sin opción de whitelist manual.',
     rejectedNumbers: greenApiStats.rejectedChatIds.map(c => c.replace('@c.us', '')),
   })
 })
