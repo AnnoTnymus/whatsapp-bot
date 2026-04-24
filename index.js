@@ -827,6 +827,46 @@ async function notifyAdmin(chatId, nombre, dniData, reprocannData, collectedData
   await sendEmailNotification(chatId, nombre, dniData, reprocannData, collectedData)
 }
 
+// v4.2: Notifica al admin por email cuando un usuario pide hablar con una persona
+async function notifyHumanHandover(chatId, nombre, userMessage) {
+  if (!resend || !ADMIN_EMAIL) {
+    log('handover', `⚠️ Usuario pidió humano pero resend/ADMIN_EMAIL no configurado — notificación NO enviada`)
+    return
+  }
+
+  const phone = (chatId || '').replace('@c.us', '')
+  const safeName = nombre || 'Sin nombre registrado'
+  const safeMsg = (userMessage || '').substring(0, 500)
+  const when = new Date().toLocaleString('es-AR')
+
+  const html = `
+    <h2 style="color:#2e7d32;">📞 Solicitud de atención humana</h2>
+    <p style="font-size:15px;">Un usuario en WhatsApp pidió hablar con una persona del club. El bot ya le respondió que lo contactás en un ratito.</p>
+    <table style="border-collapse:collapse; margin-top:12px;">
+      <tr><td style="padding:6px 10px; font-weight:bold;">Nombre:</td><td style="padding:6px 10px;">${safeName}</td></tr>
+      <tr><td style="padding:6px 10px; font-weight:bold;">Teléfono:</td><td style="padding:6px 10px;"><a href="https://wa.me/${phone}">+${phone}</a></td></tr>
+      <tr><td style="padding:6px 10px; font-weight:bold;">Chat ID:</td><td style="padding:6px 10px;"><code>${chatId}</code></td></tr>
+      <tr><td style="padding:6px 10px; font-weight:bold;">Mensaje:</td><td style="padding:6px 10px;">"${safeMsg}"</td></tr>
+      <tr><td style="padding:6px 10px; font-weight:bold;">Fecha/hora:</td><td style="padding:6px 10px;">${when}</td></tr>
+    </table>
+    <p style="margin-top:20px; padding:12px; background:#fff3e0; border-left:4px solid #ff9800;">
+      <strong>Acción sugerida:</strong> contactá al usuario por WhatsApp lo antes posible.
+    </p>
+  `
+
+  try {
+    await resend.emails.send({
+      from: 'Bot Club <onboarding@resend.dev>',
+      to: ADMIN_EMAIL,
+      subject: `📞 Atención humana solicitada — ${safeName} (+${phone})`,
+      html,
+    })
+    log('handover', `📧 Email de handover enviado a ${ADMIN_EMAIL} para ${safeName} (${chatId})`)
+  } catch (e) {
+    log('handover', `❌ Error enviando email de handover: ${e.message}`)
+  }
+}
+
 async function askClaude(msg, chatId) {
   if (!ANTHROPIC_KEY) {
     log('claude', 'ANTHROPIC_KEY no configurada!')
@@ -1136,11 +1176,19 @@ async function handleMessage(body, msgType, chatId, sender, t0) {
         }
 
         // Paso 4: Detectar pedido explícito de humano
-        const wantHuman = /hablar.*persona|persona.*atienda|atender.*humano|pasar.*alguien|contactar.*equipo|speak.*human/i.test(message)
-        if (wantHuman && ADMIN_WHATSAPP) {
+        const wantHuman = /hablar.*persona|persona.*atienda|atender.*humano|atienda.*humano|pasar.*alguien|pasame.*con.*alguien|contactar.*equipo|speak.*human|hablar.*humano|agente.*humano|atenci[oó]n.*humana/i.test(message)
+        if (wantHuman) {
           log('webhook', `User pidió hablar con humano: ${chatId}`)
-          const handoverMsg = `📞 SOLICITUD DE ATENCIÓN HUMANA\n\n👤 ${state.nombre}\n📱 ${chatId}\n💬 "${message}"\n\nEl usuario quiere hablar con alguien del equipo.`
-          await sendWhatsAppMessage(ADMIN_WHATSAPP, handoverMsg)
+
+          // Notificar al admin por email (principal — siempre que esté configurado)
+          await notifyHumanHandover(chatId, state.nombre, message)
+
+          // Notificar también por WhatsApp si hay número admin configurado (best-effort)
+          if (ADMIN_WHATSAPP) {
+            const handoverMsg = `📞 SOLICITUD DE ATENCIÓN HUMANA\n\n👤 ${state.nombre || 'Sin nombre'}\n📱 ${chatId}\n💬 "${message}"\n\nEl usuario quiere hablar con alguien del equipo.`
+            await sendWhatsAppMessage(ADMIN_WHATSAPP, handoverMsg)
+          }
+
           await sendWhatsAppMessage(chatId, 'Dale, te paso con alguien del club enseguida 👋 Puede demorar un ratito.')
           return
         }

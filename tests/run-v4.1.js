@@ -389,6 +389,54 @@ assert('/health expone greenApi stats', () => {
   return true
 })
 
+// ============ SUITE 13: Human handover (v4.2) ============
+console.log('\n🧪 Suite 13: Atención humana — email al admin cuando piden hablar con persona')
+
+assert('Existe notifyHumanHandover', () => {
+  if (!/async function notifyHumanHandover/.test(src))
+    throw new Error('falta función notifyHumanHandover')
+  return true
+})
+
+assert('notifyHumanHandover usa resend.emails.send con ADMIN_EMAIL', () => {
+  const m = src.match(/async function notifyHumanHandover[\s\S]*?^\}/m)
+  if (!m) throw new Error('no pude extraer el body de notifyHumanHandover')
+  if (!/resend\.emails\.send/.test(m[0])) throw new Error('no usa resend.emails.send')
+  if (!/to:\s*ADMIN_EMAIL/.test(m[0])) throw new Error('no envía a ADMIN_EMAIL')
+  return true
+})
+
+assert('Webhook llama a notifyHumanHandover cuando wantHuman=true', () => {
+  if (!/if \(wantHuman\)[\s\S]{0,200}notifyHumanHandover\(/.test(src))
+    throw new Error('webhook no llama a notifyHumanHandover')
+  return true
+})
+
+assert('Handover funciona aunque ADMIN_WHATSAPP no esté configurado', () => {
+  // El chequeo `wantHuman && ADMIN_WHATSAPP` viejo bloqueaba todo sin ADMIN_WHATSAPP.
+  // Ahora el flujo debería ser: if (wantHuman) { notifyHumanHandover(...); if (ADMIN_WHATSAPP) { ... } }
+  if (/if \(wantHuman && ADMIN_WHATSAPP\)/.test(src))
+    throw new Error('el handover aún depende de ADMIN_WHATSAPP para ejecutarse')
+  return true
+})
+
+assert('Regex detecta variantes comunes de pedido humano', () => {
+  // Verificamos que el regex tenga varios patrones
+  const m = src.match(/const wantHuman = (\/[^/]+\/i)/)
+  if (!m) throw new Error('no encontré regex wantHuman')
+  const re = new RegExp(m[1].replace(/^\/|\/i$/g, ''), 'i')
+  const casos = [
+    'quiero hablar con una persona',
+    'necesito que me atienda un humano',
+    'pasame con alguien',
+    'atención humana por favor',
+  ]
+  for (const c of casos) {
+    if (!re.test(c)) throw new Error(`regex no matchea: "${c}"`)
+  }
+  return true
+})
+
 // ============ RESUMEN ============
 console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
 console.log(`📊 Resultado: ${passed} passed / ${failed} failed`)
