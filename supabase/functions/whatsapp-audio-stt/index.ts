@@ -1,93 +1,46 @@
 /**
- * WhatsApp Audio STT - Hugging Face Whisper
+ * WhatsApp Audio STT - Deepgram Speech-to-Text
  * Proyecto: whatsapp-bot (ujlgicmuktpqxuulhhwm)
  * Added by OpenCode (Rolli) on 2026-04-24
  */
 
-const HF_TOKEN = Deno.env.get('HF_TOKEN')!
+// Deepgram API key - Added by OpenCode (Rolli)
+const DEEPGRAM_KEY = '0faee3e7e8d5f52db6ca23fea7671f05bd8bc1ff'
 
-async function downloadFromURL(url: string): Promise<ArrayBuffer | null> {
+async function transcribeWithDeepgram(audioUrl: string): Promise<string | null> {
   try {
-    console.log('Fetching from URL:', url.substring(0, 80))
-    const resp = await fetch(url, {
+    console.log('Fetching audio from URL...')
+    const resp = await fetch(audioUrl)
+    if (!resp.ok) {
+      console.error('Fetch failed:', resp.status)
+      return null
+    }
+    const audioBytes = await resp.arrayBuffer()
+    console.log('Audio size:', audioBytes.byteLength)
+
+    console.log('Calling Deepgram...')
+    const dgResp = await fetch('https://api.deepgram.com/v1/listen?language=es', {
+      method: 'POST',
       headers: {
-        'User-Agent': 'WhatsAppBot/1.0'
-      }
-    })
-    
-    if (!resp.ok) {
-      console.error('URL fetch failed:', resp.status, resp.statusText)
-      return null
-    }
-    
-    const arrayBuffer = await resp.arrayBuffer()
-    console.log('Downloaded from URL, size:', arrayBuffer.byteLength)
-    return arrayBuffer
-  } catch (e) {
-    console.error('URL fetch error:', e)
-    return null
-  }
-}
-
-async function downloadAudioFromGreenAPI(chatId: string, idMessage: string): Promise<ArrayBuffer | null> {
-  const GREEN_URL = Deno.env.get('GREEN_API_URL') ?? 'https://7107.api.greenapi.com'
-  const GREEN_INSTANCE = Deno.env.get('GREEN_API_INSTANCE_ID') ?? '7107588003'
-  const GREEN_TOKEN_API = Deno.env.get('GREEN_API_TOKEN') ?? '5d7a2dd449bd48deaed916c65ae197c86ceb73a683254677b5'
-
-  try {
-    const url = `${GREEN_URL}/waInstance${GREEN_INSTANCE}/downloadFile/${GREEN_TOKEN_API}`
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chatId, idMessage })
+        'Authorization': `Token ${DEEPGRAM_KEY}`,
+        'Content-Type': 'audio/ogg'
+      },
+      body: new Uint8Array(audioBytes)
     })
 
-    if (!resp.ok) {
-      console.error('GreenAPI download failed:', resp.status)
-      const err = await resp.text()
-      console.error('Error:', err.substring(0, 200))
+    console.log('Deepgram status:', dgResp.status)
+    if (!dgResp.ok) {
+      const err = await dgResp.text()
+      console.error('Deepgram error:', err.substring(0, 500))
       return null
     }
 
-    const arrayBuffer = await resp.arrayBuffer()
-    console.log('Downloaded from GreenAPI, size:', arrayBuffer.byteLength)
-    return arrayBuffer
+    const data = await dgResp.json()
+    const transcript = data?.results?.channels?.[0]?.alternatives?.[0]?.transcript
+    console.log('Transcript:', transcript)
+    return transcript || null
   } catch (e) {
-    console.error('GreenAPI download error:', e)
-    return null
-  }
-}
-
-async function transcribeWithWhisper(audioData: ArrayBuffer): Promise<string | null> {
-  try {
-    const blob = new Blob([audioData])
-    const blobType = blob.type || 'audio/ogg'
-    console.log('Audio blob type:', blobType, 'size:', audioData.byteLength)
-
-    const formData = new FormData()
-    formData.append('file', blob, 'audio.ogg')
-    formData.append('model', 'openai/whisper-large-v3')
-    formData.append('language', 'es')
-
-    console.log('Calling HuggingFace Whisper...')
-    const resp = await fetch('https://api-inference.huggingface.co/models/openai/whisper-large-v3', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${HF_TOKEN}` },
-      body: formData
-    })
-
-    console.log('Whisper status:', resp.status)
-    if (!resp.ok) {
-      const errText = await resp.text()
-      console.error('Whisper error:', errText.substring(0, 300))
-      return null
-    }
-
-    const data = await resp.json()
-    console.log('Whisper result:', JSON.stringify(data))
-    return data.text || null
-  } catch (e) {
-    console.error('Transcribe error:', e)
+    console.error('Error:', e)
     return null
   }
 }
@@ -113,44 +66,26 @@ Deno.serve(async (req) => {
   }
 
   const downloadUrl = body.downloadUrl
-  const idMessage = body.idMessage
-  const chatId = body.chatId
 
-  console.log('Input:', JSON.stringify({ hasUrl: !!downloadUrl, hasId: !!idMessage, hasChat: !!chatId }))
-
-  let audioData: ArrayBuffer | null = null
-
-  // Try direct URL first
-  if (downloadUrl) {
-    console.log('Trying direct URL...')
-    audioData = await downloadFromURL(downloadUrl)
-  }
-  
-  // Fallback to GreenAPI download
-  if (!audioData && idMessage && chatId) {
-    console.log('Trying GreenAPI download...')
-    audioData = await downloadAudioFromGreenAPI(chatId, idMessage)
-  }
-
-  if (!audioData) {
-    console.error('All download methods failed')
-    return new Response(JSON.stringify({ error: 'Failed to download audio - tried URL and GreenAPI' }), {
-      status: 500,
+  if (!downloadUrl) {
+    return new Response(JSON.stringify({ error: 'downloadUrl required' }), {
+      status: 400,
       headers: { 'Content-Type': 'application/json' }
     })
   }
 
-  console.log('Transcribing audio of size:', audioData.byteLength)
-  const text = await transcribeWithWhisper(audioData)
+  console.log('Processing:', downloadUrl.substring(0, 60))
+
+  const text = await transcribeWithDeepgram(downloadUrl)
 
   if (!text) {
-    return new Response(JSON.stringify({ error: 'Failed to transcribe' }), {
+    return new Response(JSON.stringify({ error: 'Transcription failed' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     })
   }
 
-  console.log('SUCCESS - Transcription:', text)
+  console.log('SUCCESS:', text)
 
   return new Response(JSON.stringify({ ok: true, text }), {
     headers: { 'Content-Type': 'application/json' }
