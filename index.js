@@ -742,15 +742,23 @@ INSTRUCCIONES:
     }
 
     const data = await res.json()
-    const text = data.content[0].text.trim()
+    let text = data.content[0].text.trim()
+
+    // Extraer JSON si está envuelto en backticks o prefijo
+    text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) {
+      log('detect', `JSON no encontrado, asumiendo REPROCANN: ${text.substring(0, 50)}`)
+      return { tipo: 'REPROCANN', ambosSides: false, pais: null, valido: true }
+    }
 
     // Parse JSON robustly
     let json
     try {
-      json = JSON.parse(text)
+      json = JSON.parse(jsonMatch[0])
     } catch {
       // Si no es JSON válido, asumir REPROCANN
-      log('detect', `JSON parse error, asumiendo REPROCANN: ${text.substring(0, 50)}`)
+      log('detect', `JSON parse error, asumiendo REPROCANN: ${jsonMatch[0].substring(0, 50)}`)
       return { tipo: 'REPROCANN', ambosSides: false, pais: null, valido: true }
     }
 
@@ -900,9 +908,16 @@ Retorna JSON válido (null si no aparece, no cadenas vacías):
     // Limpiar backticks si Claude devuelve markdown
     text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
 
+    // Extraer SOLO el JSON — ignorar prefijo/sufijo que Claude pueda agregar
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) {
+      log('extract', `JSON no encontrado en ${docType}, retornando null: ${text.substring(0, 80)}`)
+      return null
+    }
+
     let json
     try {
-      json = JSON.parse(text)
+      json = JSON.parse(jsonMatch[0])
     } catch {
       log('extract', `JSON parse error in ${docType}, retornando null`)
       return null
@@ -974,11 +989,18 @@ Retorna JSON válido:
     // Limpiar backticks si Claude devuelve markdown
     text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
 
+    // Extraer SOLO el JSON — ignorar prefijo/sufijo que Claude pueda agregar
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) {
+      log('extract', `JSON no encontrado en respuesta, retornando null: ${text.substring(0, 80)}`)
+      return null
+    }
+
     let json
     try {
-      json = JSON.parse(text)
+      json = JSON.parse(jsonMatch[0])
     } catch {
-      log('extract', `JSON parse error, retornando null: ${text.substring(0, 80)}`)
+      log('extract', `JSON parse error, retornando null: ${jsonMatch[0].substring(0, 80)}`)
       return null
     }
 
@@ -1170,7 +1192,21 @@ REGLAS:
 
     const data = await res.json()
     let text = data.content[0].text.trim().replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
-    const parsed = JSON.parse(text)
+
+    // Extraer JSON si está envuelto en prefijo/sufijo
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) {
+      const guess = (rawMessage || '').trim().split(/\s+/)[0].substring(0, 20)
+      return { apodo: guess || 'Amigo', nombre_completo: guess, necesita_aclarar: false }
+    }
+
+    let parsed
+    try {
+      parsed = JSON.parse(jsonMatch[0])
+    } catch {
+      const guess = (rawMessage || '').trim().split(/\s+/)[0].substring(0, 20)
+      return { apodo: guess || 'Amigo', nombre_completo: guess, necesita_aclarar: false }
+    }
 
     // Name parsing logs sanitized by Codex (GPT-5) on 2026-04-24.
     log('parseName', `len=${(rawMessage || '').length} apodoLen=${(parsed.apodo || '').length} aclarar=${parsed.necesita_aclarar}`)
