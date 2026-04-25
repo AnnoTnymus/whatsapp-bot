@@ -1400,6 +1400,33 @@ async function runNewPipeline(msg, chatId, state) {
     return { reply: placeholder, wantsAffiliation: routed.wants_affiliation, skillName: routed.skill, history: updated }
   }
 
+  // 2b. Handover short-circuit — Router detectó semánticamente que usuario pide atención humana
+  if (routed.intent === 'handover') {
+    log('pipeline', `handover detectado por Router LLM | ${formatChatRef(chatId)}`)
+
+    // Email al admin
+    await notifyHumanHandover(chatId, state?.nombre_completo || state?.nombre, msg)
+
+    // WA al admin (mismo guard que Paso 4 legacy)
+    if (ADMIN_WHATSAPP && ADMIN_WHATSAPP !== chatId) {
+      const handoverMsg = `📞 SOLICITUD DE ATENCIÓN HUMANA\n\n👤 ${state?.nombre_completo || state?.nombre || 'Sin nombre'}\n📱 ${chatId}\n💬 "${msg}"\n\nEl usuario quiere hablar con alguien del equipo.`
+      await sendWhatsAppMessage(ADMIN_WHATSAPP, handoverMsg)
+    } else if (ADMIN_WHATSAPP === chatId) {
+      log('pipeline', `⚠️ Skip admin WA: ADMIN_WHATSAPP===chatId`)
+    }
+
+    // Respuesta coherente al usuario
+    const nombreSaludo = state?.nombre && state.nombre !== 'Amigo' ? `, ${state.nombre}` : ''
+    const handoverReply = `Listo${nombreSaludo} 👋 Ya notifiqué al staff y te van a contactar apenas puedan (a veces tarda un ratito).\n\nMientras tanto, si querés, te puedo contar sobre el club, sobre Indajaus (somos líderes del sector en Uruguay 🇺🇾), las genéticas que tenemos, cómo funciona el REPROCANN, o te arranco con la inscripción si preferís ir avanzando. ¿Te interesa alguna?`
+
+    // Persistir historial
+    const updated = [...history, { role: 'user', content: msg }, { role: 'assistant', content: handoverReply }]
+    conversationHistory.set(chatId, updated)
+    await saveHistory(chatId, updated)
+
+    return { reply: handoverReply, wantsAffiliation: false, skillName: null, history: updated }
+  }
+
   // 3. Knowledge (si el router lo pide)
   let knowledge = []
   if (routed.needs_knowledge && routed.knowledge_query) {
