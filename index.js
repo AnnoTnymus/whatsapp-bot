@@ -1124,9 +1124,7 @@ async function parseUserName(rawMessage) {
     return { apodo: guess || 'Amigo', nombre_completo: guess, necesita_aclarar: false }
   }
 
-  const prompt = `El usuario de un club cannabico se está presentando por WhatsApp. Tu tarea: extraer cómo quiere que lo llamemos.
-
-MENSAJE DEL USUARIO: "${rawMessage}"
+  const system = `El usuario de un club cannabico se está presentando por WhatsApp. Tu tarea: extraer cómo quiere que lo llamemos.
 
 Devolvé SOLO JSON con esta forma exacta, sin markdown, sin explicación:
 {
@@ -1146,6 +1144,8 @@ REGLAS:
 - Nunca inventes. Si dudás, pedí aclaración.
 - El apodo nunca debe tener "me dicen", "soy", etc. — solo el nombre limpio.`
 
+  const userMessage = `MENSAJE DEL USUARIO: "${rawMessage}"`
+
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -1157,7 +1157,8 @@ REGLAS:
       body: JSON.stringify({
         model: MODEL,
         max_tokens: 200,
-        messages: [{ role: 'user', content: prompt }],
+        system,
+        messages: [{ role: 'user', content: userMessage }],
       }),
     })
 
