@@ -146,7 +146,7 @@ const TOKEN_BUDGET = {
   request_field: 80,       // "Ahora necesito tu provincia. Contame 👇"
   success: 120,           // "¡Listo! Te contactamos pronto 🌿"
   error: 150,             // Mensajes de error con instrucciones
-  explanation: 250,       // Respuestas generales sobre el club (askClaude)
+  explanation: 600,       // Respuestas generales + extracción de datos complejos (DNI/REPROCANN)
   followup: 120,          // Mensajes de seguimiento automático
   detect: 100,            // Document type detection
 }
