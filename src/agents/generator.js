@@ -32,9 +32,21 @@ export async function runGenerator({ intent, knowledge = [], history = [], state
   if (!anthropicKey) return { reply: FALLBACK_REPLY, wants_affiliation: false }
 
   const recentHistory = Array.isArray(history) ? history.slice(-8) : []
+  const currentStep = state?.step || 'inicio'
   const stateLine = state && state.nombre && state.nombre !== 'Amigo'
-    ? `Nombre del usuario: ${state.nombre}. Paso: ${state.step || 'conversando'}.`
+    ? `Nombre del usuario: ${state.nombre}. Paso: ${currentStep}.`
     : 'Usuario sin nombre registrado.'
+
+  // Add step-specific instructions
+  let stepInstructions = ''
+  if (currentStep === 'solicitando_nombre' || (intent === 'affiliate' && !state.nombre)) {
+    stepInstructions = '\n⚠️ ACCIÓN REQUERIDA: El usuario aún no tiene nombre. Pedir nombre directamente, no saludar genéricamente.'
+  } else if (currentStep === 'recibiendo_documentos') {
+    stepInstructions = '\n⚠️ ACCIÓN REQUERIDA: El usuario está en proceso de enviar documentos. Pedir DNI y REPROCANN.'
+  } else if (currentStep === 'completando_datos' && state.pendingFields?.length > 0) {
+    const field = state.pendingFields[0]
+    stepInstructions = `\n⚠️ ACCIÓN REQUERIDA: Falta completar "${field.label}". Pedir ese dato específico.`
+  }
 
   const systemWithContext = [
     GENERATOR_PROMPT,
@@ -42,6 +54,7 @@ export async function runGenerator({ intent, knowledge = [], history = [], state
     '━━━ CONTEXTO DE ESTA CONSULTA ━━━',
     `intent: ${intent || 'info'}`,
     stateLine,
+    stepInstructions,
     '',
     'Knowledge snippets:',
     renderSnippets(knowledge),

@@ -15,6 +15,8 @@ const ROUTER_PROMPT = readFileSync(join(__dirname, 'prompts', 'router.md'), 'utf
 const VALID_INTENTS = new Set(['greet', 'info', 'affiliate', 'handover', 'skill', 'offtopic', 'goodbye'])
 const VALID_SKILLS = new Set(['legal_faq', 'reprocann_guide', 'genetics_expert'])
 
+const AFFILIATE_KEYWORDS = ['inscribir', 'inscribirme', 'afiliar', 'afiliarme', 'socio', 'hacerme socio', 'quiero ser socio', 'ser socio', 'member', 'registrar', 'registrarme', 'tramite', 'trámite', 'afiliación', 'asociarme']
+
 const FALLBACK = {
   intent: 'info',
   needs_knowledge: true,
@@ -24,7 +26,7 @@ const FALLBACK = {
   reasoning: 'router fallback',
 }
 
-function coerceRouterJson(raw) {
+function coerceRouterJson(raw, message) {
   const trimmed = (raw || '').trim()
   if (!trimmed) return null
 
@@ -39,7 +41,15 @@ function coerceRouterJson(raw) {
     return null
   }
 
-  const intent = VALID_INTENTS.has(obj.intent) ? obj.intent : FALLBACK.intent
+  let intent = VALID_INTENTS.has(obj.intent) ? obj.intent : FALLBACK.intent
+
+  // Override intent to affiliate if message contains affiliate keywords
+  if (intent === 'greet' && message) {
+    const lowerMsg = message.toLowerCase()
+    if (AFFILIATE_KEYWORDS.some(kw => lowerMsg.includes(kw))) {
+      intent = 'affiliate'
+    }
+  }
   const skill = VALID_SKILLS.has(obj.skill) ? obj.skill : null
   const needs_knowledge = Boolean(obj.needs_knowledge)
   const knowledge_query = needs_knowledge && typeof obj.knowledge_query === 'string' && obj.knowledge_query.trim()
@@ -93,7 +103,7 @@ export async function runRouter({ message, history = [], state = {} }, opts = {}
 
     const data = await res.json()
     const raw = data?.content?.[0]?.text || ''
-    const parsed = coerceRouterJson(raw)
+    const parsed = coerceRouterJson(raw, message)
     return parsed || { ...FALLBACK, reasoning: 'router unparsable' }
   } catch (e) {
     return { ...FALLBACK, reasoning: `router exception: ${e.message}` }
