@@ -1777,7 +1777,15 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
           }
 
           // [claude-opus-4.7] 2026-04-24: inscripción primero, consultas secundarias.
-          await sendWhatsAppMessage(chatId, `¡Un gusto, ${state.nombre}! 🌿 ¿Querés que te guíe para inscribirte al club? Si preferís primero te cuento cómo funciona, o te ayudo con REPROCANN, temas legales o genéticas — lo que te sirva más.`)
+          await sendWhatsAppMessage(chatId, `¡Un gusto, ${state.nombre}! 🌿
+
+Acá podemos ayudarte con:
+• 📝 Inscripción al club — es lo principal, te cuento qué necesitamos
+• 📚 Info sobre Indajaus — quiénes somos, cómo funciona, precios
+• 🌿 Dudas sobre cannabis — genéticas, REPROCANN, leyes
+• 👥 Hablar con alguien — si prefieres atención humana
+
+¿Con qué te podemos ayudar?`)
           await saveState(chatId, state)
           return
         }
