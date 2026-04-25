@@ -1814,7 +1814,7 @@ Acá podemos ayudarte con:
         // Paso 4: Detectar pedido explícito de humano
         // Added by OpenCode (Rolli) on 2026-04-24
         // Detecta: "me pasas con humano", "necesito un ser humano", "quiero atención humana", etc
-        const wantHuman = /hablar.*(?:persona|humano)|pasar.*(?:alguien|humano|ser\s+humano)|pasame|pasá?me|contactar.*(?:equipo|humano|persona)|speak.*human|agente.*humano|atenci[oó]n.*humana|necesito.*humano|quiero.*humano|ser\s+humano|un\s+humano/i.test(message)
+        const wantHuman = /hablar.*(?:persona|humano)|pas(?:ar|as|á|á).*(?:alguien|humano|ser\s+humano|con)|pasame|pasá?me|contactar.*(?:equipo|humano|persona)|speak.*human|agente.*humano|atenci[oó]n.*humana|necesito.*humano|quiero.*humano|ser\s+humano|un\s+humano/i.test(message)
         if (wantHuman) {
           log('webhook', `Pedido de humano chat=${formatChatRef(chatId)}`)
 
