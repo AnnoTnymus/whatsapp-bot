@@ -14,6 +14,26 @@ const GENERATOR_PROMPT = readFileSync(join(__dirname, 'prompts', 'generator.md')
 
 const FALLBACK_REPLY = 'Disculpá, tuvimos un problema técnico. Intentá de nuevo en un momento 🙏'
 
+const GREET_WELCOME = `Bienvenido a Indajaus 🌿
+
+Te estás comunicando con nuestro club cannábico en Argentina. 
+Somos una empresa que viene desde Uruguay trayendo más de una década de experiencia en el sector del cannabis. 
+Estás en el lugar indicado.
+
+¿Cuál es tu nombre?`
+
+const INFO_OPTIONS = `Perfecto, gracias por escribirnos.
+
+Acá podemos ayudarte con:
+• 📝 **Inscripción al club** — es lo principal, te digo qué necesitamos
+• 📚 **Info sobre Indajaus** — quiénes somos, cómo funciona, precios
+• 🌿 **Dudas sobre cannabis** — genéticas, REPROCANN, leyes  
+• 👥 **Hablar con alguien** — si prefieres atención humana
+
+Yo soy IA entrenada para resolver dudas complejas, así que podemos hablar de cualquier cosa sin problemas.
+
+¿Qué te interesa?`
+
 function renderSnippets(knowledge) {
   if (!Array.isArray(knowledge) || knowledge.length === 0) {
     return '(sin snippets — si el intent requiere datos del club, decí que mejor se consulte con alguien del staff)'
@@ -31,6 +51,11 @@ export async function runGenerator({ intent, knowledge = [], history = [], state
 
   if (!anthropicKey) return { reply: FALLBACK_REPLY, wants_affiliation: false }
 
+  // Return forced reply for greet/info without history
+  if (forcedReply) {
+    return { reply: forcedReply, wants_affiliation: false }
+  }
+
   const recentHistory = Array.isArray(history) ? history.slice(-8) : []
   const currentStep = state?.step || 'inicio'
   const stateLine = state && state.nombre && state.nombre !== 'Amigo'
@@ -39,7 +64,14 @@ export async function runGenerator({ intent, knowledge = [], history = [], state
 
   // Add step-specific instructions
   let stepInstructions = ''
-  if (currentStep === 'solicitando_nombre' || (intent === 'affiliate' && !state.nombre)) {
+  let forcedReply = null
+
+  // Check for greet intent with no history or greet with "hola" message
+  if (intent === 'greet' && (!recentHistory.length || message.toLowerCase().match(/^hola+$/))) {
+    forcedReply = GREET_WELCOME
+  } else if (intent === 'info' && currentStep === 'inicio' && !state.nombre && !recentHistory.length) {
+    forcedReply = INFO_OPTIONS
+  } else if (currentStep === 'solicitando_nombre' || (intent === 'affiliate' && !state.nombre)) {
     stepInstructions = '\n⚠️ ACCIÓN REQUERIDA: El usuario aún no tiene nombre. Pedir nombre directamente, no saludar genéricamente.'
   } else if (currentStep === 'recibiendo_documentos') {
     stepInstructions = '\n⚠️ ACCIÓN REQUERIDA: El usuario está en proceso de enviar documentos. Pedir DNI y REPROCANN.'

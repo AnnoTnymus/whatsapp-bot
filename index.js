@@ -1978,7 +1978,8 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
 
         if (documentosFaltantes.length > 0) {
           log('webhook', `Documentos faltantes: ${documentosFaltantes.join(', ')}`)
-          await sendWhatsAppMessage(chatId, `Dale, recibido 📍 Todavía necesito: ${documentosFaltantes.join(', ')} 📸`)
+          const listaFaltantes = documentosFaltantes.map(doc => `• ${doc}`).join('\n')
+          await sendWhatsAppMessage(chatId, `¡Joya che! 🔥 Se ven los datos perfectos.\n\nEstamos a un paso solamente. Me falta:\n${listaFaltantes}\n\nMandame el que te falta y listo.`)
           await saveState(chatId, state)
           return
         }
@@ -1995,14 +1996,14 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
           state.pendingFields = missing
           const firstField = missing[0]
           const sourceText = firstField.source === 'DNI' ? 'del DNI' : 'de tu REPROCANN'
-          await sendWhatsAppMessage(chatId, `Me faltó leer ${firstField.label} ${sourceText} 📝 ¿Me lo escribís?`)
+          await sendWhatsAppMessage(chatId, `¡Ufff! 😅 Logré leer algunos datos nada más.\n\nMe falta tu ${firstField.label} ${sourceText}. ¿Me lo escribís?`)
           await saveState(chatId, state)
           return
         }
 
         // Todos los documentos y campos están completos!
         state.step = 'completado'
-        await sendWhatsAppMessage(chatId, `✅ ¡Listo, ${state.nombre}! 🎉 Ya tenemos todo. Te contactamos en un ratito 🌿`)
+        await sendWhatsAppMessage(chatId, `¡Impecaaa! 🎉\n\nYa tenemos todo lo que necesitamos para que nuestro staff lo revise y se comunique contigo para finalizar la inscripción.\n\nPero ya tenés un pie adentro del mejor club cannábico en Argentina! 🌿\n\nNos vemos en breve, bienvenido/a a Indajaus.`)
 
         if (ADMIN_EMAIL) {
           log('webhook', `Enviando email de notificación para ${state.nombre}`)
