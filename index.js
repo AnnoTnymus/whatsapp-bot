@@ -1166,8 +1166,15 @@ async function notifyAdmin(chatId, nombre, dniData, reprocannData, collectedData
 
 // v4.2: Notifica al admin por email cuando un usuario pide hablar con una persona
 async function notifyHumanHandover(chatId, nombre, userMessage) {
-  if (!resend || !ADMIN_EMAIL) {
-    log('handover', `⚠️ Usuario pidió humano pero resend/ADMIN_EMAIL no configurado — notificación NO enviada`)
+  // Diagnóstico completo
+  log('handover', `Iniciando notifyHumanHandover: resend=${!!resend}, ADMIN_EMAIL=${!!ADMIN_EMAIL}`)
+
+  if (!resend) {
+    log('handover', `⚠️ PROBLEMA: resend no está configurado (RESEND_API_KEY no en env vars)`)
+    return
+  }
+  if (!ADMIN_EMAIL) {
+    log('handover', `⚠️ PROBLEMA: ADMIN_EMAIL no está configurado`)
     return
   }
 
@@ -1183,7 +1190,7 @@ async function notifyHumanHandover(chatId, nombre, userMessage) {
       <tr><td style="padding:6px 10px; font-weight:bold;">Nombre:</td><td style="padding:6px 10px;">${safeName}</td></tr>
       <tr><td style="padding:6px 10px; font-weight:bold;">Teléfono:</td><td style="padding:6px 10px;"><a href="https://wa.me/${phone}">+${phone}</a></td></tr>
       <tr><td style="padding:6px 10px; font-weight:bold;">Chat ID:</td><td style="padding:6px 10px;"><code>${chatId}</code></td></tr>
-      <tr><td style="padding:6px 10px; font-weight:bold;">Mensaje:</td><td style="padding:6px 10px;">"${safeMsg}"</td></tr>
+      <tr><td style="padding:6px 10px; font-weight:bold;">Mensaje del usuario:</td><td style="padding:6px 10px;">"${safeMsg}"</td></tr>
       <tr><td style="padding:6px 10px; font-weight:bold;">Fecha/hora:</td><td style="padding:6px 10px;">${when}</td></tr>
     </table>
     <p style="margin-top:20px; padding:12px; background:#fff3e0; border-left:4px solid #ff9800;">
@@ -1192,16 +1199,16 @@ async function notifyHumanHandover(chatId, nombre, userMessage) {
   `
 
   try {
-    await resend.emails.send({
+    log('handover', `Intentando enviar email a ${ADMIN_EMAIL}...`)
+    const response = await resend.emails.send({
       from: 'Bot Club <onboarding@resend.dev>',
       to: ADMIN_EMAIL,
       subject: `📞 Atención humana solicitada — ${safeName} (+${phone})`,
       html,
     })
-    // Handover audit log sanitized by Codex (GPT-5) on 2026-04-24.
-    log('handover', `📧 Email de handover enviado a ${ADMIN_EMAIL} para ${formatChatRef(chatId)}`)
+    log('handover', `✅ Email de handover enviado exitosamente (id=${response.id}) para ${formatChatRef(chatId)}`)
   } catch (e) {
-    log('handover', `❌ Error enviando email de handover: ${e.message}`)
+    log('handover', `❌ ERROR enviando email de handover: ${e.message} | stack: ${e.stack?.substring(0, 200) || 'N/A'}`)
   }
 }
 
@@ -1813,7 +1820,8 @@ Acá podemos ayudarte con:
 
         // Paso 4: Detectar pedido explícito de humano
         // Added by OpenCode (Rolli) on 2026-04-24
-        const wantHuman = /hablar.*persona|persona.*atienda|atender.*humano|atienda.*humano|pasar.*alguien|pasame.*con.*alguien|contactar.*equipo|speak.*human|hablar.*humano|agente.*humano|atenci[oó]n.*humana/i.test(message)
+        // Mejorado para detectar más variaciones de "quiero hablar con un humano/persona/equipo"
+        const wantHuman = /hablar\s+(con\s+)?(una?\s+)?persona|persona\s+.*atienda|atender.*humano|atienda.*humano|pasar.*alguien|pasame|pasá?me\s+con|contactar.*equipo|speak.*human|hablar.*humano|agente.*humano|atenci[oó]n.*humana|quiero\s+una?\s+persona|necesito\s+un\s+humano|puede[s]?\s+hablar|quiero\s+alguien|dame\s+alguien/i.test(message)
         if (wantHuman) {
           log('webhook', `Pedido de humano chat=${formatChatRef(chatId)}`)
 
