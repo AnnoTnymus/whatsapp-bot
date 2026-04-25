@@ -1012,7 +1012,7 @@ Retorna JSON válido:
   }
 }
 
-async function sendEmailNotification(chatId, nombre, dniData, reprocannData, collectedData) {
+async function sendEmailNotification(chatId, nombre, dniData, reprocannData, collectedData, imageUrls = {}) {
   if (!resend || !ADMIN_EMAIL) {
     log('email', 'Resend no configurado o email de admin faltante')
     return
@@ -1073,14 +1073,24 @@ async function sendEmailNotification(chatId, nombre, dniData, reprocannData, col
     </p>
   `
 
+  const attachments = []
+  if (imageUrls.dni_frente) attachments.push({ filename: 'DNI_frente.jpg', url: imageUrls.dni_frente })
+  if (imageUrls.dni_dorso) attachments.push({ filename: 'DNI_dorso.jpg', url: imageUrls.dni_dorso })
+  if (imageUrls.reprocann_frente) attachments.push({ filename: 'REPROCANN_frente.jpg', url: imageUrls.reprocann_frente })
+  if (imageUrls.reprocann_dorso) attachments.push({ filename: 'REPROCANN_dorso.jpg', url: imageUrls.reprocann_dorso })
+
   try {
-    const response = await resend.emails.send({
+    const emailParams = {
       from: 'Bot Club <onboarding@resend.dev>',
       to: ADMIN_EMAIL,
       subject: `Nuevo Lead: ${nombre} - Documentos Completos`,
       html: htmlContent,
-    })
-    log('email', `Email enviado a ${ADMIN_EMAIL} para ${nombre}`)
+    }
+    if (attachments.length > 0) {
+      emailParams.attachments = attachments
+    }
+    const response = await resend.emails.send(emailParams)
+    log('email', `Email enviado a ${ADMIN_EMAIL} para ${nombre}${attachments.length ? ` con ${attachments.length} adjuntos` : ''}`)
     return response
   } catch (e) {
     log('email', `Error enviando email: ${e.message}`)
@@ -1088,9 +1098,9 @@ async function sendEmailNotification(chatId, nombre, dniData, reprocannData, col
   }
 }
 
-async function notifyAdmin(chatId, nombre, dniData, reprocannData, collectedData) {
+async function notifyAdmin(chatId, nombre, dniData, reprocannData, collectedData, imageUrls = {}) {
   log('admin', `Notificando admin para: ${nombre}`)
-  await sendEmailNotification(chatId, nombre, dniData, reprocannData, collectedData)
+  await sendEmailNotification(chatId, nombre, dniData, reprocannData, collectedData, imageUrls)
 }
 
 // v4.2: Notifica al admin por email cuando un usuario pide hablar con una persona
@@ -1960,7 +1970,13 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
 
         if (ADMIN_EMAIL) {
           log('webhook', `Enviando email de notificación para ${state.nombre}`)
-          await notifyAdmin(chatId, state.nombre_completo || state.nombre, dniData, reprocannData, state.collectedData)
+          const imageUrls = {
+            dni_frente: state.documentos.dni.frente?.url,
+            dni_dorso: state.documentos.dni.dorso?.url,
+            reprocann_frente: state.documentos.reprocann.frente?.url,
+            reprocann_dorso: state.documentos.reprocann.dorso?.url,
+          }
+          await notifyAdmin(chatId, state.nombre_completo || state.nombre, dniData, reprocannData, state.collectedData, imageUrls)
         }
 
         await saveState(chatId, state)  // v4.0: persist to DB
