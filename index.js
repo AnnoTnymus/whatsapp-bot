@@ -670,8 +670,30 @@ const REPROCANN_REQUIRED = [
   { key: 'vencimiento', label: 'la fecha de vencimiento de tu REPROCANN', path: d => d?.tramite?.fecha_vencimiento },
 ]
 
+const DNI_REQUIRED = [
+  { key: 'nombre', label: 'tu nombre completo', path: d => d?.nombre },
+  { key: 'documento', label: 'tu número de documento', path: d => d?.documento },
+  { key: 'domicilio', label: 'tu domicilio', path: d => d?.domicilio },
+]
+
 function getMissingFields(reprocannData) {
   return REPROCANN_REQUIRED.filter(f => !f.path(reprocannData))
+}
+
+function validateCriticalFields(dniData, reprocannData) {
+  const missing = []
+
+  const dniMissing = DNI_REQUIRED.filter(f => !f.path(dniData))
+  if (dniMissing.length > 0) {
+    missing.push(...dniMissing.map(f => ({ ...f, source: 'DNI' })))
+  }
+
+  const reprocannMissing = REPROCANN_REQUIRED.filter(f => !f.path(reprocannData))
+  if (reprocannMissing.length > 0) {
+    missing.push(...reprocannMissing.map(f => ({ ...f, source: 'REPROCANN' })))
+  }
+
+  return missing
 }
 
 async function detectImage(imageUrl) {
@@ -1947,19 +1969,19 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
           return
         }
 
-        // Tenemos todos los 4 documentos, validar datos de REPROCANN
+        // Tenemos todos los 4 documentos, validar datos de ambos documentos
         const reprocannData = state.documentos.reprocann.dorso?.data || state.documentos.reprocann.frente?.data
         const dniData = state.documentos.dni.dorso?.data || state.documentos.dni.frente?.data
 
-        const missing = getMissingFields(reprocannData)
-        log('webhook', `Campos faltantes en REPROCANN: ${missing.map(m => m.key).join(', ') || 'ninguno'}`)
+        const missing = validateCriticalFields(dniData, reprocannData)
+        log('webhook', `Campos críticos faltantes: ${missing.map(m => `${m.source}:${m.key}`).join(', ') || 'ninguno'}`)
 
         if (missing.length > 0) {
-          // Faltan campos obligatorios en REPROCANN, pedir por texto
           state.step = 'completando_datos'
           state.pendingFields = missing
           const firstField = missing[0]
-          await sendWhatsAppMessage(chatId, `Me faltó leer ${firstField.label} 📝 ¿Me lo escribís?`)
+          const sourceText = firstField.source === 'DNI' ? 'del DNI' : 'de tu REPROCANN'
+          await sendWhatsAppMessage(chatId, `Me faltó leer ${firstField.label} ${sourceText} 📝 ¿Me lo escribís?`)
           await saveState(chatId, state)
           return
         }
