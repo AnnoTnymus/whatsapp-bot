@@ -88,13 +88,28 @@ function parseEvaluatorReply(rawLLMOutput: string): {
 
 ## FASE 3 — Training storage
 
-**TODO**: La implementación va aquí.
+✅ **COMPLETADO** (2026-04-26)
+
+- [x] Tabla: `supabase/migrations/20260426_bot_training.sql`
+  - Schema: `id UUID, chat_id, user_msg, bot_reply, score (0-100), reason, created_at`
+  - RLS: service_role only
+  - Índices: score, chat_id
+- [x] Runtime: `src/knowledge/training.js`
+  - Fire-and-forget, lazy Supabase client
+  - Clampa score 0-100, trunca reason a 500 chars
+  - Ignora si chat_id vacío, falla silenciosa
+- [x] Test: `tests/training-save.test.js`
 
 ---
 
 ## FASE 4 — Evaluator scoring runtime
 
-**TODO**: La implementación va aquí.
+✅ **DELEGADO A feat/agent-layer** (2026-04-26)
+
+Implementado por Claude como `runEvaluator()` en `src/agents/evaluator.js` (feat/agent-layer).
+Usa `parseEvaluatorReply()` internamente. `getEvaluatorScore` queda como alias opcional
+para callers que prefieran la firma del contrato — re-exportable desde `src/knowledge/index.js`
+si llega a hacer falta.
 
 ---
 

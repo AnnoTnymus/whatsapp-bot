@@ -8,6 +8,7 @@ import { createClient } from '@supabase/supabase-js'
 import { SKILL_NAMES, invokeSkill, parseSkillMarker } from './skills.js'
 
 const app = express()
+app.use(express.static('public'))
 
 // Admin HTML - Added by OpenCode (Rolli) 2026-04-24
 const ADMIN_CONFIG_HTML = `<!DOCTYPE html>
@@ -2167,8 +2168,8 @@ app.post('/admin/config', async (req, res) => {
 app.get('/admin/knowledge-stats', async (req, res) => {
   if (!requireAdminAccess(req, res)) return
   try {
-    const { queryKnowledge } = await import('./src/knowledge/index.js')
-    const stats = await queryKnowledge.getKnowledgeStats()
+    const { getKnowledgeStats } = await import('./src/knowledge/index.js')
+    const stats = await getKnowledgeStats()
     res.json({ ok: true, stats })
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message })
