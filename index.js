@@ -1097,40 +1097,29 @@ async function sendEmailNotification(chatId, nombre, dniData, reprocannData, col
     htmlContent += `</ul>`
   }
 
+  // Extraer número de teléfono del chatId (formato: "5989...63@c.us")
+  const phoneNumber = chatId.split('@')[0]
+  const whatsappLink = `https://wa.me/${phoneNumber}`
+
   htmlContent += `
     <hr />
     <p style="background: #e8f5e9; padding: 10px; border-left: 4px solid #4caf50;">
       <strong style="color: #2e7d32;">✅ Documentación completa</strong><br/>
-      Proceder con verificación y contacto directo.
+      <a href="${whatsappLink}" style="color: #25d366; font-weight: bold; text-decoration: none;">📱 Ver chat en WhatsApp</a> • Proceder con verificación y contacto directo.
     </p>
   `
-
-  // TODO: Implement proper attachment handling with Resend
-  // Resend doesn't support direct URLs in attachments - would need to download image and convert to buffer
-  // For now, sending links in email body instead
-  const imageLinksHtml = `
-    <h3>📎 Enlaces a documentos:</h3>
-    <ul style="margin: 10px 0;">
-      ${imageUrls.dni_frente ? `<li><a href="${imageUrls.dni_frente}">DNI Frente</a></li>` : ''}
-      ${imageUrls.dni_dorso ? `<li><a href="${imageUrls.dni_dorso}">DNI Dorso</a></li>` : ''}
-      ${imageUrls.reprocann_frente ? `<li><a href="${imageUrls.reprocann_frente}">REPROCANN Frente</a></li>` : ''}
-      ${imageUrls.reprocann_dorso ? `<li><a href="${imageUrls.reprocann_dorso}">REPROCANN Dorso</a></li>` : ''}
-    </ul>
-  `
-
-  const emailWithImages = htmlContent.replace('</body>', `${imageLinksHtml}</body>`)
 
   try {
     const emailParams = {
       from: 'Bot Club <onboarding@resend.dev>',
       to: ADMIN_EMAIL,
       subject: `Nuevo Lead: ${nombre} - Documentos Completos`,
-      html: emailWithImages,
+      html: htmlContent,
     }
     const response = await resend.emails.send(emailParams)
 
     if (response && response.id) {
-      log('email', `✅ Email enviado exitosamente (id=${response.id}) a ${ADMIN_EMAIL} para ${nombre}${attachments.length ? ` con ${attachments.length} adjuntos` : ''}`)
+      log('email', `✅ Email enviado exitosamente (id=${response.id}) a ${ADMIN_EMAIL} para ${nombre}`)
       return response
     } else if (response && response.error) {
       log('email', `❌ Error de Resend: ${response.error}`)
