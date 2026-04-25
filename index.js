@@ -1105,21 +1105,27 @@ async function sendEmailNotification(chatId, nombre, dniData, reprocannData, col
     </p>
   `
 
-  const attachments = []
-  if (imageUrls.dni_frente) attachments.push({ filename: 'DNI_frente.jpg', url: imageUrls.dni_frente })
-  if (imageUrls.dni_dorso) attachments.push({ filename: 'DNI_dorso.jpg', url: imageUrls.dni_dorso })
-  if (imageUrls.reprocann_frente) attachments.push({ filename: 'REPROCANN_frente.jpg', url: imageUrls.reprocann_frente })
-  if (imageUrls.reprocann_dorso) attachments.push({ filename: 'REPROCANN_dorso.jpg', url: imageUrls.reprocann_dorso })
+  // TODO: Implement proper attachment handling with Resend
+  // Resend doesn't support direct URLs in attachments - would need to download image and convert to buffer
+  // For now, sending links in email body instead
+  const imageLinksHtml = `
+    <h3>📎 Enlaces a documentos:</h3>
+    <ul style="margin: 10px 0;">
+      ${imageUrls.dni_frente ? `<li><a href="${imageUrls.dni_frente}">DNI Frente</a></li>` : ''}
+      ${imageUrls.dni_dorso ? `<li><a href="${imageUrls.dni_dorso}">DNI Dorso</a></li>` : ''}
+      ${imageUrls.reprocann_frente ? `<li><a href="${imageUrls.reprocann_frente}">REPROCANN Frente</a></li>` : ''}
+      ${imageUrls.reprocann_dorso ? `<li><a href="${imageUrls.reprocann_dorso}">REPROCANN Dorso</a></li>` : ''}
+    </ul>
+  `
+
+  const emailWithImages = htmlContent.replace('</body>', `${imageLinksHtml}</body>`)
 
   try {
     const emailParams = {
       from: 'Bot Club <onboarding@resend.dev>',
       to: ADMIN_EMAIL,
       subject: `Nuevo Lead: ${nombre} - Documentos Completos`,
-      html: htmlContent,
-    }
-    if (attachments.length > 0) {
-      emailParams.attachments = attachments
+      html: emailWithImages,
     }
     const response = await resend.emails.send(emailParams)
 
