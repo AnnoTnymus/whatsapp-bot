@@ -6,6 +6,8 @@ import { readFileSync } from 'fs'
 import { Resend } from 'resend'
 import { createClient } from '@supabase/supabase-js'
 import { SKILL_NAMES, invokeSkill, parseSkillMarker } from './skills.js'
+// [claude-opus-4.7] 2026-04-24 Task #48 — knowledge-driven pipeline (detrás de USE_NEW_PIPELINE).
+import { runRouter, runGenerator, runEvaluator } from './src/agents/index.js'
 
 const app = express()
 app.use(express.static('public'))
@@ -109,6 +111,8 @@ const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET?.trim()
 const REQUIRE_WEBHOOK_SECRET = process.env.REQUIRE_WEBHOOK_SECRET === 'true' || process.env.NODE_ENV === 'production'
 const ENABLE_TEST_ROUTES = process.env.ENABLE_TEST_ROUTES === 'true'
 const ENABLE_FOLLOWUP_CRON = process.env.ENABLE_FOLLOWUP_CRON !== 'false'
+// [claude-opus-4.7] 2026-04-24 Task #48 — canary flag: false = askClaude legacy, true = pipeline nuevo.
+const USE_NEW_PIPELINE = process.env.USE_NEW_PIPELINE === 'true'
 const STT_FUNCTION_URL = process.env.STT_FUNCTION_URL?.trim()
 const STT_SHARED_SECRET = process.env.STT_SHARED_SECRET?.trim()
 const GREEN_API_CONFIGURED = Boolean(GREEN_INSTANCE && GREEN_TOKEN)
@@ -1246,6 +1250,105 @@ async function askClaude(msg, chatId) {
   }
 }
 
+// ========== [claude-opus-4.7] 2026-04-24 Task #48 — NEW PIPELINE ==========
+// Pipeline Router → Knowledge → Generator → Evaluator (+1 retry si score<70).
+// Se activa cuando USE_NEW_PIPELINE=true. Firma compatible con askClaude() para swap limpio.
+// Las funciones de knowledge (queryKnowledge, saveTrainingExample) las provee OpenCode en
+// feat/knowledge-layer — acá usamos dynamic import con fallback vacío para que esta rama
+// compile aunque src/knowledge/ todavía no exista.
+
+let _knowledgeModule = null
+async function loadKnowledgeModule() {
+  if (_knowledgeModule) return _knowledgeModule
+  try {
+    _knowledgeModule = await import('./src/knowledge/index.js')
+  } catch (e) {
+    log('pipeline', `knowledge module unavailable (${e.code || e.message}) — usando stub`)
+    _knowledgeModule = {
+      queryKnowledge: async () => [],
+      saveTrainingExample: async () => {},
+    }
+  }
+  return _knowledgeModule
+}
+
+async function runNewPipeline(msg, chatId, state) {
+  let history = conversationHistory.get(chatId)
+  if (!history) history = await loadHistory(chatId)
+
+  const knowledgeLayer = await loadKnowledgeModule()
+
+  // 1. Router
+  const routed = await runRouter({ message: msg, history, state })
+  log('pipeline', `router intent=${routed.intent} skill=${routed.skill || '-'} query=${routed.knowledge_query || '-'} want_afil=${routed.wants_affiliation} | ${formatChatRef(chatId)}`)
+
+  // 2. Skill short-circuit — la skill handler del webhook toma el control.
+  //    Devolvemos placeholder corto como "último assistant" para que skills.js pueda reemplazarlo.
+  if (routed.intent === 'skill' && routed.skill && SKILL_NAMES.includes(routed.skill)) {
+    const placeholder = 'Dale, te paso info 🌿'
+    const updated = [...history, { role: 'user', content: msg }, { role: 'assistant', content: placeholder }]
+    conversationHistory.set(chatId, updated)
+    await saveHistory(chatId, updated)
+    return { reply: placeholder, wantsAffiliation: routed.wants_affiliation, skillName: routed.skill, history: updated }
+  }
+
+  // 3. Knowledge (si el router lo pide)
+  let knowledge = []
+  if (routed.needs_knowledge && routed.knowledge_query) {
+    try {
+      knowledge = await knowledgeLayer.queryKnowledge(routed.knowledge_query, 3)
+      log('pipeline', `knowledge hits=${knowledge.length} topic="${routed.knowledge_query}"`)
+    } catch (e) {
+      log('pipeline', `queryKnowledge excepción: ${e.message} — sigo sin snippets`)
+      knowledge = []
+    }
+  }
+
+  // 4. Generator
+  const gen = await runGenerator({
+    intent: routed.intent,
+    knowledge,
+    history,
+    state,
+    message: msg,
+  })
+  let finalReply = gen.reply
+  let finalWants = gen.wants_affiliation
+
+  // 5. Evaluator (+1 retry si no pasa)
+  const evaluation = await runEvaluator({ reply: finalReply, context: { chatId, history } })
+  log('pipeline', `evaluator score=${evaluation.score} passes=${evaluation.passes}`)
+
+  let finalScore = evaluation.score
+  let finalReasons = evaluation.reasons
+  if (!evaluation.passes) {
+    const retry = await runGenerator({ intent: routed.intent, knowledge, history, state, message: msg })
+    const retryEval = await runEvaluator({ reply: retry.reply, context: { chatId, history } })
+    log('pipeline', `retry score=${retryEval.score} passes=${retryEval.passes}`)
+    if (retryEval.passes || retryEval.score > evaluation.score) {
+      finalReply = retry.reply
+      finalWants = retry.wants_affiliation
+      finalScore = retryEval.score
+      finalReasons = retryEval.reasons
+    }
+  }
+
+  // 6. Training storage (fire-and-forget, nunca bloquear)
+  Promise.resolve()
+    .then(() => knowledgeLayer.saveTrainingExample(chatId, msg, finalReply, finalScore, (finalReasons || []).join('; ')))
+    .catch((e) => log('pipeline', `saveTrainingExample falló: ${e.message}`))
+
+  // 7. Persistir historial (mismo contrato que askClaude)
+  const updated = [...history, { role: 'user', content: msg }, { role: 'assistant', content: finalReply }]
+  conversationHistory.set(chatId, updated)
+  await saveHistory(chatId, updated)
+
+  // Router tiene autoridad final sobre wants_affiliation (más determinista que el marcador del Generator).
+  const wantsAffiliation = Boolean(routed.wants_affiliation || finalWants)
+
+  return { reply: finalReply, wantsAffiliation, skillName: null, history: updated }
+}
+
 // ========== v4.0: CRM MEMBER INSERTION ==========
 
 async function insertMember(chatId, nombre, reprocannData, collectedData) {
@@ -1623,8 +1726,11 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
           return
         }
 
-        // Paso 5: Modo atención al cliente — Claude responde, detecta intent afiliación + skill
-        const { reply, wantsAffiliation, skillName, history: updatedHistory } = await askClaude(message, chatId)
+        // Paso 5: Modo atención al cliente — Claude responde, detecta intent afiliación + skill.
+        // [claude-opus-4.7] 2026-04-24 Task #48: gate del pipeline nuevo detrás de USE_NEW_PIPELINE.
+        const { reply, wantsAffiliation, skillName, history: updatedHistory } = USE_NEW_PIPELINE
+          ? await runNewPipeline(message, chatId, state)
+          : await askClaude(message, chatId)
 
         // Paso 5b: Si Claude pidió invocar una skill, ejecutarla — su respuesta reemplaza a la del orquestador
         if (skillName && SKILL_NAMES.includes(skillName)) {
