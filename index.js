@@ -2080,6 +2080,11 @@ app.get('/health', (req, res) => {
       quotaExceededAt: greenApiStats.quotaExceededAt,
       lastErrorAt: greenApiStats.lastErrorAt,
     },
+    email: {
+      adminEmailConfigured: !!ADMIN_EMAIL,
+      resendConfigured: !!resend,
+      adminEmail: ADMIN_EMAIL ? ADMIN_EMAIL.substring(0, 3) + '***' : null,
+    },
     knowledgeBase: knowledgeBase.length > 0,
     anthropicKeySet: !!ANTHROPIC_KEY,
     supabaseConfigured: !!supabase,
@@ -2100,6 +2105,55 @@ app.get('/test-claude', async (req, res) => {
     res.json({ ok: r.ok, status: r.status, reply: r.ok ? data.content[0].text : data })
   } catch (e) {
     res.json({ ok: false, error: e.message })
+  }
+})
+
+app.get('/test-handover-email', async (req, res) => {
+  if (!ensureTestRoutesEnabled(req, res)) return
+
+  // Diagnostics
+  const diag = {
+    resendConfigured: !!resend,
+    adminEmailSet: !!ADMIN_EMAIL,
+    adminEmail: ADMIN_EMAIL ? ADMIN_EMAIL.substring(0, 5) + '***' : 'NOT SET',
+  }
+
+  if (!resend || !ADMIN_EMAIL) {
+    return res.json({
+      ok: false,
+      error: 'resend or ADMIN_EMAIL not configured',
+      diagnostics: diag
+    })
+  }
+
+  try {
+    // Send test email
+    const result = await resend.emails.send({
+      from: 'Bot Club <onboarding@resend.dev>',
+      to: ADMIN_EMAIL,
+      subject: '[TEST] Verificación de notificaciones de atención humana',
+      html: `
+        <h2 style="color:#2e7d32;">✅ Email de prueba</h2>
+        <p>Este es un email de prueba para verificar que el sistema de notificaciones de atención humana está funcionando correctamente.</p>
+        <p><strong>Timestamp:</strong> ${new Date().toISOString()}</p>
+        <p style="margin-top:20px; padding:12px; background:#e8f5e9; border-left:4px solid #4caf50;">
+          ✅ Si recibes este email, el sistema está funcionando.
+        </p>
+      `,
+    })
+
+    res.json({
+      ok: true,
+      message: 'Test email enviado',
+      emailId: result.id,
+      diagnostics: diag
+    })
+  } catch (e) {
+    res.json({
+      ok: false,
+      error: e.message,
+      diagnostics: diag
+    })
   }
 })
 
