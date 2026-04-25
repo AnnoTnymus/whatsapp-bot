@@ -108,17 +108,13 @@ if (documentosFaltantes.length > 0) {
 Me faltó leer [campo] del DNI. ¿Me lo escribís?
 ```
 
-**Después:**
+**Después (pedir de a uno, inteligentemente):**
 
+**Primer campo faltante:**
 ```
 ¡Ufff! 😅 Logré leer algunos datos nada más.
 
-Me faltarían estos campos para completar:
-• [Campo 1]
-• [Campo 2]
-• [Campo 3]
-
-Escribime todos juntos cuando puedas, así los leo todos juntos y terminamos en el siguiente mensaje.
+Me falta tu [PRIMER CAMPO]. ¿Me lo escribís?
 ```
 
 **Implementación:** En la sección de `state.step === 'completando_datos'`:
@@ -128,16 +124,36 @@ if (missing.length > 0) {
   state.step = 'completando_datos'
   state.pendingFields = missing
   
-  const camposList = missing
-    .map(f => `• ${f.label}`)
-    .join('\n')
+  const firstField = missing[0]
+  const sourceText = firstField.source === 'DNI' ? 'del DNI' : 'de tu REPROCANN'
   
   await sendWhatsAppMessage(
     chatId, 
-    `¡Ufff! 😅 Logré leer algunos datos nada más.\n\nMe faltarían estos campos para completar:\n${camposList}\n\nEscribime todos juntos cuando puedas, así los leo todos juntos y terminamos en el siguiente mensaje.`
+    `¡Ufff! 😅 Logré leer algunos datos nada más.\n\nMe falta tu ${firstField.label} ${sourceText}. ¿Me lo escribís?`
   )
 }
 ```
+
+**Cuando llega el siguiente campo (mientras está en `completando_datos`):**
+- Procesar como respuesta al campo faltante
+- Si hay más campos faltantes, pedir el siguiente
+- Si no hay más, enviar confirmación final
+
+**Ejemplo de flujo:**
+```
+Bot: "Me falta tu domicilio del DNI. ¿Me lo escribís?"
+Usuario: "Calle 123, CABA"
+Bot: "Listo, me falta tu provincia de REPROCANN. ¿De dónde sos?"
+Usuario: "Buenos Aires"
+Bot: "✅ Perfecto, listo! Ya tenemos todo..."
+```
+
+**Implementación en webhook (cuando recibe texto en `completando_datos`):**
+- Verificar cuál es el campo pendiente
+- Guardar en `state.collectedData[fieldKey]`
+- Sacar ese campo de `state.pendingFields`
+- Si quedan campos, pedir el siguiente
+- Si no hay más, pasar a `completado` y enviar email
 
 ---
 
