@@ -683,14 +683,24 @@ function getMissingFields(reprocannData) {
 function validateCriticalFields(dniData, reprocannData) {
   const missing = []
 
-  const dniMissing = DNI_REQUIRED.filter(f => !f.path(dniData))
-  if (dniMissing.length > 0) {
-    missing.push(...dniMissing.map(f => ({ ...f, source: 'DNI' })))
+  if (!dniData) {
+    log('validate', `DNI data es null/undefined, marcando como incompleto`)
+    missing.push({ key: 'extraction', label: 'datos del DNI', source: 'DNI' })
+  } else {
+    const dniMissing = DNI_REQUIRED.filter(f => !f.path(dniData))
+    if (dniMissing.length > 0) {
+      missing.push(...dniMissing.map(f => ({ ...f, source: 'DNI' })))
+    }
   }
 
-  const reprocannMissing = REPROCANN_REQUIRED.filter(f => !f.path(reprocannData))
-  if (reprocannMissing.length > 0) {
-    missing.push(...reprocannMissing.map(f => ({ ...f, source: 'REPROCANN' })))
+  if (!reprocannData) {
+    log('validate', `REPROCANN data es null/undefined, marcando como incompleto`)
+    missing.push({ key: 'extraction', label: 'datos del REPROCANN', source: 'REPROCANN' })
+  } else {
+    const reprocannMissing = REPROCANN_REQUIRED.filter(f => !f.path(reprocannData))
+    if (reprocannMissing.length > 0) {
+      missing.push(...reprocannMissing.map(f => ({ ...f, source: 'REPROCANN' })))
+    }
   }
 
   return missing
@@ -1920,7 +1930,7 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
               return
             } else if (!state.documentos.reprocann.dorso) {
               // Ya tiene frente, esto es dorso
-              const data = await extractReprocannData([state.documentos.reprocann.frente.url, imageUrl])
+              const data = await extractReprocannData(imageUrl)
               state.documentos.reprocann.dorso = { url: imageUrl, data }
               log('webhook', `REPROCANN dorso para ${formatChatRef(chatId)}`)
             }
