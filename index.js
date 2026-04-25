@@ -641,7 +641,7 @@ async function notifyAdminQuotaExceeded(rawBody, rejectedChatId) {
   if (resend && ADMIN_EMAIL) {
     try {
       await resend.emails.send({
-        from: `Bot Club <${process.env.RESEND_FROM_EMAIL || 'noreply@indajaus.club'}>`,
+        from: 'Bot Club <onboarding@resend.dev>',
         to: ADMIN_EMAIL,
         subject,
         html: `<h2>${subject}</h2><pre>${body}</pre>`,
@@ -1136,7 +1136,7 @@ async function sendEmailNotification(chatId, nombre, dniData, reprocannData, col
 
   try {
     const emailParams = {
-      from: `Bot Club <${process.env.RESEND_FROM_EMAIL || 'noreply@indajaus.club'}>`,
+      from: 'Bot Club <onboarding@resend.dev>',
       to: ADMIN_EMAIL,
       subject: `Nuevo Lead: ${nombre} - Documentos Completos`,
       html: htmlContent,
@@ -1192,9 +1192,8 @@ async function notifyHumanHandover(chatId, nombre, userMessage) {
   `
 
   try {
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@indajaus.club'
     await resend.emails.send({
-      from: `Bot Club <${fromEmail}>`,
+      from: 'Bot Club <onboarding@resend.dev>',
       to: ADMIN_EMAIL,
       subject: `📞 Atención humana solicitada — ${safeName} (+${phone})`,
       html,
@@ -2130,7 +2129,7 @@ app.get('/test-handover-email', async (req, res) => {
   try {
     // Send test email
     const result = await resend.emails.send({
-      from: `Bot Club <${process.env.RESEND_FROM_EMAIL || 'noreply@indajaus.club'}>`,
+      from: 'Bot Club <onboarding@resend.dev>',
       to: ADMIN_EMAIL,
       subject: '[TEST] Verificación de notificaciones de atención humana',
       html: `
