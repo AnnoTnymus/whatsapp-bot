@@ -34,6 +34,24 @@ Yo soy IA entrenada para resolver dudas complejas, así que podemos hablar de cu
 
 ¿Qué te interesa?`
 
+const INFO_OPTIONS_KEYWORDS = ['menu', 'menú', 'opciones', 'qué puedes hacer', 'qué hacés', 'ayuda', 'help', 'que hace', 'que hace', 'informacion', 'información']
+
+function isInfoOptionsRequest(intent, currentStep, message, recentHistory, state) {
+  // Always show options if user explicitly asks for menu
+  if (message) {
+    const lowerMsg = message.toLowerCase()
+    if (INFO_OPTIONS_KEYWORDS.some(kw => lowerMsg.includes(kw))) {
+      return true
+    }
+  }
+  // Or if info intent + in early conversation stages
+  const hasName = state?.nombre && state.nombre !== 'Amigo'
+  if (intent === 'info' && (currentStep === 'inicio' || currentStep === 'conversando') && !hasName && recentHistory.length <= 1) {
+    return true
+  }
+  return false
+}
+
 function renderSnippets(knowledge) {
   if (!Array.isArray(knowledge) || knowledge.length === 0) {
     return '(sin snippets — si el intent requiere datos del club, decí que mejor se consulte con alguien del staff)'
@@ -69,7 +87,7 @@ export async function runGenerator({ intent, knowledge = [], history = [], state
   // Check for greet intent with no history or greet with "hola" message
   if (intent === 'greet' && (!recentHistory.length || message.toLowerCase().match(/^hola+$/))) {
     forcedReply = GREET_WELCOME
-  } else if (intent === 'info' && currentStep === 'inicio' && !state.nombre && !recentHistory.length) {
+  } else if (isInfoOptionsRequest(intent, currentStep, message, recentHistory, state)) {
     forcedReply = INFO_OPTIONS
   } else if (currentStep === 'solicitando_nombre' || (intent === 'affiliate' && !state.nombre)) {
     stepInstructions = '\n⚠️ ACCIÓN REQUERIDA: El usuario aún no tiene nombre. Pedir nombre directamente, no saludar genéricamente.'
