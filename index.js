@@ -1122,10 +1122,19 @@ async function sendEmailNotification(chatId, nombre, dniData, reprocannData, col
       emailParams.attachments = attachments
     }
     const response = await resend.emails.send(emailParams)
-    log('email', `Email enviado a ${ADMIN_EMAIL} para ${nombre}${attachments.length ? ` con ${attachments.length} adjuntos` : ''}`)
-    return response
+
+    if (response && response.id) {
+      log('email', `✅ Email enviado exitosamente (id=${response.id}) a ${ADMIN_EMAIL} para ${nombre}${attachments.length ? ` con ${attachments.length} adjuntos` : ''}`)
+      return response
+    } else if (response && response.error) {
+      log('email', `❌ Error de Resend: ${response.error}`)
+      return null
+    } else {
+      log('email', `⚠️ Response inesperada de Resend: ${JSON.stringify(response).substring(0, 100)}`)
+      return response
+    }
   } catch (e) {
-    log('email', `Error enviando email: ${e.message}`)
+    log('email', `❌ Exception enviando email: ${e.message}`)
     return null
   }
 }
