@@ -37,16 +37,16 @@ Yo soy IA entrenada para resolver dudas complejas, así que podemos hablar de cu
 const INFO_OPTIONS_KEYWORDS = ['menu', 'menú', 'opciones', 'qué puedes hacer', 'qué hacés', 'ayuda', 'help', 'que hace', 'que hace', 'informacion', 'información']
 
 function isInfoOptionsRequest(intent, currentStep, message, recentHistory, state) {
-  // Always show options if user explicitly asks for menu
+  // Always show options if user explicitly asks for menu/opciones/etc
   if (message) {
     const lowerMsg = message.toLowerCase()
     if (INFO_OPTIONS_KEYWORDS.some(kw => lowerMsg.includes(kw))) {
       return true
     }
   }
-  // Or if info intent + in early conversation stages
+  // Or if info intent + in early conversation (sin nombre aún)
   const hasName = state?.nombre && state.nombre !== 'Amigo'
-  if (intent === 'info' && (currentStep === 'inicio' || currentStep === 'conversando') && !hasName && recentHistory.length <= 1) {
+  if (intent === 'info' && !hasName && (currentStep === 'inicio' || currentStep === 'conversando') && recentHistory.length <= 2) {
     return true
   }
   return false
