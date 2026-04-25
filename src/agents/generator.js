@@ -69,11 +69,6 @@ export async function runGenerator({ intent, knowledge = [], history = [], state
 
   if (!anthropicKey) return { reply: FALLBACK_REPLY, wants_affiliation: false }
 
-  // Return forced reply for greet/info without history
-  if (forcedReply) {
-    return { reply: forcedReply, wants_affiliation: false }
-  }
-
   const recentHistory = Array.isArray(history) ? history.slice(-8) : []
   const currentStep = state?.step || 'inicio'
   const stateLine = state && state.nombre && state.nombre !== 'Amigo'
@@ -96,6 +91,11 @@ export async function runGenerator({ intent, knowledge = [], history = [], state
   } else if (currentStep === 'completando_datos' && state.pendingFields?.length > 0) {
     const field = state.pendingFields[0]
     stepInstructions = `\n⚠️ ACCIÓN REQUERIDA: Falta completar "${field.label}". Pedir ese dato específico.`
+  }
+
+  // Return forced reply for greet/info without history
+  if (forcedReply) {
+    return { reply: forcedReply, wants_affiliation: false }
   }
 
   const systemWithContext = [
