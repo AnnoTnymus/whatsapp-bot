@@ -159,19 +159,32 @@ Bot: "✅ Perfecto, listo! Ya tenemos todo..."
 
 ### 5. Validación Posterior (Cuando Recibe Campos Faltantes)
 
-**Situación:** Usuario responde con los campos faltantes
+**Situación:** Usuario responde con los campos faltantes y se completan todos los datos
 
-**Mensaje de confirmación:**
+**Mensaje de confirmación final:**
 
 ```
-✅ Perfecto, listo!
+¡Impecaaa! 🎉
 
-Ya tenemos todo lo necesario. Nos ponemos en contacto en las próximas 24hs para confirmar tu membresía.
+Ya tenemos todo lo que necesitamos para que nuestro staff lo revise y se comunique contigo para finalizar la inscripción.
 
-Mientras tanto, si tenés alguna duda sobre genéticas, REPROCANN o legales, preguntame sin problemas.
+Pero ya tenés un pie adentro del mejor club cannábico en Argentina! 🌿
+
+Nos vemos en breve, bienvenido/a a Indajaus.
 ```
 
-**Implementación:** Después de validar que los campos llegaron, enviar este mensaje antes de `state.step = 'completado'`.
+**Implementación:** Después de validar que todos los campos están completos:
+
+```javascript
+// Cuando state.pendingFields está vacío y todos los datos son válidos
+await sendWhatsAppMessage(
+  chatId,
+  `¡Impecaaa! 🎉\n\nYa tenemos todo lo que necesitamos para que nuestro staff lo revise y se comunique contigo para finalizar la inscripción.\n\nPero ya tenés un pie adentro del mejor club cannábico en Argentina! 🌿\n\nNos vemos en breve, bienvenido/a a Indajaus.`
+)
+state.step = 'completado'
+```
+
+Este mensaje se envía ANTES de enviar el email de notificación al admin.
 
 ---
 
