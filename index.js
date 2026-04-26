@@ -12,88 +12,6 @@ import { runRouter, runGenerator, runEvaluator } from './src/agents/index.js'
 const app = express()
 app.use(express.static('public'))
 
-// Admin HTML - Added by OpenCode (Rolli) 2026-04-24
-const ADMIN_CONFIG_HTML = `<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin - WhatsApp Bot</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a1a; color: #fff; padding: 20px; }
-    h1 { color: #4ade80; margin-bottom: 20px; }
-    .card { background: #2a2a2a; padding: 20px; border-radius: 12px; margin-bottom: 20px; }
-    .card h2 { color: #4ade80; margin-bottom: 16px; font-size: 18px; }
-    .field { margin-bottom: 16px; }
-    .field label { display: block; color: #9ca3af; margin-bottom: 6px; font-size: 14px; }
-    .field input, .field textarea, .field select { width: 100%; padding: 10px; background: #333; border: 1px solid #444; border-radius: 8px; color: #fff; font-size: 14px; }
-    .field textarea { min-height: 80px; resize: vertical; }
-    .btn { background: #4ade80; color: #000; padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
-    .btn:hover { background: #22c55e; }
-    .btn:disabled { opacity: 0.5; }
-    .status { padding: 10px; border-radius: 8px; margin-bottom: 16px; }
-    .status.ok { background: #166534; color: #4ade80; }
-    .status.error { background: #991b1b; color: #f87171; }
-    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
-    @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
-  </style>
-</head>
-<body>
-  <h1>⚙️ Admin - WhatsApp Bot</h1>
-  <div id="status" class="status" style="display:none"></div>
-  <div class="card">
-    <h2>📝 Configuración del Bot</h2>
-    <form id="configForm">
-      <div class="grid">
-        <div class="field"><label>Nombre del Club</label><input type="text" id="club_nombre"></div>
-        <div class="field"><label>Modelo de IA</label><select id="modelo_ia"><option value="claude-opus-4-7">Claude Opus 4</option><option value="claude-sonnet-4-6">Claude Sonnet 4</option><option value="claude-haiku-3-5">Claude Haiku 3</option></select></div>
-      </div>
-      <div class="field"><label>Ubicación</label><input type="text" id="club_ubicacion"></div>
-      <div class="field"><label>Horarios</label><input type="text" id="horarios"></div>
-      <div class="field"><label>Genéticas</label><input type="text" id="geneticas"></div>
-      <div class="field"><label>URL REPROCANN</label><input type="text" id="reprocann_url"></div>
-      <div class="field"><label>Respuesta de Saludo</label><textarea id="respuesta_saludo"></textarea></div>
-      <div class="field"><label>Respuesta de Confirmación</label><textarea id="respuesta_confirmacion"></textarea></div>
-      <button type="submit" class="btn" id="saveBtn">Guardar</button>
-    </form>
-  </div>
-  <script>
-    const API_BASE = '';
-    function showStatus(msg, isError) { const el = document.getElementById('status'); el.textContent = msg; el.className = 'status ' + (isError ? 'error' : 'ok'); el.style.display = 'block'; }
-    async function loadConfig() {
-      try {
-        const res = await fetch(API_BASE + '/admin/config');
-        const data = await res.json();
-        if (data.ok) {
-          const c = data.config;
-          document.getElementById('club_nombre').value = c.club_nombre || '';
-          document.getElementById('club_ubicacion').value = c.club_ubicacion || '';
-          document.getElementById('horarios').value = c.horarios || '';
-          document.getElementById('geneticas').value = c.geneticas || '';
-          document.getElementById('reprocann_url').value = c.reprocann_url || '';
-          document.getElementById('respuesta_saludo').value = c.respuesta_saludo || '';
-          document.getElementById('respuesta_confirmacion').value = c.respuesta_confirmacion || '';
-          document.getElementById('modelo_ia').value = c.modelo_ia || 'claude-opus-4-7';
-        }
-      } catch (e) { showStatus('Error: ' + e.message, true); }
-    }
-    document.getElementById('configForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const btn = document.getElementById('saveBtn');
-      btn.disabled = true;
-      try {
-        const updates = { club_nombre: document.getElementById('club_nombre').value, club_ubicacion: document.getElementById('club_ubicacion').value, horarios: document.getElementById('horarios').value, geneticas: document.getElementById('geneticas').value, reprocann_url: document.getElementById('reprocann_url').value, respuesta_saludo: document.getElementById('respuesta_saludo').value, respuesta_confirmacion: document.getElementById('respuesta_confirmacion').value, modelo_ia: document.getElementById('modelo_ia').value };
-        const res = await fetch(API_BASE + '/admin/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) });
-        const data = await res.json();
-        showStatus(data.ok ? '✅ Guardado' : 'Error: ' + data.error, !data.ok);
-      } catch (e) { showStatus('Error: ' + e.message, true); }
-      finally { btn.disabled = false; }
-    });
-    loadConfig();
-  </script>
-</body>
-</html>`
 app.disable('x-powered-by')
 app.use(express.json({ limit: '1mb' }))
 
@@ -1764,8 +1682,17 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
         // Antes, si un estado quedaba con nombre='Amigo' de un fallback previo, el bot no volvía a preguntar.
         const nombreInvalido = !state.nombre || state.nombre === 'Amigo' || state.nombre.trim() === '' || state.nombre === chatId
         if (nombreInvalido && state.step !== 'solicitando_nombre' && state.step !== 'aclarando_nombre') {
-          await sendWhatsAppMessage(chatId, `¡Hola! 👋 Bienvenido al club. ¿Cómo te llamás así te puedo ayudar mejor?`)
+          // Si el primer mensaje ya trae intención de afiliación ("Hola quería inscribirme"),
+          // usá un saludo más cálido y contextual en vez del genérico.
+          const lowerFirst = message.toLowerCase()
+          const hasAffiliateIntent = /(inscrib|afili|asoci|anotar|sumar|unir|registr|hacerme socio|ser socio|hacerse socio)/i.test(lowerFirst)
+            && !lowerFirst.endsWith('?') && !/^(c[oó]mo|qu[eé]|cu[aá]nto|d[oó]nde|cu[aá]ndo|por\s?qu[eé])\b/.test(lowerFirst)
+          const greeting = hasAffiliateIntent
+            ? `¡Genial que quieras sumarte! 🌿 Antes que nada, ¿cómo te llamás?`
+            : `¡Hola! 👋 Bienvenido al club. ¿Cómo te llamás así te puedo ayudar mejor?`
+          await sendWhatsAppMessage(chatId, greeting)
           state.step = 'solicitando_nombre'
+          if (hasAffiliateIntent) state.wants_affiliation_pending = true
           state.last_greeting_at = new Date().toISOString()
           await saveState(chatId, state)
           return
@@ -1803,6 +1730,24 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
             log('supabase', `⚠️ UPSERT members falló (no crítico): ${memberErr.message}`)
           }
 
+          // Si el usuario llegó al saludo con intención de afiliarse ("Hola quería inscribirme"),
+          // no le mostrés el menú: ya sabemos qué quiere — saltamos directo a pedir documentos.
+          if (state.wants_affiliation_pending) {
+            state.step = 'recibiendo_documentos'
+            state.documentos = state.documentos || { dni: { frente: null, dorso: null }, reprocann: { frente: null, dorso: null } }
+            delete state.wants_affiliation_pending
+            await sendWhatsAppMessage(chatId, `¡Un gusto, ${state.nombre}! 🌿
+
+Para arrancar la inscripción necesito 2 cosas:
+• Tu DNI argentino (frente y dorso)
+• Tu certificado REPROCANN
+
+Mandame las fotos cuando puedas 📸`)
+            await saveState(chatId, state)
+            log('webhook', `Saludo+afiliación combinados: ${formatChatRef(chatId)} → recibiendo_documentos directo`)
+            return
+          }
+
           // [claude-opus-4.7] 2026-04-24: inscripción primero, consultas secundarias.
           await sendWhatsAppMessage(chatId, `¡Un gusto, ${state.nombre}! 🌿
 
@@ -1827,12 +1772,13 @@ Acá podemos ayudarte con:
 
           if (state.pendingFields.length > 0) {
             const nextField = state.pendingFields[0]
-            await sendWhatsAppMessage(chatId, `Gracias 🙏 Ahora contame ${nextField.label}.`)
+            const sourceText = nextField.source === 'DNI' ? 'del DNI' : 'de tu REPROCANN'
+            await sendWhatsAppMessage(chatId, `¡Joya! 🙌 Ahora me falta tu ${nextField.label} ${sourceText}. ¿Me lo escribís?`)
             await saveState(chatId, state)
             return
           } else {
             state.step = 'completado'
-            await sendWhatsAppMessage(chatId, `✅ ¡Perfecto, ${state.nombre}! Ya tenemos todo. Te contactamos pronto 🌿`)
+            await sendWhatsAppMessage(chatId, `¡Impecaaa! 🎉\n\nYa tenemos todo lo que necesitamos para que nuestro staff lo revise y se comunique contigo para finalizar la inscripción.\n\nPero ya tenés un pie adentro del mejor club cannábico en Argentina! 🌿\n\nNos vemos en breve, bienvenido/a a Indajaus.`)
             await saveState(chatId, state)
             return
           }
@@ -1990,7 +1936,7 @@ Acá podemos ayudarte con:
               const data = await extractReprocannData(imageUrl)
               state.documentos.reprocann.frente = { url: imageUrl, data }
               log('webhook', `REPROCANN frente para ${formatChatRef(chatId)}`)
-              await sendWhatsAppMessage(chatId, `${analysis} Mandame el dorso también.`)
+              await sendWhatsAppMessage(chatId, `${analysis}\n\nAhora mandame el dorso y vamos por el siguiente 📸`)
               await saveState(chatId, state)  // v4.0: persist to DB
               return
             } else if (!state.documentos.reprocann.dorso) {
@@ -2014,7 +1960,7 @@ Acá podemos ayudarte con:
               const data = await extractDocumentData(imageUrl, 'DNI')
               state.documentos.dni.frente = { url: imageUrl, data }
               log('webhook', `DNI frente para ${formatChatRef(chatId)}`)
-              await sendWhatsAppMessage(chatId, `${analysis} Mandame el dorso también.`)
+              await sendWhatsAppMessage(chatId, `${analysis}\n\nAhora mandame el dorso y vamos por el siguiente 📸`)
               await saveState(chatId, state)  // v4.0: persist to DB
               return
             } else if (!state.documentos.dni.dorso) {
@@ -2469,10 +2415,9 @@ app.get('/admin/greenapi-status', (req, res) => {
 
 // ========== ADMIN CONFIG (OpenCode/Rolli 2026-04-24) ==========
 
-app.get('/admin/config-html', (req, res) => {
-  res.setHeader('Content-Type', 'text/html')
-  res.send(ADMIN_CONFIG_HTML)
-})
+// Backward-compat: redirige al dashboard unificado
+app.get('/admin/config-html', (req, res) => res.redirect('/dashboard.html'))
+app.get('/admin', (req, res) => res.redirect('/dashboard.html'))
 
 app.get('/admin/config', async (req, res) => {
   if (!requireAdminAccess(req, res)) return
@@ -2587,6 +2532,189 @@ app.get('/admin/leads', async (req, res) => {
 // ========== END GREENAPI STATUS ==========
 
 // ========== END QA AGENT ==========
+
+// ========== DASHBOARD ENDPOINTS (Fase Dashboard B — 2026-04-26) ==========
+
+// Historial completo de una conversación (todos los mensajes user/bot)
+app.get('/admin/conversation/:chatId', async (req, res) => {
+  if (!requireAdminAccess(req, res)) return
+  if (!supabase) return res.status(500).json({ ok: false, error: 'Supabase no configurado' })
+
+  const chatId = decodeURIComponent(req.params.chatId)
+  try {
+    const [convRes, stateRes, memberRes, trainingRes] = await Promise.all([
+      supabase.from('conversation_history').select('*').eq('chat_id', chatId).maybeSingle(),
+      supabase.from('patient_state').select('*').eq('chat_id', chatId).maybeSingle(),
+      supabase.from('members').select('*').eq('chat_id', chatId).maybeSingle(),
+      supabase.from('bot_training').select('user_msg, bot_reply, score, reason, created_at')
+        .eq('chat_id', chatId).order('created_at', { ascending: false }).limit(50),
+    ])
+
+    res.json({
+      ok: true,
+      chat_id: chatId,
+      conversation: convRes.data || null,
+      state: stateRes.data || null,
+      member: memberRes.data || null,
+      training_history: trainingRes.data || [],
+    })
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message })
+  }
+})
+
+// Listado de training examples con filtros (score, búsqueda, límite)
+app.get('/admin/training', async (req, res) => {
+  if (!requireAdminAccess(req, res)) return
+  if (!supabase) return res.status(500).json({ ok: false, error: 'Supabase no configurado' })
+
+  const limit = Math.min(parseInt(req.query.limit) || 50, 200)
+  const maxScore = req.query.max_score ? parseInt(req.query.max_score) : null
+  const minScore = req.query.min_score ? parseInt(req.query.min_score) : null
+  const search = (req.query.search || '').trim()
+
+  try {
+    let query = supabase.from('bot_training')
+      .select('id, chat_id, user_msg, bot_reply, score, reason, created_at')
+      .order('created_at', { ascending: false })
+      .limit(limit)
+
+    if (maxScore !== null) query = query.lte('score', maxScore)
+    if (minScore !== null) query = query.gte('score', minScore)
+    if (search) query = query.or(`user_msg.ilike.%${search}%,bot_reply.ilike.%${search}%`)
+
+    const { data, error } = await query
+    if (error) throw error
+
+    res.json({ ok: true, count: data.length, training: data })
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message })
+  }
+})
+
+// Stats agregadas de training: distribución de scores, promedios, totales
+app.get('/admin/training/stats', async (req, res) => {
+  if (!requireAdminAccess(req, res)) return
+  if (!supabase) return res.status(500).json({ ok: false, error: 'Supabase no configurado' })
+
+  const sinceDays = Math.min(parseInt(req.query.days) || 30, 365)
+  const sinceIso = new Date(Date.now() - sinceDays * 86400000).toISOString()
+
+  try {
+    const { data, error } = await supabase.from('bot_training')
+      .select('score, created_at')
+      .gte('created_at', sinceIso)
+
+    if (error) throw error
+
+    const total = data.length
+    const sum = data.reduce((s, r) => s + (r.score || 0), 0)
+    const avg = total > 0 ? Math.round(sum / total) : 0
+
+    const buckets = { '0-29': 0, '30-49': 0, '50-69': 0, '70-89': 0, '90-100': 0 }
+    for (const r of data) {
+      const s = r.score || 0
+      if (s < 30) buckets['0-29']++
+      else if (s < 50) buckets['30-49']++
+      else if (s < 70) buckets['50-69']++
+      else if (s < 90) buckets['70-89']++
+      else buckets['90-100']++
+    }
+
+    const failing = data.filter(r => (r.score || 0) < 70).length
+    const failRate = total > 0 ? Math.round((failing / total) * 100) : 0
+
+    res.json({
+      ok: true,
+      since_days: sinceDays,
+      total,
+      avg_score: avg,
+      fail_rate_pct: failRate,
+      failing,
+      passing: total - failing,
+      buckets,
+    })
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message })
+  }
+})
+
+// Skills usage — count por skill desde bot_training (asumiendo reason contiene la skill o usa logs)
+app.get('/admin/skills/usage', async (req, res) => {
+  if (!requireAdminAccess(req, res)) return
+  if (!supabase) return res.status(500).json({ ok: false, error: 'Supabase no configurado' })
+
+  const sinceDays = Math.min(parseInt(req.query.days) || 30, 365)
+  const sinceIso = new Date(Date.now() - sinceDays * 86400000).toISOString()
+
+  try {
+    // Heurística: buscamos invocaciones de skill en reason / bot_reply.
+    // Una vez tengamos columna `skill` dedicada en bot_training esto se simplifica.
+    const { data, error } = await supabase.from('bot_training')
+      .select('reason, bot_reply, score, created_at')
+      .gte('created_at', sinceIso)
+
+    if (error) throw error
+
+    const counts = { legal_faq: 0, reprocann_guide: 0, genetics_expert: 0 }
+    const scores = { legal_faq: [], reprocann_guide: [], genetics_expert: [] }
+
+    for (const r of data) {
+      const haystack = `${r.reason || ''} ${r.bot_reply || ''}`.toLowerCase()
+      for (const skill of Object.keys(counts)) {
+        if (haystack.includes(skill)) {
+          counts[skill]++
+          scores[skill].push(r.score || 0)
+        }
+      }
+    }
+
+    const summary = Object.keys(counts).map(skill => {
+      const arr = scores[skill]
+      const avg = arr.length > 0 ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null
+      return { skill, count: counts[skill], avg_score: avg }
+    })
+
+    res.json({ ok: true, since_days: sinceDays, total_messages: data.length, skills: summary })
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message })
+  }
+})
+
+// Lista de chat IDs únicos con resumen — para tabs de "todas las conversaciones"
+app.get('/admin/conversations', async (req, res) => {
+  if (!requireAdminAccess(req, res)) return
+  if (!supabase) return res.status(500).json({ ok: false, error: 'Supabase no configurado' })
+
+  const limit = Math.min(parseInt(req.query.limit) || 50, 200)
+
+  try {
+    const { data, error } = await supabase.from('conversation_history')
+      .select('chat_id, messages, updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(limit)
+
+    if (error) throw error
+
+    const conversations = data.map(c => {
+      const msgs = c.messages || []
+      const lastMsg = msgs[msgs.length - 1]
+      return {
+        chat_id: c.chat_id,
+        message_count: msgs.length,
+        last_message_role: lastMsg?.role || null,
+        last_message_preview: lastMsg?.content?.substring(0, 100) || null,
+        updated_at: c.updated_at,
+      }
+    })
+
+    res.json({ ok: true, count: conversations.length, conversations })
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message })
+  }
+})
+
+// ========== END DASHBOARD ENDPOINTS ==========
 
 // ========== v4.0: TEST ROUTES (Fase 5) ==========
 

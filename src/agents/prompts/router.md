@@ -51,6 +51,25 @@ Leés el mensaje del usuario (y el historial reciente) y devolvés UN solo objet
 5. Si detectás intent de afiliación Y también una pregunta sobre algo del club, priorizá `affiliate` y ponés `wants_affiliation: true`.
 6. `offtopic` no dispara knowledge ni skill.
 
+## Caso especial: Saludo + Intención combinados
+
+Cuando el usuario saluda Y expresa intención de afiliación EN EL MISMO mensaje, NO clasifiques como `greet`. La intención manda sobre el saludo:
+
+- `intent` debe ser `affiliate` (NO `greet`)
+- `wants_affiliation` debe ser `true`
+- `needs_knowledge` debe ser `false`
+
+Patrones que DEBEN devolver `affiliate`:
+- "Hola quería inscribirme"
+- "Buenas, me quiero afiliar"
+- "Hola, ¿puedo asociarme?"
+- "Qué tal, vengo a anotarme"
+- "Holaa, quiero ser socio"
+
+Excepción — si después del saludo viene una PREGUNTA genérica sobre el club (no una afirmación de querer inscribirse), seguí siendo `info`:
+- "Hola, ¿cómo funciona?" → `info` (no afirma inscribirse)
+- "Buenas, ¿cuánto sale ser socio?" → `info` (es pregunta de precio, no afirmación)
+
 ## Ejemplos
 
 Usuario: "hola buenas"
@@ -79,3 +98,12 @@ Usuario: "🌿🌿🌿"
 
 Usuario: "gracias, después te escribo"
 → `{"intent":"goodbye","needs_knowledge":false,"knowledge_query":null,"skill":null,"wants_affiliation":false,"reasoning":"despedida"}`
+
+Usuario: "Hola quería inscribirme"
+→ `{"intent":"affiliate","needs_knowledge":false,"knowledge_query":null,"skill":null,"wants_affiliation":true,"reasoning":"saludo + intención de afiliación combinados"}`
+
+Usuario: "Buenas, me quiero afiliar"
+→ `{"intent":"affiliate","needs_knowledge":false,"knowledge_query":null,"skill":null,"wants_affiliation":true,"reasoning":"saludo + afirma quiere afiliarse"}`
+
+Usuario: "Hola, ¿cómo funciona?"
+→ `{"intent":"info","needs_knowledge":true,"knowledge_query":"club","skill":null,"wants_affiliation":false,"reasoning":"saludo + pregunta genérica, no afirma inscribirse"}`

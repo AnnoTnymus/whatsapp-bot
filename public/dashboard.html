@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🌿 Indajaus — Admin Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .tab-active { background-color: #059669; color: white; }
+    .tab-inactive { background-color: #f3f4f6; color: #374151; }
+    .tab-inactive:hover { background-color: #e5e7eb; }
+    .status-ok { background-color: #10b981; }
+    .status-mismatch { background-color: #ef4444; }
+    .status-incomplete { background-color: #8b5cf6; }
+    pre.report { white-space: pre-wrap; word-wrap: break-word; }
+    .modal-bg { background: rgba(0,0,0,0.6); }
+    .chat-msg-user { background: #dbeafe; border-radius: 12px 12px 12px 0; }
+    .chat-msg-bot { background: #d1fae5; border-radius: 12px 12px 0 12px; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+  <!-- Auth Modal -->
+  <div id="authModal" class="fixed inset-0 modal-bg flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-8 max-w-md w-full shadow-2xl">
+      <h1 class="text-2xl font-bold mb-2">🌿 Indajaus</h1>
+      <p class="text-gray-600 mb-6">Admin Dashboard</p>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Admin Token</label>
+        <input id="tokenInput" type="password" placeholder="x-admin-token"
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+      </div>
+      <button onclick="initDashboard()" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg transition">Conectar</button>
+    </div>
+  </div>
+
+  <!-- Conversation Detail Modal -->
+  <div id="convModal" class="fixed inset-0 modal-bg items-center justify-center z-40 hidden">
+    <div class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col m-4">
+      <div class="px-6 py-4 border-b flex items-center justify-between">
+        <div>
+          <h3 id="convModalTitle" class="text-lg font-bold">Conversación</h3>
+          <p id="convModalSubtitle" class="text-sm text-gray-600"></p>
+        </div>
+        <button onclick="closeConvModal()" class="text-gray-500 hover:text-gray-900 text-2xl leading-none">×</button>
+      </div>
+      <div id="convModalBody" class="overflow-y-auto p-6 flex-1"></div>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard" style="display: none;" class="max-w-7xl mx-auto p-6">
+    <!-- Header -->
+    <div class="mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">🌿 Indajaus Admin</h1>
+          <p class="text-gray-600 text-sm">WhatsApp Bot Dashboard</p>
+        </div>
+        <button onclick="logout()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition text-sm">Logout</button>
+      </div>
+
+      <!-- Status bar (health + GreenAPI) -->
+      <div class="bg-white rounded-lg shadow p-3 mb-4">
+        <div class="flex flex-wrap gap-4 text-sm">
+          <span class="flex items-center gap-2">
+            <span id="healthDot" class="w-3 h-3 rounded-full bg-yellow-500"></span>
+            <span><span id="healthText" class="font-medium">conectando…</span></span>
+          </span>
+          <span class="text-gray-600" id="uptime">Uptime: --</span>
+          <span class="text-gray-600" id="threads">Threads: --</span>
+          <span class="text-gray-600" id="greenapi">GreenAPI: --</span>
+          <span class="text-gray-500 ml-auto text-xs" id="lastRefresh">--</span>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="flex flex-wrap gap-2">
+        <button onclick="switchTab('leads')" data-tab="leads" class="tab tab-active px-4 py-2 rounded-lg text-sm font-medium transition">📋 Leads</button>
+        <button onclick="switchTab('conversations')" data-tab="conversations" class="tab tab-inactive px-4 py-2 rounded-lg text-sm font-medium transition">💬 Conversaciones</button>
+        <button onclick="switchTab('training')" data-tab="training" class="tab tab-inactive px-4 py-2 rounded-lg text-sm font-medium transition">🎯 Training</button>
+        <button onclick="switchTab('skills')" data-tab="skills" class="tab tab-inactive px-4 py-2 rounded-lg text-sm font-medium transition">🛠️ Skills</button>
+        <button onclick="switchTab('knowledge')" data-tab="knowledge" class="tab tab-inactive px-4 py-2 rounded-lg text-sm font-medium transition">📚 Knowledge</button>
+        <button onclick="switchTab('config')" data-tab="config" class="tab tab-inactive px-4 py-2 rounded-lg text-sm font-medium transition">⚙️ Config</button>
+        <button onclick="switchTab('qa')" data-tab="qa" class="tab tab-inactive px-4 py-2 rounded-lg text-sm font-medium transition">🔍 QA Report</button>
+      </div>
+    </div>
+
+    <!-- TAB: LEADS -->
+    <div id="tab-leads" class="tab-content">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div class="bg-white rounded-lg shadow p-3"><p class="text-gray-600 text-xs">Total</p><p id="metricTotal" class="text-2xl font-bold">--</p></div>
+        <div class="bg-white rounded-lg shadow p-3"><p class="text-gray-600 text-xs">✅ OK</p><p id="metricOk" class="text-2xl font-bold text-green-600">--</p></div>
+        <div class="bg-white rounded-lg shadow p-3"><p class="text-gray-600 text-xs">🔴 Mismatch</p><p id="metricMismatch" class="text-2xl font-bold text-red-600">--</p></div>
+        <div class="bg-white rounded-lg shadow p-3"><p class="text-gray-600 text-xs">⚪ Incompleto</p><p id="metricIncomplete" class="text-2xl font-bold text-purple-600">--</p></div>
+      </div>
+
+      <div class="bg-white rounded-lg shadow p-3 mb-4 flex flex-wrap gap-3 items-end">
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">Paso</label>
+          <select id="filterStep" onchange="loadLeads()" class="px-3 py-2 border rounded text-sm">
+            <option value="">Todos</option>
+            <option value="inicio">Inicio</option>
+            <option value="solicitando_nombre">Pidiendo nombre</option>
+            <option value="recibiendo_documentos">Documentos</option>
+            <option value="completando_datos">Datos</option>
+            <option value="conversando">Conversando</option>
+            <option value="completado">Completado</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">Validación</label>
+          <select id="filterValidation" onchange="loadLeads()" class="px-3 py-2 border rounded text-sm">
+            <option value="">Todas</option>
+            <option value="ok">✅ OK</option>
+            <option value="mismatch">🔴 Mismatch</option>
+            <option value="incomplete">⚪ Incompleto</option>
+          </select>
+        </div>
+        <div class="flex-1 min-w-[200px]">
+          <label class="block text-xs text-gray-600 mb-1">Buscar</label>
+          <input id="searchInput" type="text" placeholder="chat_id, nombre…" onkeyup="loadLeads()"
+            class="w-full px-3 py-2 border rounded text-sm" />
+        </div>
+      </div>
+
+      <div class="bg-white rounded-lg shadow overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="border-b bg-gray-50">
+            <tr>
+              <th class="px-3 py-2 text-left">Chat</th>
+              <th class="px-3 py-2 text-left">Nombre</th>
+              <th class="px-3 py-2 text-left">Paso</th>
+              <th class="px-3 py-2 text-left">Match</th>
+              <th class="px-3 py-2 text-left">Docs</th>
+              <th class="px-3 py-2 text-left">Última act.</th>
+              <th class="px-3 py-2"></th>
+            </tr>
+          </thead>
+          <tbody id="leadsTable"><tr><td colspan="7" class="px-3 py-6 text-center text-gray-500">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB: CONVERSATIONS -->
+    <div id="tab-conversations" class="tab-content hidden">
+      <div class="bg-white rounded-lg shadow p-3 mb-4">
+        <div class="flex gap-3 items-center">
+          <button onclick="loadConversations()" class="bg-green-600 text-white px-4 py-2 rounded text-sm">Refrescar</button>
+          <span class="text-sm text-gray-600">Click en una fila para abrir el detalle</span>
+        </div>
+      </div>
+      <div class="bg-white rounded-lg shadow overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="border-b bg-gray-50">
+            <tr>
+              <th class="px-3 py-2 text-left">Chat</th>
+              <th class="px-3 py-2 text-left">Mensajes</th>
+              <th class="px-3 py-2 text-left">Último</th>
+              <th class="px-3 py-2 text-left">Preview</th>
+              <th class="px-3 py-2 text-left">Actualizado</th>
+            </tr>
+          </thead>
+          <tbody id="convTable"><tr><td colspan="5" class="px-3 py-6 text-center text-gray-500">Cargá la pestaña…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB: TRAINING -->
+    <div id="tab-training" class="tab-content hidden">
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+        <div class="bg-white rounded-lg shadow p-3"><p class="text-xs text-gray-600">Total (30d)</p><p id="trTotal" class="text-2xl font-bold">--</p></div>
+        <div class="bg-white rounded-lg shadow p-3"><p class="text-xs text-gray-600">Score promedio</p><p id="trAvg" class="text-2xl font-bold">--</p></div>
+        <div class="bg-white rounded-lg shadow p-3"><p class="text-xs text-gray-600">Pass</p><p id="trPass" class="text-2xl font-bold text-green-600">--</p></div>
+        <div class="bg-white rounded-lg shadow p-3"><p class="text-xs text-gray-600">Fail</p><p id="trFail" class="text-2xl font-bold text-red-600">--</p></div>
+        <div class="bg-white rounded-lg shadow p-3"><p class="text-xs text-gray-600">Fail rate</p><p id="trFailRate" class="text-2xl font-bold">--</p></div>
+      </div>
+
+      <div class="bg-white rounded-lg shadow p-4 mb-4">
+        <h3 class="text-sm font-semibold mb-3">Distribución de scores</h3>
+        <div id="trBuckets" class="space-y-2 text-sm">--</div>
+      </div>
+
+      <div class="bg-white rounded-lg shadow p-3 mb-4 flex flex-wrap gap-3 items-end">
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">Score máx</label>
+          <input id="trMaxScore" type="number" value="69" class="px-3 py-2 border rounded text-sm w-24" />
+        </div>
+        <div class="flex-1 min-w-[200px]">
+          <label class="block text-xs text-gray-600 mb-1">Buscar (msg user/bot)</label>
+          <input id="trSearch" type="text" placeholder="…" class="w-full px-3 py-2 border rounded text-sm" />
+        </div>
+        <button onclick="loadTraining()" class="bg-green-600 text-white px-4 py-2 rounded text-sm">Filtrar</button>
+      </div>
+
+      <div class="bg-white rounded-lg shadow overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="border-b bg-gray-50">
+            <tr>
+              <th class="px-3 py-2 text-left">Score</th>
+              <th class="px-3 py-2 text-left">Chat</th>
+              <th class="px-3 py-2 text-left">User</th>
+              <th class="px-3 py-2 text-left">Bot</th>
+              <th class="px-3 py-2 text-left">Razones</th>
+              <th class="px-3 py-2 text-left">Fecha</th>
+            </tr>
+          </thead>
+          <tbody id="trainingTable"><tr><td colspan="6" class="px-3 py-6 text-center text-gray-500">Cargá la pestaña…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB: SKILLS -->
+    <div id="tab-skills" class="tab-content hidden">
+      <div class="bg-white rounded-lg shadow p-4 mb-4">
+        <h3 class="text-sm font-semibold mb-3">Uso por skill (últimos 30 días)</h3>
+        <p class="text-xs text-gray-500 mb-3">Heurística: matchea menciones de la skill en bot_training. Para conteos exactos agregar columna <code>skill</code> en bot_training.</p>
+        <div id="skillsBody">--</div>
+      </div>
+    </div>
+
+    <!-- TAB: KNOWLEDGE -->
+    <div id="tab-knowledge" class="tab-content hidden">
+      <div class="bg-white rounded-lg shadow p-4">
+        <h3 class="text-sm font-semibold mb-3">Knowledge base stats</h3>
+        <div id="knowledgeBody">--</div>
+      </div>
+    </div>
+
+    <!-- TAB: CONFIG -->
+    <div id="tab-config" class="tab-content hidden">
+      <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold mb-4">⚙️ Configuración del bot</h3>
+        <div id="configStatus" class="hidden p-3 rounded mb-4 text-sm"></div>
+        <form id="configForm" onsubmit="event.preventDefault(); saveConfig()">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div><label class="block text-xs text-gray-600 mb-1">Nombre del Club</label><input type="text" id="cfg_club_nombre" class="w-full px-3 py-2 border rounded text-sm"></div>
+            <div><label class="block text-xs text-gray-600 mb-1">Modelo IA</label>
+              <select id="cfg_modelo_ia" class="w-full px-3 py-2 border rounded text-sm">
+                <option value="claude-opus-4-7">Opus 4.7</option>
+                <option value="claude-sonnet-4-6">Sonnet 4.6</option>
+                <option value="claude-haiku-4-5">Haiku 4.5</option>
+              </select>
+            </div>
+            <div class="md:col-span-2"><label class="block text-xs text-gray-600 mb-1">Ubicación</label><input type="text" id="cfg_club_ubicacion" class="w-full px-3 py-2 border rounded text-sm"></div>
+            <div class="md:col-span-2"><label class="block text-xs text-gray-600 mb-1">Horarios</label><input type="text" id="cfg_horarios" class="w-full px-3 py-2 border rounded text-sm"></div>
+            <div class="md:col-span-2"><label class="block text-xs text-gray-600 mb-1">Genéticas</label><input type="text" id="cfg_geneticas" class="w-full px-3 py-2 border rounded text-sm"></div>
+            <div class="md:col-span-2"><label class="block text-xs text-gray-600 mb-1">URL REPROCANN</label><input type="text" id="cfg_reprocann_url" class="w-full px-3 py-2 border rounded text-sm"></div>
+            <div class="md:col-span-2"><label class="block text-xs text-gray-600 mb-1">Saludo</label><textarea id="cfg_respuesta_saludo" class="w-full px-3 py-2 border rounded text-sm h-20"></textarea></div>
+            <div class="md:col-span-2"><label class="block text-xs text-gray-600 mb-1">Confirmación</label><textarea id="cfg_respuesta_confirmacion" class="w-full px-3 py-2 border rounded text-sm h-20"></textarea></div>
+          </div>
+          <button type="submit" class="mt-4 bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded font-medium">Guardar</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- TAB: QA REPORT -->
+    <div id="tab-qa" class="tab-content hidden">
+      <div class="bg-white rounded-lg shadow p-4 mb-4 flex gap-3 items-end flex-wrap">
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">Cantidad</label>
+          <select id="qaLimit" class="px-3 py-2 border rounded text-sm">
+            <option value="10">10 conversaciones</option>
+            <option value="20" selected>20 conversaciones</option>
+            <option value="50">50 conversaciones</option>
+          </select>
+        </div>
+        <button onclick="runQA()" id="qaRunBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm">Generar reporte</button>
+        <span id="qaStatus" class="text-xs text-gray-600"></span>
+      </div>
+      <div class="bg-white rounded-lg shadow p-6">
+        <pre id="qaReport" class="report text-sm text-gray-800">Generá un reporte para empezar.</pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = ''
+    let adminToken = null
+    let currentTab = 'leads'
+
+    async function initDashboard() {
+      const token = document.getElementById('tokenInput').value.trim()
+      if (!token) return alert('Token requerido')
+      adminToken = token
+      sessionStorage.setItem('admin_token', token)
+      document.getElementById('authModal').style.display = 'none'
+      document.getElementById('dashboard').style.display = 'block'
+      await loadHealth()
+      await loadLeads()
+      setInterval(loadHealth, 30000)
+    }
+
+    function logout() {
+      sessionStorage.removeItem('admin_token')
+      location.reload()
+    }
+
+    async function fetchAPI(endpoint, options = {}) {
+      const headers = { 'x-admin-token': adminToken, ...(options.headers || {}) }
+      const response = await fetch(API_BASE + endpoint, { ...options, headers })
+      if (response.status === 401) {
+        sessionStorage.removeItem('admin_token')
+        location.reload()
+        return null
+      }
+      return response.json()
+    }
+
+    function switchTab(tab) {
+      currentTab = tab
+      document.querySelectorAll('.tab').forEach(b => {
+        if (b.dataset.tab === tab) {
+          b.classList.remove('tab-inactive'); b.classList.add('tab-active')
+        } else {
+          b.classList.remove('tab-active'); b.classList.add('tab-inactive')
+        }
+      })
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'))
+      document.getElementById('tab-' + tab).classList.remove('hidden')
+
+      if (tab === 'conversations') loadConversations()
+      else if (tab === 'training') { loadTrainingStats(); loadTraining() }
+      else if (tab === 'skills') loadSkills()
+      else if (tab === 'knowledge') loadKnowledge()
+      else if (tab === 'config') loadConfig()
+    }
+
+    // ===== HEALTH + GREENAPI =====
+    async function loadHealth() {
+      try {
+        const data = await fetch(API_BASE + '/health').then(r => r.json())
+        if (data.ok) {
+          document.getElementById('healthDot').className = 'w-3 h-3 rounded-full bg-green-500'
+          document.getElementById('healthText').textContent = 'Online'
+          document.getElementById('uptime').textContent = `Uptime: ${formatUptime(data.uptime)}`
+          document.getElementById('threads').textContent = `Threads: ${data.threads || 0}`
+        }
+      } catch (e) {
+        document.getElementById('healthDot').className = 'w-3 h-3 rounded-full bg-red-500'
+        document.getElementById('healthText').textContent = 'Offline'
+      }
+
+      // GreenAPI
+      try {
+        const ga = await fetchAPI('/admin/greenapi-status')
+        if (ga && ga.ok) {
+          const used = ga.uniqueChatsThisMonth || 0
+          const quota = ga.quotaExceeded ? '⚠️ EXCEDIDA' : 'OK'
+          document.getElementById('greenapi').textContent = `GreenAPI: ${used} chats — ${quota}`
+          document.getElementById('greenapi').className = ga.quotaExceeded ? 'text-red-600 font-medium' : 'text-gray-600'
+        }
+      } catch {}
+
+      document.getElementById('lastRefresh').textContent = `actualizado ${new Date().toLocaleTimeString('es-AR')}`
+    }
+
+    // ===== LEADS =====
+    async function loadLeads() {
+      const step = document.getElementById('filterStep').value
+      const validation = document.getElementById('filterValidation').value
+      const search = document.getElementById('searchInput').value.toLowerCase()
+
+      const params = new URLSearchParams()
+      if (step) params.append('step', step)
+
+      const data = await fetchAPI(`/admin/leads?${params.toString()}`)
+      if (!data || !data.ok) {
+        document.getElementById('leadsTable').innerHTML = '<tr><td colspan="7" class="px-3 py-6 text-center text-red-500">Error</td></tr>'
+        return
+      }
+
+      document.getElementById('metricTotal').textContent = data.summary.total
+      document.getElementById('metricOk').textContent = data.summary.validation.ok
+      document.getElementById('metricMismatch').textContent = data.summary.validation.mismatch
+      document.getElementById('metricIncomplete').textContent = data.summary.validation.incomplete
+
+      let leads = data.leads || []
+      if (validation) leads = leads.filter(l => l.validation.status === validation)
+      if (search) leads = leads.filter(l => l.chat_id.toLowerCase().includes(search) || l.nombre_usuario.toLowerCase().includes(search))
+
+      if (leads.length === 0) {
+        document.getElementById('leadsTable').innerHTML = '<tr><td colspan="7" class="px-3 py-6 text-center text-gray-500">Sin resultados</td></tr>'
+        return
+      }
+
+      document.getElementById('leadsTable').innerHTML = leads.map(lead => `
+        <tr class="border-b hover:bg-gray-50">
+          <td class="px-3 py-2 font-mono text-xs">${escapeHtml(lead.chat_id)}</td>
+          <td class="px-3 py-2">${escapeHtml(lead.nombre_usuario)}</td>
+          <td class="px-3 py-2"><span class="px-2 py-1 rounded text-xs bg-blue-100 text-blue-700">${formatStep(lead.step)}</span></td>
+          <td class="px-3 py-2"><span class="px-2 py-1 rounded text-xs text-white ${
+            lead.validation.status === 'ok' ? 'status-ok' : lead.validation.status === 'mismatch' ? 'status-mismatch' : 'status-incomplete'
+          }">${lead.validation.status === 'ok' ? '✅' : lead.validation.status === 'mismatch' ? '🔴' : '⚪'} ${lead.validation.score ? lead.validation.score + '%' : ''}</span></td>
+          <td class="px-3 py-2 text-xs">${lead.documents.dni_frente ? '✓DNI ' : ''}${lead.documents.reprocann ? '✓REP' : ''}</td>
+          <td class="px-3 py-2 text-xs text-gray-600">${formatTime(lead.updated_at)}</td>
+          <td class="px-3 py-2"><button onclick="openConversation('${lead.chat_id}')" class="text-green-600 hover:underline text-xs">ver chat →</button></td>
+        </tr>
+      `).join('')
+    }
+
+    // ===== CONVERSATIONS =====
+    async function loadConversations() {
+      const data = await fetchAPI('/admin/conversations?limit=100')
+      if (!data || !data.ok) {
+        document.getElementById('convTable').innerHTML = '<tr><td colspan="5" class="px-3 py-6 text-center text-red-500">Error</td></tr>'
+        return
+      }
+      if (data.conversations.length === 0) {
+        document.getElementById('convTable').innerHTML = '<tr><td colspan="5" class="px-3 py-6 text-center text-gray-500">Sin conversaciones</td></tr>'
+        return
+      }
+      document.getElementById('convTable').innerHTML = data.conversations.map(c => `
+        <tr class="border-b hover:bg-gray-50 cursor-pointer" onclick="openConversation('${c.chat_id}')">
+          <td class="px-3 py-2 font-mono text-xs">${escapeHtml(c.chat_id)}</td>
+          <td class="px-3 py-2">${c.message_count}</td>
+          <td class="px-3 py-2 text-xs">${c.last_message_role || '--'}</td>
+          <td class="px-3 py-2 text-xs text-gray-600 max-w-xs truncate">${escapeHtml(c.last_message_preview || '')}</td>
+          <td class="px-3 py-2 text-xs text-gray-600">${formatTime(c.updated_at)}</td>
+        </tr>
+      `).join('')
+    }
+
+    async function openConversation(chatId) {
+      const modal = document.getElementById('convModal')
+      modal.classList.remove('hidden')
+      modal.classList.add('flex')
+      document.getElementById('convModalTitle').textContent = chatId
+      document.getElementById('convModalSubtitle').textContent = 'Cargando…'
+      document.getElementById('convModalBody').innerHTML = '<p class="text-gray-500 text-center py-8">Cargando…</p>'
+
+      const data = await fetchAPI(`/admin/conversation/${encodeURIComponent(chatId)}`)
+      if (!data || !data.ok) {
+        document.getElementById('convModalBody').innerHTML = '<p class="text-red-500 text-center py-8">Error cargando conversación</p>'
+        return
+      }
+
+      const state = data.state
+      const member = data.member
+      const msgs = data.conversation?.messages || []
+      const training = data.training_history || []
+
+      const subtitle = []
+      if (state?.nombre) subtitle.push(`Nombre: ${state.nombre}`)
+      if (state?.step) subtitle.push(`Paso: ${formatStep(state.step)}`)
+      if (member?.dni) subtitle.push(`DNI: ${member.dni}`)
+      document.getElementById('convModalSubtitle').textContent = subtitle.join(' · ') || '--'
+
+      const msgsHtml = msgs.length === 0 ? '<p class="text-gray-500 text-center">Sin mensajes</p>' :
+        msgs.map(m => `
+          <div class="mb-3 flex ${m.role === 'user' ? 'justify-start' : 'justify-end'}">
+            <div class="max-w-[75%] ${m.role === 'user' ? 'chat-msg-user' : 'chat-msg-bot'} px-4 py-2">
+              <p class="text-xs text-gray-600 mb-1 font-medium">${m.role === 'user' ? '👤 Usuario' : '🤖 Bot'}</p>
+              <p class="text-sm whitespace-pre-wrap">${escapeHtml(typeof m.content === 'string' ? m.content : JSON.stringify(m.content))}</p>
+            </div>
+          </div>
+        `).join('')
+
+      const trainingHtml = training.length === 0 ? '' : `
+        <div class="mt-6 pt-6 border-t">
+          <h4 class="font-semibold mb-2 text-sm">📊 Últimos scores del evaluator</h4>
+          <div class="space-y-2">
+            ${training.slice(0, 10).map(t => `
+              <div class="text-xs p-2 rounded ${t.score < 70 ? 'bg-red-50' : 'bg-green-50'}">
+                <span class="font-bold ${t.score < 70 ? 'text-red-700' : 'text-green-700'}">${t.score}/100</span>
+                <span class="text-gray-700"> — ${escapeHtml((t.reason || '').substring(0, 150))}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `
+
+      document.getElementById('convModalBody').innerHTML = msgsHtml + trainingHtml
+    }
+
+    function closeConvModal() {
+      const modal = document.getElementById('convModal')
+      modal.classList.add('hidden')
+      modal.classList.remove('flex')
+    }
+
+    // ===== TRAINING =====
+    async function loadTrainingStats() {
+      const data = await fetchAPI('/admin/training/stats?days=30')
+      if (!data || !data.ok) return
+      document.getElementById('trTotal').textContent = data.total
+      document.getElementById('trAvg').textContent = data.avg_score
+      document.getElementById('trPass').textContent = data.passing
+      document.getElementById('trFail').textContent = data.failing
+      document.getElementById('trFailRate').textContent = data.fail_rate_pct + '%'
+
+      const max = Math.max(...Object.values(data.buckets), 1)
+      document.getElementById('trBuckets').innerHTML = Object.entries(data.buckets).map(([range, count]) => `
+        <div class="flex items-center gap-3">
+          <span class="w-16 text-xs font-mono">${range}</span>
+          <div class="flex-1 bg-gray-200 rounded h-5 overflow-hidden">
+            <div class="h-full ${range.startsWith('0') || range.startsWith('30') ? 'bg-red-500' : range.startsWith('50') ? 'bg-yellow-500' : 'bg-green-500'}"
+              style="width: ${(count / max) * 100}%"></div>
+          </div>
+          <span class="w-12 text-right text-xs">${count}</span>
+        </div>
+      `).join('')
+    }
+
+    async function loadTraining() {
+      const maxScore = document.getElementById('trMaxScore').value
+      const search = document.getElementById('trSearch').value
+      const params = new URLSearchParams()
+      if (maxScore) params.append('max_score', maxScore)
+      if (search) params.append('search', search)
+      params.append('limit', '100')
+
+      const data = await fetchAPI('/admin/training?' + params.toString())
+      if (!data || !data.ok) {
+        document.getElementById('trainingTable').innerHTML = '<tr><td colspan="6" class="px-3 py-6 text-center text-red-500">Error</td></tr>'
+        return
+      }
+      if (data.training.length === 0) {
+        document.getElementById('trainingTable').innerHTML = '<tr><td colspan="6" class="px-3 py-6 text-center text-gray-500">Sin resultados</td></tr>'
+        return
+      }
+      document.getElementById('trainingTable').innerHTML = data.training.map(t => `
+        <tr class="border-b hover:bg-gray-50">
+          <td class="px-3 py-2"><span class="font-bold ${t.score < 70 ? 'text-red-600' : 'text-green-600'}">${t.score}</span></td>
+          <td class="px-3 py-2 font-mono text-xs"><a class="text-green-600 hover:underline" onclick="openConversation('${t.chat_id}')">${escapeHtml(t.chat_id.substring(0, 18))}…</a></td>
+          <td class="px-3 py-2 text-xs max-w-xs truncate">${escapeHtml((t.user_msg || '').substring(0, 80))}</td>
+          <td class="px-3 py-2 text-xs max-w-sm truncate">${escapeHtml((t.bot_reply || '').substring(0, 100))}</td>
+          <td class="px-3 py-2 text-xs text-gray-600 max-w-xs truncate">${escapeHtml((t.reason || '').substring(0, 80))}</td>
+          <td class="px-3 py-2 text-xs text-gray-600">${formatTime(t.created_at)}</td>
+        </tr>
+      `).join('')
+    }
+
+    // ===== SKILLS =====
+    async function loadSkills() {
+      const data = await fetchAPI('/admin/skills/usage?days=30')
+      if (!data || !data.ok) {
+        document.getElementById('skillsBody').innerHTML = '<p class="text-red-500">Error</p>'
+        return
+      }
+      const max = Math.max(...data.skills.map(s => s.count), 1)
+      document.getElementById('skillsBody').innerHTML = `
+        <p class="text-xs text-gray-500 mb-3">Total mensajes evaluados en ${data.since_days} días: <b>${data.total_messages}</b></p>
+        <div class="space-y-3">
+          ${data.skills.map(s => `
+            <div>
+              <div class="flex justify-between text-sm mb-1">
+                <span class="font-medium">${s.skill}</span>
+                <span class="text-gray-600">${s.count} usos · score promedio: ${s.avg_score ?? '--'}</span>
+              </div>
+              <div class="bg-gray-200 rounded h-3 overflow-hidden">
+                <div class="bg-green-500 h-full" style="width: ${(s.count / max) * 100}%"></div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `
+    }
+
+    // ===== KNOWLEDGE =====
+    async function loadKnowledge() {
+      const data = await fetchAPI('/admin/knowledge-stats')
+      if (!data || !data.ok) {
+        document.getElementById('knowledgeBody').innerHTML = '<p class="text-red-500">Error</p>'
+        return
+      }
+      document.getElementById('knowledgeBody').innerHTML = `
+        <pre class="text-xs bg-gray-50 p-3 rounded">${escapeHtml(JSON.stringify(data.stats, null, 2))}</pre>
+      `
+    }
+
+    // ===== CONFIG =====
+    async function loadConfig() {
+      const data = await fetchAPI('/admin/config')
+      if (!data || !data.ok) return showConfigStatus('Error cargando config', true)
+      const c = data.config || {}
+      document.getElementById('cfg_club_nombre').value = c.club_nombre || ''
+      document.getElementById('cfg_club_ubicacion').value = c.club_ubicacion || ''
+      document.getElementById('cfg_horarios').value = c.horarios || ''
+      document.getElementById('cfg_geneticas').value = c.geneticas || ''
+      document.getElementById('cfg_reprocann_url').value = c.reprocann_url || ''
+      document.getElementById('cfg_respuesta_saludo').value = c.respuesta_saludo || ''
+      document.getElementById('cfg_respuesta_confirmacion').value = c.respuesta_confirmacion || ''
+      document.getElementById('cfg_modelo_ia').value = c.modelo_ia || 'claude-opus-4-7'
+    }
+
+    async function saveConfig() {
+      const updates = {
+        club_nombre: document.getElementById('cfg_club_nombre').value,
+        club_ubicacion: document.getElementById('cfg_club_ubicacion').value,
+        horarios: document.getElementById('cfg_horarios').value,
+        geneticas: document.getElementById('cfg_geneticas').value,
+        reprocann_url: document.getElementById('cfg_reprocann_url').value,
+        respuesta_saludo: document.getElementById('cfg_respuesta_saludo').value,
+        respuesta_confirmacion: document.getElementById('cfg_respuesta_confirmacion').value,
+        modelo_ia: document.getElementById('cfg_modelo_ia').value,
+      }
+      const data = await fetchAPI('/admin/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) })
+      if (data && data.ok) showConfigStatus('Guardado ✓', false)
+      else showConfigStatus('Error: ' + (data?.error || 'desconocido'), true)
+    }
+
+    function showConfigStatus(msg, isError) {
+      const el = document.getElementById('configStatus')
+      el.textContent = msg
+      el.className = `p-3 rounded mb-4 text-sm ${isError ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`
+      el.classList.remove('hidden')
+      setTimeout(() => el.classList.add('hidden'), 3000)
+    }
+
+    // ===== QA REPORT =====
+    async function runQA() {
+      const limit = document.getElementById('qaLimit').value
+      const btn = document.getElementById('qaRunBtn')
+      btn.disabled = true; btn.textContent = 'Generando…'
+      document.getElementById('qaStatus').textContent = 'esto puede tardar 20-40s'
+      document.getElementById('qaReport').textContent = '⏳ Generando reporte con Claude…'
+
+      try {
+        const res = await fetch(API_BASE + `/admin/qa-report?limit=${limit}&format=markdown`, {
+          headers: { 'x-admin-token': adminToken }
+        })
+        if (!res.ok) {
+          document.getElementById('qaReport').textContent = `Error ${res.status}`
+        } else {
+          const text = await res.text()
+          document.getElementById('qaReport').textContent = text
+        }
+      } catch (e) {
+        document.getElementById('qaReport').textContent = 'Error: ' + e.message
+      } finally {
+        btn.disabled = false; btn.textContent = 'Generar reporte'
+        document.getElementById('qaStatus').textContent = ''
+      }
+    }
+
+    // ===== HELPERS =====
+    function escapeHtml(s) {
+      if (s == null) return ''
+      return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+    }
+
+    function formatStep(step) {
+      const map = {
+        'inicio': '🟡 Inicio', 'solicitando_nombre': '👤 Nombre',
+        'aclarando_nombre': '👤 Aclarando', 'recibiendo_documentos': '📸 Documentos',
+        'completando_datos': '✏️ Datos', 'conversando': '💬 Conversando',
+        'completado': '✅ Completado',
+      }
+      return map[step] || step || '--'
+    }
+
+    function formatTime(iso) {
+      if (!iso) return '--'
+      const d = new Date(iso)
+      const diff = Date.now() - d.getTime()
+      const mins = Math.floor(diff / 60000)
+      const hours = Math.floor(diff / 3600000)
+      const days = Math.floor(diff / 86400000)
+      if (mins < 1) return 'segundos'
+      if (mins < 60) return mins + 'min'
+      if (hours < 24) return hours + 'h'
+      if (days < 7) return days + 'd'
+      return d.toLocaleDateString('es-AR')
+    }
+
+    function formatUptime(s) {
+      const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60)
+      return `${h}h ${m}m`
+    }
+
+    // Auto-login si hay token guardado
+    window.addEventListener('load', () => {
+      const token = sessionStorage.getItem('admin_token')
+      if (token) {
+        adminToken = token
+        document.getElementById('authModal').style.display = 'none'
+        document.getElementById('dashboard').style.display = 'block'
+        loadHealth()
+        loadLeads()
+        setInterval(loadHealth, 30000)
+      }
+    })
+  </script>
+</body>
+</html>

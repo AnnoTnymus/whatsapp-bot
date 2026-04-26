@@ -15,7 +15,19 @@ const ROUTER_PROMPT = readFileSync(join(__dirname, 'prompts', 'router.md'), 'utf
 const VALID_INTENTS = new Set(['greet', 'info', 'affiliate', 'handover', 'skill', 'offtopic', 'goodbye'])
 const VALID_SKILLS = new Set(['legal_faq', 'reprocann_guide', 'genetics_expert'])
 
-const AFFILIATE_KEYWORDS = ['inscribir', 'inscribirme', 'afiliar', 'afiliarme', 'socio', 'hacerme socio', 'quiero ser socio', 'ser socio', 'member', 'registrar', 'registrarme', 'tramite', 'trámite', 'afiliación', 'asociarme']
+// Frases que afirman querer afiliarse (no preguntan, afirman). Tolerantes a tildes/sin tildes.
+const AFFILIATE_KEYWORDS = [
+  'inscribir', 'inscribirme', 'inscribirnos',
+  'afiliar', 'afiliarme', 'afiliación', 'afiliacion',
+  'asociar', 'asociarme', 'asociación', 'asociacion',
+  'anotar', 'anotarme', 'anotarnos',
+  'sumarme', 'sumarse',
+  'unirme', 'unirnos',
+  'registrarme', 'registrar',
+  'hacerme socio', 'quiero ser socio', 'ser socio', 'hacerse socio',
+  'member',
+  'tramite', 'trámite',
+]
 
 const FALLBACK = {
   intent: 'info',
@@ -42,20 +54,27 @@ function coerceRouterJson(raw, message) {
   }
 
   let intent = VALID_INTENTS.has(obj.intent) ? obj.intent : FALLBACK.intent
+  let overrodeAffiliate = false
 
-  // Override intent to affiliate if message contains affiliate keywords
-  if (intent === 'greet' && message) {
-    const lowerMsg = message.toLowerCase()
-    if (AFFILIATE_KEYWORDS.some(kw => lowerMsg.includes(kw))) {
+  // Safety net: si el mensaje contiene una afirmación CLARA de querer afiliarse y el LLM
+  // lo clasificó como greet o info, pisamos a affiliate. Sólo aplicamos cuando NO es pregunta
+  // (heurística simple: no termina en "?" y no empieza con "cómo/qué/cuánto/dónde/cuándo").
+  if ((intent === 'greet' || intent === 'info') && message) {
+    const lowerMsg = message.toLowerCase().trim()
+    const isQuestion = lowerMsg.endsWith('?') || lowerMsg.endsWith('¿')
+      || /^(c[oó]mo|qu[eé]|cu[aá]nto|d[oó]nde|cu[aá]ndo|por\s?qu[eé])\b/.test(lowerMsg)
+    if (!isQuestion && AFFILIATE_KEYWORDS.some(kw => lowerMsg.includes(kw))) {
       intent = 'affiliate'
+      overrodeAffiliate = true
     }
   }
   const skill = VALID_SKILLS.has(obj.skill) ? obj.skill : null
-  const needs_knowledge = Boolean(obj.needs_knowledge)
+  const needs_knowledge = (intent === 'affiliate') ? false : Boolean(obj.needs_knowledge)
   const knowledge_query = needs_knowledge && typeof obj.knowledge_query === 'string' && obj.knowledge_query.trim()
     ? obj.knowledge_query.trim().toLowerCase()
     : null
-  const wants_affiliation = intent === 'affiliate' && Boolean(obj.wants_affiliation)
+  // Si pisamos a affiliate vía keyword, forzamos wants_affiliation=true (override del LLM).
+  const wants_affiliation = intent === 'affiliate' && (overrodeAffiliate || Boolean(obj.wants_affiliation))
   const reasoning = typeof obj.reasoning === 'string' ? obj.reasoning.slice(0, 200) : ''
 
   return { intent, needs_knowledge, knowledge_query, skill, wants_affiliation, reasoning }
