@@ -2075,6 +2075,13 @@ Acá podemos ayudarte con:
             reprocann_dorso: state.documentos.reprocann.dorso?.url,
           }
           await notifyAdmin(chatId, state.nombre_completo || state.nombre, dniData, reprocannData, state.collectedData, imageUrls)
+
+          // Validar que DNI y REPROCANN sean de la misma persona
+          const nombreDniVal = dniData ? `${dniData.nombre || ''} ${dniData.apellido || ''}`.trim() : null
+          const nameVal = validateNameMatch(nombreDniVal, reprocannData?.nombre || null)
+          if (nameVal.status === 'mismatch') {
+            log('validation', `⚠️ MISMATCH nombres: DNI="${nombreDniVal}" REPROCANN="${reprocannData?.nombre}" score=${nameVal.score}%`)
+          }
         }
 
         await saveState(chatId, state)  // v4.0: persist to DB
@@ -2320,6 +2327,31 @@ CATEGORÍAS:
 - 17-21 pts → ACEPTABLE
 - <17 pts → DEFICIENTE`
 
+// Validar que nombres de DNI y REPROCANN sean de la misma persona
+function validateNameMatch(nombreDni, nombreReprocann) {
+  if (!nombreDni && !nombreReprocann) return { status: 'incomplete', score: 0 }
+  if (!nombreDni || !nombreReprocann) return { status: 'incomplete', score: 0 }
+
+  const normalize = (s) => s
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z\s]/g, '')
+    .trim()
+
+  const a = normalize(nombreDni).split(/\s+/).filter(Boolean)
+  const b = normalize(nombreReprocann).split(/\s+/).filter(Boolean)
+
+  const setA = new Set(a)
+  const common = b.filter(w => setA.has(w)).length
+  const score = common / Math.max(a.length, b.length)
+
+  return {
+    status: score >= 0.5 ? 'ok' : 'mismatch',
+    score: Math.round(score * 100),
+    nombres: { dni: nombreDni, reprocann: nombreReprocann },
+  }
+}
+
 app.get('/admin/qa-report', async (req, res) => {
   if (!requireAdminAccess(req, res)) return
   if (!supabase) return res.status(500).json({ ok: false, error: 'Supabase no configurado' })
@@ -2482,6 +2514,71 @@ app.get('/admin/knowledge-stats', async (req, res) => {
     const { getKnowledgeStats } = await import('./src/knowledge/index.js')
     const stats = await getKnowledgeStats()
     res.json({ ok: true, stats })
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message })
+  }
+})
+
+// Admin leads endpoint — para dashboard de validación de nombres + estado de flujo
+app.get('/admin/leads', async (req, res) => {
+  if (!requireAdminAccess(req, res)) return
+  if (!supabase) return res.status(500).json({ ok: false, error: 'Supabase no configurado' })
+
+  const limit = Math.min(parseInt(req.query.limit) || 100, 200)
+  const stepFilter = req.query.step || null
+
+  try {
+    let query = supabase.from('patient_state').select('*')
+      .order('updated_at', { ascending: false }).limit(limit)
+    if (stepFilter) query = query.eq('step', stepFilter)
+
+    const { data: states, error } = await query
+    if (error) throw error
+
+    const { data: members } = await supabase
+      .from('members').select('chat_id, dni, reprocann_vencimiento')
+
+    const membersMap = {}
+    for (const m of members || []) membersMap[m.chat_id] = m
+
+    const leads = (states || []).map(s => {
+      const cd = s.collected_data || {}
+      const nombreDni = cd.nombre_dni ? `${cd.nombre_dni} ${cd.apellido_dni || ''}`.trim() : null
+      const nombreReprocann = cd.nombre_reprocann || null
+      const validation = validateNameMatch(nombreDni, nombreReprocann)
+
+      return {
+        chat_id: s.chat_id,
+        nombre_usuario: s.nombre || 'Sin nombre',
+        step: s.step,
+        validation,
+        documents: {
+          dni_frente: !!(s.documentos?.dni?.frente),
+          dni_dorso: !!(s.documentos?.dni?.dorso),
+          reprocann: !!(s.documentos?.reprocann?.frente),
+        },
+        member: membersMap[s.chat_id] || null,
+        last_message_at: s.last_message_at,
+        updated_at: s.updated_at,
+      }
+    })
+
+    const byStep = {}
+    for (const l of leads) byStep[l.step] = (byStep[l.step] || 0) + 1
+
+    res.json({
+      ok: true,
+      summary: {
+        total: leads.length,
+        by_step: byStep,
+        validation: {
+          ok: leads.filter(l => l.validation.status === 'ok').length,
+          mismatch: leads.filter(l => l.validation.status === 'mismatch').length,
+          incomplete: leads.filter(l => l.validation.status === 'incomplete').length,
+        },
+      },
+      leads,
+    })
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message })
   }
