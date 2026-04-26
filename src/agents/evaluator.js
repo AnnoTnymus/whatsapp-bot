@@ -69,7 +69,7 @@ export async function runEvaluator({ reply, context = {} }, opts = {}) {
   if (!trimmed) return { score: 0, reasons: ['reply vacía o inválida'], passes: false }
 
   const anthropicKey = opts.anthropicKey || process.env.ANTHROPIC_API_KEY?.replace(/[^\x20-\x7E]/g, '').trim()
-  const model = opts.model || process.env.ANTHROPIC_MODEL_EVALUATOR || 'claude-opus-4-7'
+  const model = opts.model || process.env.ANTHROPIC_MODEL_EVALUATOR || 'claude-opus-4-20250514'
   const fetchImpl = opts.fetchImpl || nodeFetch
 
   if (!anthropicKey) {
@@ -110,7 +110,18 @@ export async function runEvaluator({ reply, context = {} }, opts = {}) {
       }),
     })
 
-    if (!res.ok) return { score: 70, reasons: [`evaluator http ${res.status}`], passes: true }
+    if (!res.ok) {
+      let errorDetail = `http ${res.status}`
+      if (res.status === 400) {
+        try {
+          const errorBody = await res.json()
+          errorDetail = `http 400: ${JSON.stringify(errorBody)}`
+        } catch {
+          errorDetail = 'http 400 (no body)'
+        }
+      }
+      return { score: 70, reasons: [`evaluator ${errorDetail}`], passes: true }
+    }
 
     const data = await res.json()
     const rawText = data?.content?.[0]?.text || ''

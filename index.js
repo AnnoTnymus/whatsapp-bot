@@ -313,7 +313,7 @@ async function saveHistory(chatId, messages) {
     await supabase.from('conversation_history').upsert(
       {
         chat_id: chatId,
-        messages: messages.slice(-8),  // Keep last 8 messages only
+        messages: messages.slice(-50),  // Keep last 50 messages for full context
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'chat_id' }
@@ -1337,6 +1337,12 @@ async function runNewPipeline(msg, chatId, state) {
     const nombreSaludo = state?.nombre && state.nombre !== 'Amigo' ? `, ${state.nombre}` : ''
     const handoverReply = `Listo${nombreSaludo} 👋 Ya notifiqué al staff y te van a contactar apenas puedan (a veces tarda un ratito).\n\nMientras tanto, si querés, te puedo contar sobre el club, sobre Indajaus (somos líderes del sector en Uruguay 🇺🇾), las genéticas que tenemos, cómo funciona el REPROCANN, o te arranco con la inscripción si preferís ir avanzando. ¿Te interesa alguna?`
 
+    // Marcar step para que el admin lo vea en el dashboard
+    if (state) {
+      state.step = 'esperando_humano'
+      await saveState(chatId, state)
+    }
+
     // Persistir historial
     const updated = [...history, { role: 'user', content: msg }, { role: 'assistant', content: handoverReply }]
     conversationHistory.set(chatId, updated)
@@ -1811,8 +1817,9 @@ Acá podemos ayudarte con:
             chatId,
             `Listo${nombreSaludo} 👋 Ya notifiqué al staff y te van a contactar apenas puedan (a veces tarda un ratito).\n\nMientras tanto, si querés, te puedo contar sobre el club, sobre Indajaus (somos líderes del sector en Uruguay 🇺🇾), las genéticas que tenemos, cómo funciona el REPROCANN, o te arranco con la inscripción si preferís ir avanzando. ¿Te interesa alguna?`
           )
-          // No cambiamos el step: el usuario sigue en 'conversando' y cualquier próximo
-          // mensaje suyo entra normal al orquestador/skills.
+          // Marcar step para que el admin lo vea en el dashboard
+          state.step = 'esperando_humano'
+          await saveState(chatId, state)
           return
         }
 
