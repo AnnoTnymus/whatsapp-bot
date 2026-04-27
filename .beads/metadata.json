@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "whatsapp_bot",
+  "project_id": "341d7633-6c59-4108-814e-904e6bf4bb11"
+}
