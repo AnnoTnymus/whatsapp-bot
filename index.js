@@ -2620,7 +2620,7 @@ app.post('/admin/lead/step', async (req, res) => {
     return res.status(400).json({ ok: false, error: 'chat_id y step requeridos' })
   }
 
-  const VALID_STEPS = ['inicio', 'solicitando_nombre', 'aclarando_nombre', 'recibiendo_documentos', 'completando_datos', 'conversando', 'completado', 'esperando_humano', 'contactado']
+  const VALID_STEPS = ['inicio', 'solicitando_nombre', 'aclarando_nombre', 'recibiendo_documentos', 'completando_datos', 'conversando', 'completado', 'esperando_humano', 'contactado', 'inscrito']
   if (!VALID_STEPS.includes(step)) {
     return res.status(400).json({ ok: false, error: `Step inválido: ${step}` })
   }
@@ -2632,6 +2632,28 @@ app.post('/admin/lead/step', async (req, res) => {
       .eq('chat_id', chat_id)
 
     if (error) throw error
+
+    // Si se marca como "inscripto", enviar mensaje de bienvenida al usuario
+    if (step === 'inscrito') {
+      const { data: state } = await supabase
+        .from('patient_state')
+        .select('language, nombre')
+        .eq('chat_id', chat_id)
+        .single()
+      
+      const lang = state?.language || 'es'
+      const nombre = state?.nombre || ''
+      
+      const WELCOME_MSG = {
+        es: `¡Bienvenido a Indajaus! 🎉\n\nYa forms parte del club. podés visitar nuestras instalaciones en Palermo, Buenos Aires.\n\nHorario:\n• Lunes a Viernes: 11:00 - 20:00\n• Sábados: 12:00 - 21:00\n• Domingos: 12:00 - 19:00\n\nTe esperamos! 🌿`,
+        en: `Welcome to Indajaus! 🎉\n\nYou're now a member of the club. You can visit us in Palermo, Buenos Aires.\n\nHours:\n• Mon-Fri: 11:00 - 20:00\n• Saturdays: 12:00 - 21:00\n• Sundays: 12:00 - 19:00\n\nSee you soon! 🌿`,
+        pt: `Bem-vindo ao Indajaus! 🎉\n\nVocê agora é membro do clube. Pode nos visitar em Palermo, Buenos Aires.\n\nHorário:\n• Segunda a Sexta: 11:00 - 20:00\n• Sábados: 12:00 - 21:00\n• Domingos: 12:00 - 19:00\n\nNos vemos em breve! 🌿`
+      }
+      
+      await sendWhatsAppMessage(chat_id, WELCOME_MSG[lang] || WELCOME_MSG.es)
+      log('admin', `Welcome message sent to ${chat_id}`)
+    }
+
     res.json({ ok: true })
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message })
