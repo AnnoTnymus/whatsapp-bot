@@ -1164,14 +1164,17 @@ async function notifyHumanHandover(chatId, nombre, userMessage) {
   `
 
   try {
-    await resend.emails.send({
-      from: 'Bot Club <DEFAULT_FROM_EMAIL>',
+    const result = await resend.emails.send({
+      from: `Bot Club <${DEFAULT_FROM_EMAIL}>`,
       to: ADMIN_EMAIL,
       subject: `📞 Atención humana solicitada — ${safeName} (+${phone})`,
       html,
     })
-    // Handover audit log sanitized by Codex (GPT-5) on 2026-04-24.
-    log('handover', `📧 Email de handover enviado a ${ADMIN_EMAIL} para ${formatChatRef(chatId)}`)
+    if (result.error) {
+      log('handover', `❌ Resend error: ${JSON.stringify(result.error)}`)
+    } else {
+      log('handover', `📧 Email enviado: ${result.data?.id}`)
+    }
   } catch (e) {
     log('handover', `❌ Error enviando email de handover: ${e.message}`)
   }
