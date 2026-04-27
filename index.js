@@ -1446,6 +1446,16 @@ async function runNewPipeline(msg, chatId, state) {
     }
   }
 
+  // Si sigue fallando, notificar a humano + cambiar estado
+  if (finalScore < 20) {
+    log('pipeline', `low score ${finalScore}, notifying human`)
+    await notifyHumanHandover(chatId, state?.nombre_completo || state?.nombre, msg)
+    if (state) {
+      state.step = 'esperando_humano'
+      await saveState(chatId, state)
+    }
+  }
+
   // 6. Training storage (fire-and-forget, nunca bloquear)
   Promise.resolve()
     .then(() => knowledgeLayer.saveTrainingExample(chatId, msg, finalReply, finalScore, (finalReasons || []).join('; ')))
