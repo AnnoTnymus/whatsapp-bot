@@ -44,26 +44,38 @@ const DEFAULT_LANGUAGE = 'es'
 
 function detectLanguage(text) {
   if (!text || !text.trim()) return 'es'
-  const lower = text.toLowerCase().trim()
+  const lower = text.toLowerCase()
   
-  // Very distinctive Portuguese patterns (checked FIRST)
-  const ptSignal = lower.includes('vocês') || lower.includes('obrigado') || lower.includes('olá') || lower.includes('preciso') || lower.includes('quando') || lower.includes('onde') || lower.includes('váo')
+  // High-weight unique words for each language (these are ONLY in that language)
+  const uniqueWords = {
+    // Spanish ONLY (not in EN or PT otherwise)
+    es: ['hola', 'gracias', 'buenos', 'días', 'cómo', 'qué', 'dónde', 'cuándo', 'estás', 'tienes', 'soy', 'genéricas', 'cepas', 'afiliar', 'quiero', 'necesito', 'ayuda', 'información', 'dónde', 'cuál'],
+    // English ONLY
+    en: ['hello', 'hi', 'hey', 'thanks', 'want', 'need', 'when', 'what', 'where', 'how', 'strains', 'genetics', 'menu', 'info', 'today', 'great', 'okay'],
+    // Portuguese ONLY
+    pt: ['olá', 'obrigado', 'obrigada', 'vocês', 'preciso', 'qual', 'onde', 'quando', 'váo']
+  }
   
-  // Very distinctive English patterns (checked before Spanish)
-  const enSignal = lower.startsWith('hello') || lower.startsWith('hi ') || lower.startsWith('hey') || lower.includes('thanks') || lower.includes('what ') || lower.includes('how are') || lower.includes('when do') || lower.includes('strains') || lower.includes('genetics') || lower.includes('where ')
+  let esScore = 0, enScore = 0, ptScore = 0
   
-  // Very distinctive Spanish patterns
-  const esSignal = lower.includes('hola') || lower.includes('gracias') || lower.includes('cómo') || lower.includes('qué ') || lower.includes('dónde') || lower.includes('cuándo') || lower.includes('genéticas') || lower.includes('cepas')
+  // Count unique word matches
+  for (const w of uniqueWords.es) if (lower.includes(w)) esScore += 3
+  for (const w of uniqueWords.en) if (lower.includes(w)) enScore += 3
+  for (const w of uniqueWords.pt) if (lower.includes(w)) ptScore += 3
   
-  // Priority: PT > EN > ES > default
-  if (ptSignal) return 'pt'
-  if (enSignal) return 'en'
-  if (esSignal) return 'es'
+  // Strong signals override any scoring
+  if (lower.startsWith('hello') || lower.startsWith('hi ') || lower.startsWith('hey') || lower.startsWith('thanks')) return 'en'
+  if (lower.includes('olá') || lower.includes('obrigado') || lower.includes('vocês')) return 'pt'
+  if (lower.includes('hello') || lower.includes('thanks') || lower.includes('what ') || lower.includes('strains')) return 'en'
+  if (lower.includes('hola') || lower.includes('gracias') || lower.includes('genéricas')) return 'es'
   
-  // Check for Spanish characters
+  // Spanish accent characters are very strong signals
   if (/[áéíóúñ]/i.test(lower)) return 'es'
   
-  return 'es'  // Default to Spanish
+  // Return highest scoring
+  if (ptScore > esScore && ptScore > enScore) return 'pt'
+  if (enScore > esScore && enScore > ptScore) return 'en'
+  return 'es'
 }
 
 // Supabase client (v4.0 — persistence)
