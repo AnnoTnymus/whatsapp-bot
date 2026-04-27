@@ -43,43 +43,27 @@ const SUPPORTED_LANGUAGES = ['es', 'en', 'pt']
 const DEFAULT_LANGUAGE = 'es'
 
 function detectLanguage(text) {
-  if (!text) return 'es'
-  const lower = text.toLowerCase()
+  if (!text || !text.trim()) return 'es'
+  const lower = text.toLowerCase().trim()
   
-  // Count keyword matches - be more specific
-  let esCount = 0, enCount = 0, ptCount = 0
+  // Very distinctive Portuguese patterns (checked FIRST)
+  const ptSignal = lower.includes('vocês') || lower.includes('obrigado') || lower.includes('olá') || lower.includes('preciso') || lower.includes('quando') || lower.includes('onde') || lower.includes('váo')
   
-  // Spanish specific
-  if (lower.includes('hola')) esCount += 3
-  if (lower.includes('gracias')) esCount += 3
-  if (lower.includes('buenos')) esCount += 2
-  if (lower.includes('cómo')) esCount += 2
-  if (lower.includes('cuál')) esCount += 2
-  if (lower.includes('dónde')) esCount += 2
-  if (lower.includes('genéticas')) esCount += 2
-  if (lower.includes('afiliar')) esCount += 2
+  // Very distinctive English patterns (checked before Spanish)
+  const enSignal = lower.startsWith('hello') || lower.startsWith('hi ') || lower.startsWith('hey') || lower.includes('thanks') || lower.includes('what ') || lower.includes('how are') || lower.includes('when do') || lower.includes('strains') || lower.includes('genetics') || lower.includes('where ')
   
-  // English specific
-  if (lower.includes('hello')) enCount += 3
-  if (lower.includes('hi ')) enCount += 3
-  if (lower.includes('hey')) enCount += 3
-  if (lower.includes('thanks')) enCount += 3
-  if (lower.includes('want') && !lower.includes('quando')) enCount += 2
-  if (lower.includes('need')) enCount += 2
-  if (lower.includes('strains')) enCount += 2
-  if (lower.includes('genetics')) enCount += 2
+  // Very distinctive Spanish patterns
+  const esSignal = lower.includes('hola') || lower.includes('gracias') || lower.includes('cómo') || lower.includes('qué ') || lower.includes('dónde') || lower.includes('cuándo') || lower.includes('genéticas') || lower.includes('cepas')
   
-  // Portuguese specific (check BEFORE Spanish to avoid conflict with "genéticas")
-  if (lower.includes('olá')) ptCount += 4
-  if (lower.includes('obrigado')) ptCount += 3
-  if (lower.includes('como') && lower.includes('vão')) ptCount += 3
-  if (lower.includes('preciso')) ptCount += 2
-  if (lower.includes('vocês')) ptCount += 2
+  // Priority: PT > EN > ES > default
+  if (ptSignal) return 'pt'
+  if (enSignal) return 'en'
+  if (esSignal) return 'es'
   
-  // Return highest scoring, priority order
-  if (ptCount > esCount && ptCount > enCount) return 'pt'
-  if (enCount > esCount && enCount > ptCount) return 'en'
-  return 'es'
+  // Check for Spanish characters
+  if (/[áéíóúñ]/i.test(lower)) return 'es'
+  
+  return 'es'  // Default to Spanish
 }
 
 // Supabase client (v4.0 — persistence)
