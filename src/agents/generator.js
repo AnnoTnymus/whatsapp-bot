@@ -26,9 +26,9 @@ function loadPrompt(language = 'es') {
 }
 
 const FALLBACK = {
-  es: 'Estamos teniendo demasiadas solicitudes en este momento. Vamos a pedirle a nuestro staff que se comunique apenas pueda para ayudarte con todas tus dudas.',
-  en: 'We are receiving too many requests right now. We will ask our staff to contact you as soon as possible to help with all your questions.',
-  pt: 'Estamos recebendo muitas solicitações neste momento. Pediremos à nossa equipe para entrar em contato assim que possível para ajudar com todas as suas dúvidas.'
+  es: '😅 Estamos teniendo demasiadas solicitudes en este momento. Vamos a pedirle a nuestro staff que se comunique apenas pueda para ayudarte con todas tus dudas 🙌',
+  en: '😅 We are receiving too many requests right now. We will ask our staff to contact you as soon as possible to help with all your questions 🙌',
+  pt: '😅 Estamos recebendo muitas solicitações neste momento. Pediremos à nossa equipe para entrar em contato assim que possível para ajudar com todas as suas dúvidas 🙌'
 }
 
 const GREET = {

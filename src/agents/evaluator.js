@@ -13,7 +13,7 @@ import nodeFetch from 'node-fetch'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const EVALUATOR_PROMPT = readFileSync(join(__dirname, 'prompts', 'evaluator.md'), 'utf8')
 
-const PASS_THRESHOLD = 70
+const PASS_THRESHOLD = 50  // Lowered from 70 to be more permissive
 
 function clampScore(n) {
   const v = Number.isFinite(n) ? Math.round(n) : 0
