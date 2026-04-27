@@ -921,7 +921,10 @@
       try {
         const res = await fetch('/admin/lead/step', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-admin-token': adminToken 
+          },
           body: JSON.stringify({ chat_id: chatId, step: newStep })
         })
         const data = await res.json()
