@@ -1886,6 +1886,7 @@ Acá podemos ayudarte con:
 
         // Paso 5: Modo atención al cliente — Claude responde, detecta intent afiliación + skill.
         // [claude-opus-4.7] 2026-04-24 Task #48: gate del pipeline nuevo detrás de USE_NEW_PIPELINE.
+        log('webhook', `USE_NEW_PIPELINE=${USE_NEW_PIPELINE} state.lang=${state?.language}`)
         const { reply, wantsAffiliation, skillName, history: updatedHistory } = USE_NEW_PIPELINE
           ? await runNewPipeline(message, chatId, state)
           : await askClaude(message, chatId)
