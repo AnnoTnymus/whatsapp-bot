@@ -1465,7 +1465,13 @@ async function runNewPipeline(msg, chatId, state) {
 
     // Respuesta coherente al usuario
     const nombreSaludo = state?.nombre && state.nombre !== 'Amigo' ? `, ${state.nombre}` : ''
-    const handoverReply = `Listo${nombreSaludo} 👋 Ya notifiqué al staff y te van a contactar apenas puedan (a veces tarda un ratito).\n\nMientras tanto, si querés, te puedo contar sobre el club, sobre Indajaus (somos líderes del sector en Argentina 🇦🇷), las genéticas que tenemos, cómo funciona el REPROCANN, o te arranco con la inscripción si preferís ir avanzando. ¿Te interesa alguna?`
+    const _hoLang = state?.language || 'es'
+    const _hoMsgs = {
+      es: `Listo${nombreSaludo} 👋 Ya notifiqué al staff y te van a contactar apenas puedan.\n\nMientras tanto puedo contarte sobre el club, las genéticas disponibles, cómo funciona el REPROCANN, o arrancar con la inscripción si preferís ir avanzando. ¿Te interesa alguna?`,
+      en: `Got it${nombreSaludo} 👋 I've notified the staff and they'll reach out as soon as they can.\n\nMeanwhile I can tell you about the club, available genetics, how REPROCANN works, or we can start the membership process if you'd like to move forward. Interested?`,
+      pt: `Feito${nombreSaludo} 👋 Notifiquei o staff e eles vão entrar em contato assim que puderem.\n\nEnquanto isso posso te contar sobre o clube, as genéticas disponíveis, como funciona o REPROCANN, ou podemos iniciar o processo de associação se preferir avançar. Tem interesse?`,
+    }
+    const handoverReply = _hoMsgs[_hoLang] || _hoMsgs.es
 
     // Marcar step para que el admin lo vea en el dashboard
     if (state) {
@@ -2023,10 +2029,13 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
           // [claude-opus-4.7] 2026-04-24: no cortar el chat. Mantener al usuario activo
           // mientras espera al humano — objetivo primario sigue siendo la inscripción.
           const nombreSaludo = state.nombre && state.nombre !== 'Amigo' ? `, ${state.nombre}` : ''
-          await sendWhatsAppMessage(
-            chatId,
-            `Listo${nombreSaludo} 👋 Ya notifiqué al staff y te van a contactar apenas puedan (a veces tarda un ratito).\n\nMientras tanto, si querés, te puedo contar sobre el club, sobre Indajaus (somos líderes del sector en Argentina 🇺🇾), las genéticas que tenemos, cómo funciona el REPROCANN, o te arranco con la inscripción si preferís ir avanzando. ¿Te interesa alguna?`
-          )
+          const _legHoLang = state?.language || 'es'
+          const _legHoMsgs = {
+            es: `Listo${nombreSaludo} 👋 Ya notifiqué al staff y te van a contactar apenas puedan.\n\nMientras tanto puedo contarte sobre el club, las genéticas disponibles, cómo funciona el REPROCANN, o arrancar con la inscripción si preferís. ¿Te interesa?`,
+            en: `Got it${nombreSaludo} 👋 I've notified the staff and they'll reach out soon.\n\nMeanwhile I can tell you about the club, available genetics, how REPROCANN works, or we can start your membership. Interested?`,
+            pt: `Feito${nombreSaludo} 👋 Notifiquei o staff e eles entrarão em contato em breve.\n\nEnquanto isso posso te contar sobre o clube, genéticas disponíveis, como funciona o REPROCANN, ou iniciar sua associação. Tem interesse?`,
+          }
+          await sendWhatsAppMessage(chatId, _legHoMsgs[_legHoLang] || _legHoMsgs.es)
           // Marcar step para que el admin lo vea en el dashboard
           state.step = 'esperando_humano'
           await saveState(chatId, state)
@@ -2092,6 +2101,7 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
         // Initialize state if needed (v4.0: load from DB)
         const state = await loadState(chatId)
         state.last_message_at = new Date().toISOString()
+        const imgLang = state.language || 'es'
 
         // v4.0: Si no tiene nombre y no está ya solicitándolo, pedir nombre
         if ((!state.nombre || state.nombre === chatId) && state.step !== 'solicitando_nombre') {
@@ -2099,14 +2109,16 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
           state.step = 'solicitando_nombre'
           state.last_greeting_at = new Date().toISOString()
           await saveState(chatId, state)
-          await sendWhatsAppMessage(chatId, `Antes de continuar, ¿cuál es tu nombre?`)
+          const askNameMsgs = { es: '¿Cuál es tu nombre antes de continuar?', en: "What's your name before we continue?", pt: 'Qual é o seu nome antes de continuar?' }
+          await sendWhatsAppMessage(chatId, askNameMsgs[imgLang] || askNameMsgs.es)
           return
         }
 
         // Si está solicitando nombre, ignora imágenes hasta que responda
         if (state.step === 'solicitando_nombre') {
           log('webhook', `Esperando nombre, ignorando imagen para ${formatChatRef(chatId)}`)
-          await sendWhatsAppMessage(chatId, `Por favor respondé con tu nombre 👇`)
+          const waitNameMsgs = { es: 'Por favor respondé con tu nombre 👇', en: 'Please reply with your name first 👇', pt: 'Por favor responda com seu nome primeiro 👇' }
+          await sendWhatsAppMessage(chatId, waitNameMsgs[imgLang] || waitNameMsgs.es)
           return
         }
 
@@ -2123,19 +2135,21 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
         // Análisis de confirmación al usuario
         const analysis = await analyzeImageWithClaude(imageUrl, state)
         if (!analysis) {
-          await sendWhatsAppMessage(chatId, 'Tuvimos un problema analizando la imagen, intentá de nuevo 🙏')
+          const imgErrMsgs = { es: 'Tuvimos un problema analizando la imagen, intentá de nuevo 🙏', en: 'We had a problem analyzing the image, please try again 🙏', pt: 'Tivemos um problema ao analisar a imagem, tente novamente 🙏' }
+          await sendWhatsAppMessage(chatId, imgErrMsgs[imgLang] || imgErrMsgs.es)
           return
         }
 
         // Solo rechazar si tipo === 'OTRO' (no es un documento identificable)
-        // Ya NO rechazamos por "borrosa" — intentamos extraer datos primero y pedimos los faltantes por texto.
         if (detected.tipo === 'OTRO') {
-          await sendWhatsAppMessage(chatId, 'No logro identificar un documento en esa imagen 🤔 ¿Podés mandarme tu DNI o REPROCANN?')
+          const notDocMsgs = { es: 'No logro identificar un documento en esa imagen 🤔 ¿Podés mandarme tu DNI o REPROCANN?', en: "I can't identify a document in that image 🤔 Can you send your ID or REPROCANN?", pt: 'Não consigo identificar um documento nessa imagem 🤔 Pode me enviar seu RG ou REPROCANN?' }
+          await sendWhatsAppMessage(chatId, notDocMsgs[imgLang] || notDocMsgs.es)
           return
         }
 
         if (detected.tipo === 'DOCUMENTO_EXTRANJERO') {
-          await sendWhatsAppMessage(chatId, `Ese documento no parece ser argentino 🛑 Necesitamos tu DNI argentino 🇦🇷 y el REPROCANN de acá. ¿Los tenés?`)
+          const foreignDocMsgs = { es: 'Ese documento no parece ser argentino 🛑 Necesitamos tu DNI argentino 🇦🇷 y el REPROCANN de acá. ¿Los tenés?', en: "That document doesn't appear to be Argentine 🛑 We need your Argentine ID 🇦🇷 and the REPROCANN from here. Do you have them?", pt: 'Esse documento não parece ser argentino 🛑 Precisamos do seu RG argentino 🇦🇷 e do REPROCANN daqui. Você os tem?' }
+          await sendWhatsAppMessage(chatId, foreignDocMsgs[imgLang] || foreignDocMsgs.es)
           return
         }
 
