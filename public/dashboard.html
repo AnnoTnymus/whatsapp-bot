@@ -578,7 +578,21 @@
         <tr class="border-b hover:bg-gray-50">
           <td class="px-3 py-2 font-mono text-xs">${escapeHtml(lead.chat_id)}</td>
           <td class="px-3 py-2">${escapeHtml(lead.nombre_usuario)}</td>
-          <td class="px-3 py-2"><span class="px-2 py-1 rounded text-xs ${lead.step === 'esperando_humano' ? 'bg-orange-100 text-orange-700 font-semibold' : 'bg-blue-100 text-blue-700'}">${formatStep(lead.step)}</span></td>
+          <td class="px-3 py-2">
+            <select onchange="updateStep('${lead.chat_id}', this.value)" class="px-2 py-1 rounded text-xs cursor-pointer ${
+              lead.step === 'esperando_humano' ? 'bg-orange-100 text-orange-700 font-semibold' : 
+              lead.step === 'contactado' ? 'bg-green-100 text-green-700 font-semibold' :
+              'bg-blue-100 text-blue-700'
+            }">
+              <option value="inicio" ${lead.step === 'inicio' ? 'selected' : ''}>🟡 Inicio</option>
+              <option value="solicitando_nombre" ${lead.step === 'solicitando_nombre' ? 'selected' : ''}>👤 Nombre</option>
+              <option value="recibiendo_documentos" ${lead.step === 'recibiendo_documentos' ? 'selected' : ''}>📸 Documentos</option>
+              <option value="conversando" ${lead.step === 'conversando' ? 'selected' : ''}>💬 Conversando</option>
+              <option value="completado" ${lead.step === 'completado' ? 'selected' : ''}>✅ Completado</option>
+              <option value="esperando_humano" ${lead.step === 'esperando_humano' ? 'selected' : ''}>🙋 Esperando</option>
+              <option value="contactado" ${lead.step === 'contactado' ? 'selected' : ''}>📞 Contactado</option>
+            </select>
+          </td>
           <td class="px-3 py-2"><span class="px-2 py-1 rounded text-xs text-white ${
             lead.validation.status === 'ok' ? 'status-ok' : lead.validation.status === 'mismatch' ? 'status-mismatch' : 'status-incomplete'
           }">${lead.validation.status === 'ok' ? '✅' : lead.validation.status === 'mismatch' ? '🔴' : '⚪'} ${lead.validation.score ? lead.validation.score + '%' : ''}</span></td>
@@ -898,6 +912,31 @@
         'inicio': '🟡 Inicio', 'solicitando_nombre': '👤 Nombre',
         'aclarando_nombre': '👤 Aclarando', 'recibiendo_documentos': '📸 Documentos',
         'completando_datos': '✏️ Datos', 'conversando': '💬 Conversando',
+        'completado': '✅ Completado', 'esperando_humano': '🙋 Esperando', 'contactado': '📞 Contactado',
+      }
+      return map[step] || step || '--'
+    }
+
+    async function updateStep(chatId, newStep) {
+      try {
+        const res = await fetch('/admin/lead/step', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: chatId, step: newStep })
+        })
+        const data = await res.json()
+        if (!data.ok) {
+          alert('Error: ' + data.error)
+          loadLeads()
+        } else {
+          console.log(`Updated ${chatId} to ${newStep}`)
+          loadLeads()
+        }
+      } catch (e) {
+        alert('Error: ' + e.message)
+        loadLeads()
+      }
+    }
         'completado': '✅ Completado', 'esperando_humano': '🙋 Esperando humano',
       }
       return map[step] || step || '--'

@@ -2610,6 +2610,34 @@ app.get('/admin/leads', async (req, res) => {
   }
 })
 
+// Update lead step (for manually marking as contacted)
+app.post('/admin/lead/step', async (req, res) => {
+  if (!requireAdminAccess(req, res)) return
+  if (!supabase) return res.status(500).json({ ok: false, error: 'Supabase no configurado' })
+
+  const { chat_id, step } = req.body
+  if (!chat_id || !step) {
+    return res.status(400).json({ ok: false, error: 'chat_id y step requeridos' })
+  }
+
+  const VALID_STEPS = ['inicio', 'solicitando_nombre', 'aclarando_nombre', 'recibiendo_documentos', 'completando_datos', 'conversando', 'completado', 'esperando_humano', 'contactado']
+  if (!VALID_STEPS.includes(step)) {
+    return res.status(400).json({ ok: false, error: `Step inválido: ${step}` })
+  }
+
+  try {
+    const { error } = await supabase
+      .from('patient_state')
+      .update({ step, updated_at: new Date().toISOString() })
+      .eq('chat_id', chat_id)
+
+    if (error) throw error
+    res.json({ ok: true })
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message })
+  }
+})
+
 // ========== END GREENAPI STATUS ==========
 
 // ========== END QA AGENT ==========
