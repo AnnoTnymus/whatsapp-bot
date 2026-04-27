@@ -43,21 +43,27 @@ const SUPPORTED_LANGUAGES = ['es', 'en', 'pt']
 const DEFAULT_LANGUAGE = 'es'
 
 function detectLanguage(text) {
-  if (!text) return DEFAULT_LANGUAGE
+  if (!text) return 'es'
   const lower = text.toLowerCase()
   
-  // English keywords (check FIRST to avoid overlap with ES/PT)
-  const enScore = (lower.match(/hello|thanks|want|need|when|what|where|how|how much|is|with|for|by|the|i|me|are|have|are you|i am|hello|hi|hey|good|do you|can i|do i|great|ok|okay|goodbye|bye|please|help|support|strains|strains|menu|info/i) || []).length
+  // Count unique keyword matches for each language
   
-  // Spanish keywords
-  const esScore = (lower.match(/hola|gracias|quiero|necesito|cuándo|cuál|dónde|cómo|cuánto|qué|es|con|para|por|del|los|las|te|me|está|tenés|estás|tengo|tienes|sos|soy|eres|soy|cuantas|cuanto|donde|como|info|menu|genéticas|cepas|ayuda|i want|necesito/i) || []).length
+  // Spanish specific words (not shared with EN/PT)
+  const esWords = ['hola', 'gracias', 'quiero', 'necesito', 'cuándo', 'cuál', 'dónde', 'cómo', 'cuánto', 'qué', 'estás', 'tenés', 'estás', 'tengo', 'tienes', 'sos', 'soy', 'genéricas', 'cepas', 'ayuda', 'necesito']
+  const esCount = esWords.filter(w => lower.includes(w)).length
   
-  // Portuguese keywords (least specific - check last)
-  const ptScore = (lower.match(/olá|obrigado|quero|preciso|quando|qual|onde|cmo| quanto|o que|é|com|para|por|do|da|os|as|te|me|está|tens|tem|sou|és|sou|eres|sou|genéticas|cepas|ajuda|menu|info/i) || []).length
+  // English specific words
+  const enWords = ['hello', 'hi', 'hey', 'thanks', 'want', 'need', 'when', 'what', 'where', 'how', 'much', 'are', 'have', 'strains', 'genetics', 'menu', 'info']
+  const enCount = enWords.filter(w => lower.includes(w)).length
   
-  // Return highest scoring language
-  if (enScore >= esScore && enScore >= ptScore) return 'en'
-  if (ptScore >= esScore) return 'pt'
+  // Portuguese specific words  
+  const ptWords = ['olá', 'obrigado', 'quero', 'preciso', 'quando', 'qual', 'onde', 'genéticas', 'cepas', 'ajuda', 'vocês']
+  const ptCount = ptWords.filter(w => lower.includes(w)).length
+  
+  // Return highest, default to Spanish
+  if (esCount >= enCount && esCount >= ptCount) return 'es'
+  if (ptCount > esCount && ptCount > enCount) return 'pt'
+  if (enCount > esCount && enCount > ptCount) return 'en'
   return 'es'
 }
 
