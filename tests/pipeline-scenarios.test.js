@@ -314,6 +314,26 @@ import('fs').then(({ readFileSync }) => {
       assert(indexSrc.includes('Last-resort reply'), 'catch block: has last-resort reply comment')
 
       // ──────────────────────────────────────────────────────────────────────
+      // Suite 14 — Step-aware greetings (completado / esperando_humano)
+      // ──────────────────────────────────────────────────────────────────────
+      console.log('\n══ Suite 14: Step-aware greetings ══')
+
+      // Completado greeting
+      assert(indexSrc.includes('COMPLETADO_GREET'), 'has COMPLETADO_GREET map')
+      assert(indexSrc.includes("state.step === 'completado'"), 'greet intercept checks completado step')
+      assert(indexSrc.includes('ya está en revisión') || indexSrc.includes('Alguien del club'),
+        'completado greeting mentions review status')
+
+      // Esperando_humano greeting
+      assert(indexSrc.includes('ESPERA_GREET'), 'has ESPERA_GREET map')
+      assert(indexSrc.includes("state.step === 'esperando_humano'"), 'greet intercept checks esperando_humano step')
+
+      // Re-notification detector
+      assert(indexSrc.includes('_noContactMsg'), 'has no-contact detector')
+      assert(indexSrc.includes('_noContactSteps'), 'has no-contact steps array')
+      assert(indexSrc.includes('[RE-AVISO]'), 're-notification tagged for admin')
+
+      // ──────────────────────────────────────────────────────────────────────
       // Suite 13 — Resend email fixes
       // ──────────────────────────────────────────────────────────────────────
       console.log('\n══ Suite 13: Resend email fixes ══')

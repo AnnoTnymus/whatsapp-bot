@@ -1876,6 +1876,31 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
         const ACTIVE_STEPS = ['recibiendo_documentos', 'completando_datos', 'solicitando_nombre', 'aclarando_nombre', 'seleccionando_idioma']
         if (!nombreInvalido && isGreetMsg && !ACTIVE_STEPS.includes(state.step)) {
           const lang = state.language || 'es'
+
+          // Step-aware greeting: completado → ask if they were contacted yet
+          if (state.step === 'completado') {
+            const COMPLETADO_GREET = {
+              es: `¡Hola, *${state.nombre}*! 👋\n\nTu documentación ya está en revisión con nuestro staff 🌿\n\n¿Alguien del club ya se comunicó con vos? Si todavía no recibiste noticias puedo avisar nuevamente.`,
+              en: `Hey *${state.nombre}*! 👋\n\nYour documents are already under review with our staff 🌿\n\nDid someone from the club reach out to you yet? If you haven't heard back I can send another notification.`,
+              pt: `Olá, *${state.nombre}*! 👋\n\nSua documentação já está em análise com nossa equipe 🌿\n\nAlguém do clube já entrou em contato com você? Se ainda não recebeu novidades posso avisar novamente.`,
+            }
+            await sendWhatsAppMessage(chatId, COMPLETADO_GREET[lang] || COMPLETADO_GREET.es)
+            await saveState(chatId, state)
+            return
+          }
+
+          // Step-aware greeting: esperando_humano → acknowledge still in queue
+          if (state.step === 'esperando_humano') {
+            const ESPERA_GREET = {
+              es: `¡Hola, *${state.nombre}*! 👋\n\nEl staff ya fue notificado y te van a contactar 🌿\n\n¿Ya se comunicaron con vos? Si todavía estás esperando puedo reenviar el aviso.`,
+              en: `Hey *${state.nombre}*! 👋\n\nThe staff was already notified and will contact you 🌿\n\nDid they get in touch yet? If you're still waiting I can resend the alert.`,
+              pt: `Olá, *${state.nombre}*! 👋\n\nO staff já foi notificado e vai entrar em contato 🌿\n\nJá se comunicaram com você? Se ainda está esperando posso reenviar o aviso.`,
+            }
+            await sendWhatsAppMessage(chatId, ESPERA_GREET[lang] || ESPERA_GREET.es)
+            await saveState(chatId, state)
+            return
+          }
+
           const RETURN_GREET = {
             es: `¡Hola de nuevo, *${state.nombre}*! 👋\n\n¿En qué te puedo ayudar hoy?`,
             en: `Hey *${state.nombre}*, welcome back! 👋\n\nHow can I help you today?`,
@@ -2015,6 +2040,23 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
           await sendWhatsAppMessage(chatId, _legHoMsgs[_legHoLang] || _legHoMsgs.es)
           // Marcar step para que el admin lo vea en el dashboard
           state.step = 'esperando_humano'
+          await saveState(chatId, state)
+          return
+        }
+
+        // Paso 4b: Usuario completado/esperando dice que nadie lo contactó → re-notificar staff
+        const _noContactSteps = ['completado', 'esperando_humano']
+        const _noContactMsg = /(no.*contact|todav[ií]a.*no|nadie.*llam|nadie.*escrib|sin.*noticias|no.*llamaron|no.*escribieron|still.*waiting|no one.*contact|haven't.*heard|no.*respond|sem.*contato|ninguém.*contact|ainda.*não)/i.test(lowerMsg)
+        if (_noContactSteps.includes(state.step) && _noContactMsg) {
+          log('webhook', `Re-notificando staff para ${formatChatRef(chatId)} (step=${state.step})`)
+          await notifyHumanHandover(chatId, state.nombre_completo || state.nombre, `[RE-AVISO] Sin contacto del staff — "${message}"`)
+          const _rcLang = state.language || 'es'
+          const _rcMsgs = {
+            es: `Entendido *${state.nombre}* 🙏 Ya le avisé de nuevo al staff — te van a contactar pronto. ¿Necesitás algo más mientras tanto?`,
+            en: `Got it *${state.nombre}* 🙏 I've re-notified the staff — they'll reach out soon. Anything else you need in the meantime?`,
+            pt: `Entendido *${state.nombre}* 🙏 Avisei o staff novamente — eles entrarão em contato em breve. Precisa de mais alguma coisa?`,
+          }
+          await sendWhatsAppMessage(chatId, _rcMsgs[_rcLang] || _rcMsgs.es)
           await saveState(chatId, state)
           return
         }
