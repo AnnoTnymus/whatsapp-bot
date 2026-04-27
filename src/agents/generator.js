@@ -26,9 +26,9 @@ function loadPrompt(language = 'es') {
 }
 
 const FALLBACK = {
-  es: 'Tuve un problema para responderte 😔 ¿Querés que te pase con alguien del equipo?',
-  en: 'I had some trouble responding 😔 Would you like me to connect you with someone from our team?',
-  pt: 'Tive um problema para responder 😔 Você quer que eu passe para alguém da equipe?'
+  es: 'Estamos teniendo demasiadas solicitudes en este momento. Vamos a pedirle a nuestro staff que se comunique apenas pueda para ayudarte con todas tus dudas.',
+  en: 'We are receiving too many requests right now. We will ask our staff to contact you as soon as possible to help with all your questions.',
+  pt: 'Estamos recebendo muitas solicitações neste momento. Pediremos à nossa equipe para entrar em contato assim que possível para ajudar com todas as suas dúvidas.'
 }
 
 const GREET = {
