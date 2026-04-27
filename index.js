@@ -2060,12 +2060,21 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
           await saveState(chatId, state)
           log('webhook', `Transición a recibiendo_documentos para ${formatChatRef(chatId)}`)
         }
-      } else if (msgType === 'imageMessage') {
+      } else if (msgType === 'imageMessage' || msgType === 'documentMessage') {
+        // documentMessage: GreenAPI sends images shared as files (from gallery → "Document") as documentMessage
         const imageUrl = body.messageData?.downloadUrl ||
                          body.messageData?.fileMessageData?.downloadUrl ||
                          body.messageData?.imageMessage?.downloadUrl
         if (!imageUrl) {
-          log('webhook', `No downloadUrl encontrada`)
+          log('webhook', `No downloadUrl encontrada para msgType=${msgType}`)
+          const _stateForUrl = await loadState(chatId)
+          const _urlLang = _stateForUrl?.language || 'es'
+          const _urlErrMsgs = {
+            es: 'Tuve un problema recibiendo esa imagen 🙏 ¿Podés mandarla de nuevo?',
+            en: 'I had trouble receiving that image 🙏 Can you send it again?',
+            pt: 'Tive um problema recebendo essa imagem 🙏 Pode mandar de novo?',
+          }
+          await sendWhatsAppMessage(chatId, _urlErrMsgs[_urlLang] || _urlErrMsgs.es)
           return
         }
 
@@ -2283,9 +2292,26 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
         log('webhook', `Imagen procesada para ${formatChatRef(chatId)}`)
       } else {
         log('webhook', `Tipo no soportado: ${msgType}`)
+        // Never leave the user hanging — always acknowledge
+        try {
+          const _stateUnsup = await loadState(chatId)
+          const _unsupLang = _stateUnsup?.language || 'es'
+          const _unsupMsgs = {
+            es: '¿Podés escribirme? No pude procesar ese tipo de mensaje 🙏',
+            en: "Can you write to me? I couldn't process that type of message 🙏",
+            pt: 'Pode me escrever? Não consegui processar esse tipo de mensagem 🙏',
+          }
+          await sendWhatsAppMessage(chatId, _unsupMsgs[_unsupLang] || _unsupMsgs.es)
+        } catch (fallbackErr) {
+          log('webhook', `Fallback send failed: ${fallbackErr.message}`)
+        }
       }
   } catch (e) {
     log('webhook', `Error inesperado handler (chat=${formatChatRef(chatId)}, t=${Date.now() - t0}ms): ${e.message}`)
+    // Last-resort reply so the user never gets silence after an exception
+    try {
+      await sendWhatsAppMessage(chatId, '😅 Ocurrió un error inesperado. Nuestro equipo fue notificado y se comunicará pronto.')
+    } catch (_) { /* nothing left to do */ }
   }
 }
 

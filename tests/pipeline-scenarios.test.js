@@ -293,6 +293,27 @@ import('fs').then(({ readFileSync }) => {
       assert(genSrc.includes('claude-opus-4-7'), 'generator: uses valid claude-opus-4-7 model')
 
       // ──────────────────────────────────────────────────────────────────────
+      // Suite 12 — Never-silent guarantees
+      // ──────────────────────────────────────────────────────────────────────
+      console.log('\n══ Suite 12: Never-silent guarantees ══')
+
+      // documentMessage must be handled as image (GreenAPI sends gallery-shared images as documentMessage)
+      assert(indexSrc.includes("msgType === 'documentMessage'"), 'documentMessage included in image handler')
+      assert(indexSrc.includes("'imageMessage' || msgType === 'documentMessage'"), 'imageMessage||documentMessage combined check')
+
+      // imageUrl not found must reply, not silently return
+      assert(!indexSrc.includes("if (!imageUrl) {\n          log('webhook', `No downloadUrl encontrada`)\n          return\n        }"),
+        'imageUrl missing: sends reply instead of silent return')
+      assert(indexSrc.includes('_urlErrMsgs'), 'imageUrl missing: has multilang error map')
+
+      // Unsupported msgType must reply
+      assert(indexSrc.includes('_unsupMsgs'), 'unsupported msgType: sends reply (not silent)')
+      assert(!indexSrc.includes("log('webhook', `Tipo no soportado: ${msgType}`)\n      }"), 'no bare silent fallthrough')
+
+      // catch block must reply
+      assert(indexSrc.includes('Last-resort reply'), 'catch block: has last-resort reply comment')
+
+      // ──────────────────────────────────────────────────────────────────────
       // Final summary
       // ──────────────────────────────────────────────────────────────────────
       printSummary()
