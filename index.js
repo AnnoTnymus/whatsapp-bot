@@ -1736,10 +1736,11 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
         const state = await loadState(chatId)
         state.last_message_at = new Date().toISOString()
         
-        // Detect language on first message OR when not set
-        if (!state.language) {
-          state.language = detectLanguage(message)
-          log('i18n', `Detected language: ${state.language} for ${formatChatRef(chatId)}`)
+        // Detect language on each message (user may switch languages mid-conversation)
+        const detectedLang = detectLanguage(message)
+        if (state.language !== detectedLang) {
+          log('i18n', `Language: ${state.language} → ${detectedLang}`)
+          state.language = detectedLang
         }
         
         log('webhook', `Texto recibido chat=${formatChatRef(chatId)} len=${message.length} step=${state.step}`)
