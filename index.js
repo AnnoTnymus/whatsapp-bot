@@ -491,7 +491,7 @@ CÓMO RESPONDER SEGÚN LA SITUACIÓN:
 Si saluda (hola, buenas, etc.) SIN expresar intención clara:
 → Saludá con la presentación de Indajaus + ofrece opciones completas. Ejemplo:
 "¡Bienvenido a Indajaus! 🌿
-Te estás comunicando con nuestro club cannábico en Argentina. Somos una empresa que viene desde Uruguay trayendo más de una década de experiencia en el sector del cannabis. Estás en el lugar indicado.
+Te estás comunicando con nuestro club cannábico en Argentina. Con más de una década de experiencia en el sector del cannabis, somos líderes del sector. Estás en el lugar indicado.
 
 Acá podemos ayudarte con:
 • 📝 Inscripción al club — es lo principal, te cuento qué necesitamos para afiliararte
@@ -512,7 +512,7 @@ Si pregunta por REPROCANN (qué es, cómo tramitarlo):
 → Explicá que es el registro oficial para uso medicinal, se tramita en argentina.gob.ar/reprocann, es gratis.
 
 Si pide hablar con una persona:
-→ Confirmale que ya notificaste al staff y que lo van a contactar, PERO ofrecele seguir la conversación mientras espera. Mencionale que podés contarle sobre el club, Indajaus (líderes del sector en Uruguay), genéticas, REPROCANN, o arrancar la inscripción. El objetivo es mantenerlo activo y avanzar hacia la afiliación aunque esté esperando al humano.
+→ Confirmale que ya notificaste al staff y que lo van a contactar, PERO ofrecele seguir la conversación mientras espera. Mencionale que podés contarle sobre el club, Indajaus (somos líderes del sector en Argentina), genéticas, REPROCANN, o arrancar la inscripción. El objetivo es mantenerlo activo y avanzar hacia la afiliación aunque esté esperando al humano.
 
 Si manda algo raro, fuera de tema (chistes, stickers random, mensajes sin sentido):
 → Respondé casualmente con humor rioplatense (acá SÍ podés usar "che", "jaja", emojis) y redirigí cordial: "Dale, ¿en qué te puedo ayudar con el club?"
@@ -1465,7 +1465,7 @@ async function runNewPipeline(msg, chatId, state) {
 
     // Respuesta coherente al usuario
     const nombreSaludo = state?.nombre && state.nombre !== 'Amigo' ? `, ${state.nombre}` : ''
-    const handoverReply = `Listo${nombreSaludo} 👋 Ya notifiqué al staff y te van a contactar apenas puedan (a veces tarda un ratito).\n\nMientras tanto, si querés, te puedo contar sobre el club, sobre Indajaus (somos líderes del sector en Uruguay 🇺🇾), las genéticas que tenemos, cómo funciona el REPROCANN, o te arranco con la inscripción si preferís ir avanzando. ¿Te interesa alguna?`
+    const handoverReply = `Listo${nombreSaludo} 👋 Ya notifiqué al staff y te van a contactar apenas puedan (a veces tarda un ratito).\n\nMientras tanto, si querés, te puedo contar sobre el club, sobre Indajaus (somos líderes del sector en Argentina 🇦🇷), las genéticas que tenemos, cómo funciona el REPROCANN, o te arranco con la inscripción si preferís ir avanzando. ¿Te interesa alguna?`
 
     // Marcar step para que el admin lo vea en el dashboard
     if (state) {
@@ -2025,7 +2025,7 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
           const nombreSaludo = state.nombre && state.nombre !== 'Amigo' ? `, ${state.nombre}` : ''
           await sendWhatsAppMessage(
             chatId,
-            `Listo${nombreSaludo} 👋 Ya notifiqué al staff y te van a contactar apenas puedan (a veces tarda un ratito).\n\nMientras tanto, si querés, te puedo contar sobre el club, sobre Indajaus (somos líderes del sector en Uruguay 🇺🇾), las genéticas que tenemos, cómo funciona el REPROCANN, o te arranco con la inscripción si preferís ir avanzando. ¿Te interesa alguna?`
+            `Listo${nombreSaludo} 👋 Ya notifiqué al staff y te van a contactar apenas puedan (a veces tarda un ratito).\n\nMientras tanto, si querés, te puedo contar sobre el club, sobre Indajaus (somos líderes del sector en Argentina 🇺🇾), las genéticas que tenemos, cómo funciona el REPROCANN, o te arranco con la inscripción si preferís ir avanzando. ¿Te interesa alguna?`
           )
           // Marcar step para que el admin lo vea en el dashboard
           state.step = 'esperando_humano'
