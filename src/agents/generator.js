@@ -10,19 +10,53 @@ import { dirname, join } from 'path'
 import nodeFetch from 'node-fetch'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const GENERATOR_PROMPT = readFileSync(join(__dirname, 'prompts', 'generator.md'), 'utf8')
 
-const FALLBACK_REPLY = 'Disculpá, tuvimos un problema técnico. Intentá de nuevo en un momento 🙏'
+function loadPrompt(language = 'es') {
+  const langMap = {
+    es: 'generator.md',
+    en: 'generator-en.md', 
+    pt: 'generator-pt.md'
+  }
+  const file = langMap[language] || 'generator.md'
+  try {
+    return readFileSync(join(__dirname, 'prompts', file), 'utf8')
+  } catch {
+    return readFileSync(join(__dirname, 'prompts', 'generator.md'), 'utf8')
+  }
+}
 
-const GREET_WELCOME = `Bienvenido a Indajaus 🌿
+const FALLBACK = {
+  es: 'Disculpá, tuvimos un problema técnico. Intentá de nuevo en un momento 🙏',
+  en: 'Sorry, we had a technical issue. Please try again in a moment 🙏',
+  pt: 'Desculpe, temos um problema técnico. Tente novamente em um momento 🙏'
+}
+
+const GREET = {
+  es: `Bienvenido a Indajaus 🌿
 
 Te estás comunicando con nuestro club cannábico en Argentina. 
 Somos una empresa que viene desde Uruguay trayendo más de una década de experiencia en el sector del cannabis. 
 Estás en el lugar indicado.
 
-¿Cuál es tu nombre?`
+¿Cuál es tu nombre?`,
+  en: `Welcome to Indajaus 🌿
 
-const INFO_OPTIONS = `Perfecto, gracias por escribirnos.
+You're reaching our cannabis club in Argentina. 
+We're a company from Uruguay with over a decade of experience in the cannabis sector. 
+You're in the right place.
+
+What's your name?`,
+  pt: `Bem-vindo à Indajaus 🌿
+
+Você está entrando em contato com nosso club de cannabis na Argentina. 
+Somos uma empresa do Uruguai com mais de uma década de experiência no setor. 
+Você está no lugar certo.
+
+Qual é o seu nome?`
+}
+
+const OPTIONS = {
+  es: `Perfecto, gracias por escribirnos.
 
 Acá podemos ayudarte con:
 • 📝 **Inscripción al club** — es lo principal, te digo qué necesitamos
@@ -32,9 +66,37 @@ Acá podemos ayudarte con:
 
 Yo soy IA entrenada para resolver dudas complejas, así que podemos hablar de cualquier cosa sin problemas.
 
-¿Qué te interesa?`
+¿Qué te interesa?`,
+  en: `Perfect, thanks for reaching out.
 
-const INFO_OPTIONS_KEYWORDS = ['menu', 'menú', 'opciones', 'qué puedes hacer', 'qué hacés', 'ayuda', 'help', 'que hace', 'que hace', 'informacion', 'información']
+Here's how we can help:
+• 📝 **Club membership** — that's the main one, I'll tell you what we need
+• 📚 **About Indajaus** — who we are, how it works, prices
+• 🌿 **Cannabis questions** — genetics, REPROCANN, laws  
+• 👥 **Talk to someone** — if you prefer human support
+
+I'm AI trained to handle complex questions, so we can talk about anything.
+
+What interests you?`,
+  pt: `Perfeito, obrigado por entrar em contato.
+
+Aqui está como podemos ajudar:
+• 📝 **Associar ao club** — é o principal, vou te dizer o que precisamos
+• 📚 **Sobre Indajaus** — quem somos, como funciona, preços
+• 🌿 **Dúvidas sobre cannabis** — genética, REPROCANN, leis  
+• 📞 **Falar com alguém** — se preferir suporte humano
+
+Sou IA treinada para resolver dúvidas complexas, então podemos conversar sobre qualquer coisa.
+
+O que te interessa?`
+}
+
+function getGreeting(lang = 'es') { return GREET[lang] || GREET.es }
+function getOptions(lang = 'es') { return OPTIONS[lang] || OPTIONS.es }
+
+const INFO_OPTIONS_KEYWORDS = ['menu', 'menú', 'opciones', 'qué puedes hacer', 'qué hacés', 'ayuda', 'help', 'que hace', 'que hace', 'informacion', 'informação', 'opções', 'ajuda', 'como funciona']
+
+function getOptionsLang(lang = 'es') { return OPTIONS[lang] || OPTIONS.es }
 
 function isInfoOptionsRequest(intent, currentStep, message, recentHistory, state) {
   // Always show options if user explicitly asks for menu/opciones/etc
@@ -67,7 +129,7 @@ export async function runGenerator({ intent, knowledge = [], history = [], state
   const fetchImpl = opts.fetchImpl || nodeFetch
   const maxTokens = opts.maxTokens || 400
 
-  if (!anthropicKey) return { reply: FALLBACK_REPLY, wants_affiliation: false }
+  if (!anthropicKey) return { reply: getFallback(lang), wants_affiliation: false }
 
   const recentHistory = Array.isArray(history) ? history.slice(-8) : []
   const currentStep = state?.step || 'inicio'
@@ -80,10 +142,11 @@ export async function runGenerator({ intent, knowledge = [], history = [], state
   let forcedReply = null
 
   // Check for greet intent with no history or greet with "hola" message
+  const lang = state?.language || 'es'
   if (intent === 'greet' && (!recentHistory.length || message.toLowerCase().match(/^hola+$/))) {
-    forcedReply = GREET_WELCOME
+    forcedReply = getGreeting(lang)
   } else if (isInfoOptionsRequest(intent, currentStep, message, recentHistory, state)) {
-    forcedReply = INFO_OPTIONS
+    forcedReply = getOptions(lang)
   } else if (currentStep === 'solicitando_nombre' || (intent === 'affiliate' && !state.nombre)) {
     stepInstructions = '\n⚠️ ACCIÓN REQUERIDA: El usuario aún no tiene nombre. Pedir nombre directamente, no saludar genéricamente.'
   } else if (currentStep === 'recibiendo_documentos') {
@@ -99,7 +162,7 @@ export async function runGenerator({ intent, knowledge = [], history = [], state
   }
 
   const systemWithContext = [
-    GENERATOR_PROMPT,
+    loadPrompt(state?.language),
     '',
     '━━━ CONTEXTO DE ESTA CONSULTA ━━━',
     `intent: ${intent || 'info'}`,
@@ -131,11 +194,11 @@ export async function runGenerator({ intent, knowledge = [], history = [], state
       }),
     })
 
-    if (!res.ok) return { reply: FALLBACK_REPLY, wants_affiliation: false }
+    if (!res.ok) return { reply: getFallback(lang), wants_affiliation: false }
 
     const data = await res.json()
     const raw = (data?.content?.[0]?.text || '').trim()
-    if (!raw) return { reply: FALLBACK_REPLY, wants_affiliation: false }
+    if (!raw) return { reply: getFallback(lang), wants_affiliation: false }
 
     const wants_affiliation = /\[\[AFILIAR\]\]/i.test(raw)
     // Drop both [[AFILIAR]] and stray [[SKILL:...]] markers — the new pipeline routes skills before generator runs.
@@ -144,10 +207,10 @@ export async function runGenerator({ intent, knowledge = [], history = [], state
       .replace(/\[\[SKILL:[^\]]+\]\]/gi, '')
       .trim()
 
-    return { reply: reply || FALLBACK_REPLY, wants_affiliation }
+    return { reply: reply || getFallback(lang), wants_affiliation }
   } catch {
-    return { reply: FALLBACK_REPLY, wants_affiliation: false }
+    return { reply: getFallback(lang), wants_affiliation: false }
   }
 }
 
-export const _internal = { renderSnippets, GENERATOR_PROMPT }
+export const _internal = { renderSnippets, loadPrompt }
