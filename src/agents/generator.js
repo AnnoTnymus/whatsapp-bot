@@ -108,7 +108,7 @@ function renderSnippets(knowledge) {
 
 export async function runGenerator({ intent, knowledge = [], history = [], state = {}, message }, opts = {}) {
   const anthropicKey = opts.anthropicKey || process.env.ANTHROPIC_API_KEY?.replace(/[^\x20-\x7E]/g, '').trim()
-  const model = opts.model || process.env.ANTHROPIC_MODEL_GENERATOR || 'claude-opus-4-20250514'
+  const model = opts.model || process.env.ANTHROPIC_MODEL_GENERATOR || 'claude-opus-4-7'
   const fetchImpl = opts.fetchImpl || nodeFetch
   const maxTokens = opts.maxTokens || 400
   const lang = state?.language || 'es'

@@ -289,6 +289,8 @@ import('fs').then(({ readFileSync }) => {
       assert(!genSrc.includes('ACCIÓN REQUERIDA'), 'generator: no Spanish ACCIÓN REQUERIDA')
       assert(genSrc.includes('ACTION REQUIRED'), 'generator: stepInstructions in English')
       assert(!genSrc.includes('sin snippets'), 'generator: no Spanish renderSnippets fallback')
+      assert(!genSrc.includes('claude-opus-4-20250514'), 'generator: no invalid legacy model ID')
+      assert(genSrc.includes('claude-opus-4-7'), 'generator: uses valid claude-opus-4-7 model')
 
       // ──────────────────────────────────────────────────────────────────────
       // Final summary
