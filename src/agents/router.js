@@ -82,7 +82,7 @@ function coerceRouterJson(raw, message) {
 
 export async function runRouter({ message, history = [], state = {} }, opts = {}) {
   const anthropicKey = opts.anthropicKey || process.env.ANTHROPIC_API_KEY?.replace(/[^\x20-\x7E]/g, '').trim()
-  const model = opts.model || process.env.ANTHROPIC_MODEL_ROUTER || 'claude-opus-4-20250514'
+  const model = opts.model || process.env.ANTHROPIC_MODEL_ROUTER || 'claude-haiku-4-5-20251001'
   const fetchImpl = opts.fetchImpl || nodeFetch
 
   if (!anthropicKey) return { ...FALLBACK, reasoning: 'missing ANTHROPIC_API_KEY' }

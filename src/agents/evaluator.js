@@ -69,7 +69,7 @@ export async function runEvaluator({ reply, context = {} }, opts = {}) {
   if (!trimmed) return { score: 0, reasons: ['reply vacía o inválida'], passes: false }
 
   const anthropicKey = opts.anthropicKey || process.env.ANTHROPIC_API_KEY?.replace(/[^\x20-\x7E]/g, '').trim()
-  const model = opts.model || process.env.ANTHROPIC_MODEL_EVALUATOR || 'claude-opus-4-20250514'
+  const model = opts.model || process.env.ANTHROPIC_MODEL_EVALUATOR || 'claude-haiku-4-5-20251001'
   const fetchImpl = opts.fetchImpl || nodeFetch
 
   if (!anthropicKey) {
