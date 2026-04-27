@@ -46,22 +46,37 @@ function detectLanguage(text) {
   if (!text) return 'es'
   const lower = text.toLowerCase()
   
-  // Count unique keyword matches for each language
+  // Count keyword matches - be more specific
+  let esCount = 0, enCount = 0, ptCount = 0
   
-  // Spanish specific words (not shared with EN/PT)
-  const esWords = ['hola', 'gracias', 'quiero', 'necesito', 'cuándo', 'cuál', 'dónde', 'cómo', 'cuánto', 'qué', 'estás', 'tenés', 'estás', 'tengo', 'tienes', 'sos', 'soy', 'genéricas', 'cepas', 'ayuda', 'necesito']
-  const esCount = esWords.filter(w => lower.includes(w)).length
+  // Spanish specific
+  if (lower.includes('hola')) esCount += 3
+  if (lower.includes('gracias')) esCount += 3
+  if (lower.includes('buenos')) esCount += 2
+  if (lower.includes('cómo')) esCount += 2
+  if (lower.includes('cuál')) esCount += 2
+  if (lower.includes('dónde')) esCount += 2
+  if (lower.includes('genéticas')) esCount += 2
+  if (lower.includes('afiliar')) esCount += 2
   
-  // English specific words
-  const enWords = ['hello', 'hi', 'hey', 'thanks', 'want', 'need', 'when', 'what', 'where', 'how', 'much', 'are', 'have', 'strains', 'genetics', 'menu', 'info']
-  const enCount = enWords.filter(w => lower.includes(w)).length
+  // English specific
+  if (lower.includes('hello')) enCount += 3
+  if (lower.includes('hi ')) enCount += 3
+  if (lower.includes('hey')) enCount += 3
+  if (lower.includes('thanks')) enCount += 3
+  if (lower.includes('want') && !lower.includes('quando')) enCount += 2
+  if (lower.includes('need')) enCount += 2
+  if (lower.includes('strains')) enCount += 2
+  if (lower.includes('genetics')) enCount += 2
   
-  // Portuguese specific words  
-  const ptWords = ['olá', 'obrigado', 'quero', 'preciso', 'quando', 'qual', 'onde', 'genéticas', 'cepas', 'ajuda', 'vocês']
-  const ptCount = ptWords.filter(w => lower.includes(w)).length
+  // Portuguese specific (check BEFORE Spanish to avoid conflict with "genéticas")
+  if (lower.includes('olá')) ptCount += 4
+  if (lower.includes('obrigado')) ptCount += 3
+  if (lower.includes('como') && lower.includes('vão')) ptCount += 3
+  if (lower.includes('preciso')) ptCount += 2
+  if (lower.includes('vocês')) ptCount += 2
   
-  // Return highest, default to Spanish
-  if (esCount >= enCount && esCount >= ptCount) return 'es'
+  // Return highest scoring, priority order
   if (ptCount > esCount && ptCount > enCount) return 'pt'
   if (enCount > esCount && enCount > ptCount) return 'en'
   return 'es'
