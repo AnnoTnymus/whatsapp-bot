@@ -1408,8 +1408,9 @@ async function runNewPipeline(msg, chatId, state) {
   let knowledge = []
   if (routed.needs_knowledge && routed.knowledge_query) {
     try {
-      knowledge = await knowledgeLayer.queryKnowledge(routed.knowledge_query, 3)
-      log('pipeline', `knowledge hits=${knowledge.length} topic="${routed.knowledge_query}"`)
+      const lang = state?.language || 'es'
+      knowledge = await knowledgeLayer.queryKnowledge(routed.knowledge_query, 3, lang)
+      log('pipeline', `knowledge hits=${knowledge.length} topic="${routed.knowledge_query}" lang=${lang}`)
     } catch (e) {
       log('pipeline', `queryKnowledge excepción: ${e.message} — sigo sin snippets`)
       knowledge = []
@@ -1735,8 +1736,8 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
         const state = await loadState(chatId)
         state.last_message_at = new Date().toISOString()
         
-        // Detect language on first message
-        if (state.step === 'inicio' && !state.language) {
+        // Detect language on first message OR when not set
+        if (!state.language) {
           state.language = detectLanguage(message)
           log('i18n', `Detected language: ${state.language} for ${formatChatRef(chatId)}`)
         }

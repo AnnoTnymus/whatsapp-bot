@@ -19,7 +19,7 @@ function getSupabase() {
   return supabase
 }
 
-export async function queryKnowledge(topic, limit = 3) {
+export async function queryKnowledge(topic, limit = 3, language = 'es') {
   if (!topic || typeof topic !== 'string') {
     console.warn('queryKnowledge: invalid topic')
     return []
@@ -34,6 +34,7 @@ export async function queryKnowledge(topic, limit = 3) {
     .from('bot_knowledge')
     .select('id, topic, content, tags, source_url, priority')
     .eq('active', true)
+    .eq('language', language)
     .order('priority', { ascending: false })
     .limit(limit * 3)
 
