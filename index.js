@@ -1429,17 +1429,14 @@ async function runNewPipeline(msg, chatId, state) {
   let finalWants = gen.wants_affiliation
 
   // 5. Evaluator (+1 retry si no pasa)
-  // TEMP: bypass evaluator to test - remove this to re-enable
-  const evaluation = { score: 80, passes: true, reasons: ['bypass for testing'] }
-  // const evaluation = await runEvaluator({ reply: finalReply, context: { chatId, history } })
+  const evaluation = await runEvaluator({ reply: finalReply, context: { chatId, history } })
   log('pipeline', `evaluator score=${evaluation.score} passes=${evaluation.passes}`)
 
   let finalScore = evaluation.score
   let finalReasons = evaluation.reasons
   if (!evaluation.passes) {
     const retry = await runGenerator({ intent: routed.intent, knowledge, history, state, message: msg })
-    // const retryEval = await runEvaluator({ reply: retry.reply, context: { chatId, history } })
-    const retryEval = { score: 80, passes: true, reasons: ['bypass for testing'] }
+    const retryEval = await runEvaluator({ reply: retry.reply, context: { chatId, history } })
     log('pipeline', `retry score=${retryEval.score} passes=${retryEval.passes}`)
     if (retryEval.passes || retryEval.score > evaluation.score) {
       finalReply = retry.reply

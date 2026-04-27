@@ -26,9 +26,9 @@ function loadPrompt(language = 'es') {
 }
 
 const FALLBACK = {
-  es: 'Disculpá, tuvimos un problema técnico. Intentá de nuevo en un momento 🙏',
-  en: 'Sorry, we had a technical issue. Please try again in a moment 🙏',
-  pt: 'Desculpe, temos um problema técnico. Tente novamente em um momento 🙏'
+  es: 'Tuve un problema para responderte 😔 ¿Querés que te pase con alguien del equipo?',
+  en: 'I had some trouble responding 😔 Would you like me to connect you with someone from our team?',
+  pt: 'Tive um problema para responder 😔 Você quer que eu passe para alguém da equipe?'
 }
 
 const GREET = {
