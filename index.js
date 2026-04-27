@@ -38,6 +38,30 @@ const GREEN_API_CONFIGURED = Boolean(GREEN_INSTANCE && GREEN_TOKEN)
 // Added by OpenCode (Rolli) on 2026-04-24
 const STT_CONFIGURED = Boolean(STT_FUNCTION_URL && STT_SHARED_SECRET)
 
+// [OpenCode] Language detection
+const SUPPORTED_LANGUAGES = ['es', 'en', 'pt']
+const DEFAULT_LANGUAGE = 'es'
+
+function detectLanguage(text) {
+  if (!text) return DEFAULT_LANGUAGE
+  const lower = text.toLowerCase()
+  
+  // Spanish keywords
+  if (/hola|gracias|quiero|necesito|cuándo|cuál|dónde| cómo |cuánto|qué|es|con|para|por|del|los|las|te|me|está|tenés|estás|tengo|tienes|sos|soy|eres|soy/.test(lower)) {
+    return 'es'
+  }
+  // Portuguese keywords  
+  if (/olá|obrigado|quero|preciso|quando|qual|onde|cmo| quanto|o que|é|com|para|por|do|da|os|as|te|me|está|tens|tem|sou|és|sou|eres|sou/.test(lower)) {
+    return 'pt'
+  }
+  // English keywords
+  if (/hello|thanks|want|need|when|what|where|how|how much|is|with|for|by|the|i|me|are|have|are you|i am/.test(lower)) {
+    return 'en'
+  }
+  
+  return DEFAULT_LANGUAGE
+}
+
 // Supabase client (v4.0 — persistence)
 // Server-side Supabase auth tightened by Codex (GPT-5) on 2026-04-24:
 // the bot only uses service_role, never anon, for patient/CRM data writes.
@@ -223,6 +247,7 @@ async function loadState(chatId) {
       log('supabase', `⚠️ Supabase NOT CONFIGURED - returning default state`)
       return {
         step: 'inicio',
+        language: DEFAULT_LANGUAGE,
         nombre: null,
         documentos: { dni: { frente: null, dorso: null }, reprocann: { frente: null, dorso: null } },
         collectedData: {},
@@ -245,6 +270,7 @@ async function loadState(chatId) {
     if (!data) {
       return {
         step: 'inicio',
+        language: DEFAULT_LANGUAGE,
         nombre: null,
         nombre_completo: null,
         documentos: { dni: { frente: null, dorso: null }, reprocann: { frente: null, dorso: null } },
@@ -253,9 +279,10 @@ async function loadState(chatId) {
       }
     }
 
-    return {
-      step: data.step,
-      nombre: data.nombre,
+return {
+        step: data.step,
+        language: data.language || DEFAULT_LANGUAGE,
+        nombre: data.nombre,
       nombre_completo: data.collected_data?.nombre_completo || data.nombre || null,
       documentos: data.documentos,
       collectedData: data.collected_data || {},
@@ -297,6 +324,7 @@ async function saveState(chatId, state) {
         chat_id: chatId,
         nombre: state.nombre,
         step: state.step,
+        language: state.language || DEFAULT_LANGUAGE,
         documentos: state.documentos,
         collected_data: collectedData,
         pending_fields: state.pendingFields,
@@ -1706,6 +1734,13 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
 
         const state = await loadState(chatId)
         state.last_message_at = new Date().toISOString()
+        
+        // Detect language on first message
+        if (state.step === 'inicio' && !state.language) {
+          state.language = detectLanguage(message)
+          log('i18n', `Detected language: ${state.language} for ${formatChatRef(chatId)}`)
+        }
+        
         log('webhook', `Texto recibido chat=${formatChatRef(chatId)} len=${message.length} step=${state.step}`)
 
         // Paso 1: Primer contacto — pedir nombre para trato direccional
