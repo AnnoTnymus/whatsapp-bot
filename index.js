@@ -2612,7 +2612,7 @@ app.get('/admin/leads', async (req, res) => {
 
 // Update lead step (for manually marking as contacted)
 app.post('/admin/lead/step', async (req, res) => {
-  if (!requireAdminAccess(req, res)) return
+  if (!requireDashboardAccess(req, res)) return
   if (!supabase) return res.status(500).json({ ok: false, error: 'Supabase no configurado' })
 
   const { chat_id, step } = req.body
