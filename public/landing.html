@@ -192,6 +192,29 @@
     .sc-desc{border-radius:16px;padding:20px 24px;margin-top:16px;border:1px solid var(--border);background:var(--glass);}
     .sc-nav-dot{width:8px;height:8px;border-radius:50%;background:rgba(34,197,94,.22);display:inline-block;transition:background .3s,transform .3s;cursor:default;}
     .sc-nav-dot.active{background:#4ade80;transform:scale(1.25);}
+    /* Slideshow (real screenshots) */
+    .sc-slideshow{position:relative;overflow:hidden;background:#f0fdf4;aspect-ratio:16/10;}
+    @media(max-width:1023px){.sc-slideshow{aspect-ratio:4/3;}}
+    .sc-slide{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top left;opacity:0;transition:opacity .8s ease;background:#f0fdf4;}
+    .sc-slide.active{opacity:1;}
+    /* Step description panel */
+    .sc-step-panel{width:300px;flex-shrink:0;background:var(--glass);border:1px solid var(--border);border-radius:20px;padding:28px 26px;display:flex;flex-direction:column;}
+    @media(max-width:1023px){.sc-step-panel{width:100%;}}
+    .sc-step-badge{background:rgba(34,197,94,.15);color:#4ade80;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;display:inline-block;}
+    .sc-step-title{color:white;font-size:20px;font-weight:700;margin:12px 0 10px;line-height:1.25;}
+    .sc-step-desc{color:#9ca3af;font-size:14px;line-height:1.7;margin:0 0 14px;}
+    .sc-step-bullets{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:9px;flex:1;}
+    .sc-step-bullets li{color:#6b7280;font-size:13px;line-height:1.5;padding-left:18px;position:relative;}
+    .sc-step-bullets li::before{content:'→';position:absolute;left:0;color:#22c55e;font-weight:700;}
+    .sc-step-progress{height:3px;background:rgba(34,197,94,.12);border-radius:2px;overflow:hidden;margin-top:24px;}
+    .sc-step-bar{height:100%;background:linear-gradient(90deg,#22c55e,#4ade80);width:0;border-radius:2px;}
+    /* Agent Q&A rotator */
+    .agent-qa-rotator{position:relative;height:175px;overflow:hidden;margin-top:16px;}
+    .aq-pair{position:absolute;inset:0;opacity:0;transition:opacity .5s ease;background:rgba(6,18,10,.5);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;}
+    .aq-pair.active{opacity:1;}
+    .aq-dots{display:flex;gap:5px;margin-top:10px;justify-content:center;}
+    .aq-dot{width:6px;height:6px;border-radius:50%;background:rgba(34,197,94,.18);transition:background .3s,transform .3s;cursor:default;display:inline-block;}
+    .aq-dot.active{background:#22c55e;transform:scale(1.2);}
 
     /* Agent cards */
     .agent-card{border-radius:20px;padding:28px;border:1px solid var(--border);background:var(--glass);}
@@ -725,11 +748,13 @@
   <div class="radial w-[600px] h-[500px] bg-green-700/7 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
   <div class="max-w-6xl mx-auto px-6 relative z-10">
     <div class="text-center mb-16" data-aos="fade-up">
-      <span class="stag">Conocimiento especializado</span>
+      <span class="stag">Conocimiento especializado · Argentina</span>
       <h2 class="text-4xl md:text-5xl font-black">Dos agentes expertos<br><span class="gt">dentro del mismo bot</span></h2>
-      <p class="text-gray-400 mt-4 max-w-xl mx-auto text-lg">No es un bot genérico. Tiene conocimiento profundo del marco legal del cannabis en Uruguay y del proceso REPROCANN.</p>
+      <p class="text-gray-400 mt-4 max-w-xl mx-auto text-lg">No es un bot genérico. Tiene conocimiento profundo del marco legal del cannabis en Argentina y del proceso REPROCANN nacional.</p>
     </div>
     <div class="grid md:grid-cols-2 gap-6">
+
+      <!-- Agent 1: Legal -->
       <div class="agent-card" data-aos="fade-right">
         <div class="flex items-center gap-4 mb-5">
           <div class="feat-icon flex-shrink-0" style="width:48px;height:48px;">
@@ -737,15 +762,30 @@
           </div>
           <div>
             <p class="font-bold text-white text-lg">Asesor Legal Cannabis</p>
-            <p class="text-gray-400 text-sm">Ley 19.172 · IRCCA · Derechos y obligaciones</p>
+            <p class="text-gray-400 text-sm">Ley 27.350 · Fallo Arriola · Clubes cannabicos AR</p>
           </div>
         </div>
-        <div class="agent-chat">
-          <div class="cmp-msg-in" style="font-size:13px;">"¿Es legal cultivar sin el REPROCANN todavía?"</div>
-          <div class="cmp-msg-out-new" style="font-size:13px;">En Uruguay, la ley 19.172 permite el cultivo doméstico de hasta 6 plantas para uso personal sin necesidad del REPROCANN. El REPROCANN es para uso medicinal. Para inscribirte al club sí es necesario. ¿Querés que te explique cómo tramitarlo?</div>
+        <div class="agent-qa-rotator" id="aq1">
+          <div class="aq-pair active" id="aq1-0">
+            <div class="cmp-msg-in">"¿Es legal cultivar en Argentina sin el REPROCANN?"</div>
+            <div class="cmp-msg-out-new">El fallo Arriola (CSJN 2009) despenalizó la tenencia para consumo personal. Para cultivar con fines medicinales, el REPROCANN te da el respaldo legal. Para inscribirte al club, sí es necesario tenerlo. ¿Te explico el trámite?</div>
+          </div>
+          <div class="aq-pair" id="aq1-1">
+            <div class="cmp-msg-in">"¿Cuántas plantas puedo tener con el REPROCANN?"</div>
+            <div class="cmp-msg-out-new">Con el REPROCANN podés tener hasta 9 plantas hembra en floración. Sin él, estás en zona gris legal — el fallo Arriola protege la tenencia personal pero sin límite definido. En el club trabajamos solo con socios con autorización activa.</div>
+          </div>
+          <div class="aq-pair" id="aq1-2">
+            <div class="cmp-msg-in">"¿Qué dice la Ley 27.350 sobre los clubes?"</div>
+            <div class="cmp-msg-out-new">La ley 27.350 habilita el cannabis medicinal en Argentina. Los clubes operan bajo jurisprudencia Arriola y regulación provincial. Córdoba y Santa Fe tienen marcos más claros. Lo clave: que cada socio tenga REPROCANN vigente.</div>
+          </div>
         </div>
-        <p class="text-gray-500 text-xs mt-4">Sabe sobre: ley 19.172, regulación IRCCA, diferencias uso personal/medicinal/club, sanciones, derechos del usuario</p>
+        <div class="aq-dots" id="aq1-dots">
+          <span class="aq-dot active"></span><span class="aq-dot"></span><span class="aq-dot"></span>
+        </div>
+        <p class="text-gray-500 text-xs mt-3">Sabe sobre: Ley 27.350, fallo Arriola, REPROCANN, uso personal/medicinal/club, regulación provincial, derechos del socio</p>
       </div>
+
+      <!-- Agent 2: REPROCANN Guide -->
       <div class="agent-card" data-aos="fade-left" data-aos-delay="100">
         <div class="flex items-center gap-4 mb-5">
           <div class="feat-icon flex-shrink-0" style="width:48px;height:48px;">
@@ -753,15 +793,29 @@
           </div>
           <div>
             <p class="font-bold text-white text-lg">Guía REPROCANN</p>
-            <p class="text-gray-400 text-sm">Registro · Documentos · Plazos · Renovación</p>
+            <p class="text-gray-400 text-sm">Ministerio de Salud · ANMAT · Paso a paso</p>
           </div>
         </div>
-        <div class="agent-chat">
-          <div class="cmp-msg-in" style="font-size:13px;">"¿Cuánto tarda el REPROCANN y qué necesito?"</div>
-          <div class="cmp-msg-out-new" style="font-size:13px;">El trámite en el MSP suele demorar 15-30 días hábiles. Necesitás: certificado médico firmado, fotocopia de CI, y el formulario online en msp.gub.uy. ¿Querés que te guíe paso a paso desde ahora?</div>
+        <div class="agent-qa-rotator" id="aq2">
+          <div class="aq-pair active" id="aq2-0">
+            <div class="cmp-msg-in">"¿Cómo tramito el REPROCANN?"</div>
+            <div class="cmp-msg-out-new">Son 4 pasos: consultá un médico habilitado → receta con diagnóstico → formulario en reprocann.msal.gob.ar → aprobación del Ministerio de Salud. El proceso tarda entre 30 y 90 días hábiles. ¿Necesitás ayuda para encontrar un médico inscripto?</div>
+          </div>
+          <div class="aq-pair" id="aq2-1">
+            <div class="cmp-msg-in">"¿Qué documentos necesito para el REPROCANN?"</div>
+            <div class="cmp-msg-out-new">Necesitás: DNI original, receta médica firmada con diagnóstico, y el formulario online completo. El médico también debe estar inscripto en el REPROCANN. Una vez aprobado, la autorización dura 2 años. ¿Arrancamos el proceso?</div>
+          </div>
+          <div class="aq-pair" id="aq2-2">
+            <div class="cmp-msg-in">"¿El REPROCANN sirve para inscribirme al club?"</div>
+            <div class="cmp-msg-out-new">Sí, es uno de los dos documentos clave junto con el DNI. Con ambos listos, el alta al club se completa en minutos. Si todavía lo estás tramitando, podemos registrarte igual y completamos cuando llegue. ¿Empezamos?</div>
+          </div>
         </div>
-        <p class="text-gray-500 text-xs mt-4">Sabe sobre: formularios MSP, documentos requeridos, médicos habilitados, plazos de renovación, tipos de autorización</p>
+        <div class="aq-dots" id="aq2-dots">
+          <span class="aq-dot active"></span><span class="aq-dot"></span><span class="aq-dot"></span>
+        </div>
+        <p class="text-gray-500 text-xs mt-3">Sabe sobre: reprocann.msal.gob.ar, médicos habilitados, documentos requeridos, plazos, renovación, tipos de autorización</p>
       </div>
+
     </div>
   </div>
 </section>
@@ -773,186 +827,54 @@
     <div class="text-center mb-14" data-aos="fade-up">
       <span class="stag">El panel que siempre quisiste tener</span>
       <h2 class="text-4xl md:text-5xl font-black">Mirá el sistema<br><span class="gt">trabajar en vivo</span></h2>
-      <p class="text-gray-400 mt-4 max-w-xl mx-auto">Leads en tiempo real, conversaciones completas, reporte de calidad automático. Todo en un solo lugar.</p>
+      <p class="text-gray-400 mt-4 max-w-xl mx-auto">Cada pantalla que ves funciona hoy. Sin demos fabricadas, sin promesas vacías.</p>
     </div>
-    <div class="sc-browser" data-aos="fade-up" data-aos-delay="80" id="sc-wrap">
-      <div class="sc-bar">
-        <div class="sc-dots"><span style="background:#ef4444;"></span><span style="background:#f59e0b;"></span><span style="background:#22c55e;"></span></div>
-        <div class="sc-url"><svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>dashboard.tuclub.com</div>
-        <div style="width:60px;"></div>
-      </div>
-      <div class="sc-inner">
-        <div class="sc-dash-hdr">
-          <span class="text-white font-semibold text-sm">Panel de Gestión</span>
-          <span class="text-green-200 text-xs">● En línea · 12 leads activos</span>
+    <div class="flex flex-col lg:flex-row gap-6 items-stretch" data-aos="fade-up" data-aos-delay="80" id="sc-wrap">
+      <!-- Browser with real screenshots -->
+      <div class="sc-browser" style="flex:1 1 0;min-width:0;">
+        <div class="sc-bar">
+          <div class="sc-dots"><span style="background:#ef4444;"></span><span style="background:#f59e0b;"></span><span style="background:#22c55e;"></span></div>
+          <div class="sc-url"><svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>dashboard.tuclub.com</div>
+          <div style="width:60px;"></div>
         </div>
         <div class="sc-tabs-bar">
-          <div class="sc-tab on"  id="sc-tab-leads">📋 Leads</div>
-          <div class="sc-tab off" id="sc-tab-convs">💬 Conversaciones</div>
-          <div class="sc-tab off" id="sc-tab-qa">🔍 QA</div>
-          <div class="sc-tab off" id="sc-tab-cfg">⚙️ Config</div>
+          <div class="sc-tab on"  id="sc-tab-0">📋 Leads</div>
+          <div class="sc-tab off" id="sc-tab-1">💬 Conversación</div>
+          <div class="sc-tab off" id="sc-tab-2">📂 Todos los chats</div>
+          <div class="sc-tab off" id="sc-tab-3">🔍 QA</div>
+          <div class="sc-tab off" id="sc-tab-4">⚙️ Config</div>
         </div>
-
-        <!-- ── View 1: Leads ── -->
-        <div id="sc-view-leads" style="display:block;">
-          <div class="sc-metrics" id="sc-metrics">
-            <div class="sc-met"><div style="font-size:9px;color:#6b7280;">TOTAL</div><div style="font-weight:700;font-size:18px;color:#1f2937;">12</div></div>
-            <div class="sc-met"><div style="font-size:9px;color:#6b7280;">✅ OK</div><div style="font-weight:700;font-size:18px;color:#16a34a;">8</div></div>
-            <div class="sc-met r"><div style="font-size:9px;color:#6b7280;">🔴 Mismatch</div><div style="font-weight:700;font-size:18px;color:#dc2626;">2</div></div>
-            <div class="sc-met o"><div style="font-size:9px;color:#6b7280;">🙋 Esperando</div><div style="font-weight:700;font-size:18px;color:#ea580c;">1</div></div>
-          </div>
-          <div style="padding:0 11px 10px;">
-            <table style="width:100%;font-size:11px;border-collapse:collapse;" id="sc-leads-tbl">
-              <thead><tr style="background:#f9fafb;border-bottom:1px solid #e5e7eb;">
-                <th style="padding:6px 8px;text-align:left;color:#6b7280;font-weight:600;">Nombre</th>
-                <th style="padding:6px 8px;text-align:left;color:#6b7280;font-weight:600;">Paso</th>
-                <th style="padding:6px 8px;text-align:left;color:#6b7280;font-weight:600;">Docs</th>
-                <th style="padding:6px 8px;text-align:left;color:#6b7280;font-weight:600;">Última act.</th>
-                <th style="padding:6px 8px;"></th>
-              </tr></thead>
-              <tbody>
-                <tr id="sc-row-1" style="border-bottom:1px solid #f3f4f6;transition:background .25s;">
-                  <td style="padding:7px 8px;font-weight:500;color:#111827;">Camila Rodríguez</td>
-                  <td style="padding:7px 8px;"><span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;">✅ Completado</span></td>
-                  <td style="padding:7px 8px;color:#15803d;font-size:10px;">DNI + REPROCANN</td>
-                  <td style="padding:7px 8px;color:#9ca3af;font-size:10px;">Hace 2h</td>
-                  <td style="padding:7px 8px;"><button style="background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;padding:3px 8px;border-radius:5px;font-size:10px;cursor:default;">Ver chat</button></td>
-                </tr>
-                <tr id="sc-row-2" style="border-bottom:1px solid #f3f4f6;transition:background .25s;">
-                  <td style="padding:7px 8px;font-weight:500;color:#111827;">Martín Fernández</td>
-                  <td style="padding:7px 8px;"><span style="background:#fef3c7;color:#b45309;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;">📸 Documentos</span></td>
-                  <td style="padding:7px 8px;color:#9ca3af;font-size:10px;">Solo DNI</td>
-                  <td style="padding:7px 8px;color:#9ca3af;font-size:10px;">Hace 20min</td>
-                  <td style="padding:7px 8px;"><button style="background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;padding:3px 8px;border-radius:5px;font-size:10px;cursor:default;">Ver chat</button></td>
-                </tr>
-                <tr id="sc-row-3" style="border-bottom:1px solid #f3f4f6;transition:background .25s;">
-                  <td style="padding:7px 8px;font-weight:500;color:#111827;">Lucas Soria</td>
-                  <td style="padding:7px 8px;"><span style="background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;">🙋 Esperando humano</span></td>
-                  <td style="padding:7px 8px;color:#9ca3af;font-size:10px;">Sin docs</td>
-                  <td style="padding:7px 8px;color:#9ca3af;font-size:10px;">Hace 45min</td>
-                  <td style="padding:7px 8px;"><button style="background:#fff7ed;border:1px solid #fed7aa;color:#c2410c;padding:3px 8px;border-radius:5px;font-size:10px;cursor:default;">Atender</button></td>
-                </tr>
-                <tr style="transition:background .25s;">
-                  <td style="padding:7px 8px;font-weight:500;color:#111827;">Ana García</td>
-                  <td style="padding:7px 8px;"><span style="background:#ede9fe;color:#6d28d9;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;">👤 Nombre</span></td>
-                  <td style="padding:7px 8px;color:#9ca3af;font-size:10px;">—</td>
-                  <td style="padding:7px 8px;color:#9ca3af;font-size:10px;">Hace 5min</td>
-                  <td style="padding:7px 8px;"><button style="background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;padding:3px 8px;border-radius:5px;font-size:10px;cursor:default;">Ver chat</button></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- ── View 2: Conversaciones ── -->
-        <div id="sc-view-convs" style="display:none;padding:8px 11px 10px;">
-          <div style="font-size:10px;font-weight:600;color:#6b7280;padding:2px 0 8px;">Conversaciones recientes</div>
-          <div class="sc-conv-row" style="display:flex;align-items:center;gap:8px;padding:7px 6px;border-radius:6px;margin-bottom:3px;background:#f9fafb;border:1px solid #e5e7eb;">
-            <div style="width:28px;height:28px;background:#dcfce7;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;font-weight:700;color:#15803d;">CR</div>
-            <div style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:11px;font-weight:600;color:#111827;">Camila Rodríguez</span><span style="font-size:9px;color:#9ca3af;">2h</span></div><div style="font-size:10px;color:#6b7280;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">✅ Completó el alta correctamente</div></div>
-            <span style="background:#dcfce7;color:#15803d;font-size:9px;padding:2px 6px;border-radius:8px;flex-shrink:0;font-weight:600;">OK</span>
-          </div>
-          <div class="sc-conv-row" style="display:flex;align-items:center;gap:8px;padding:7px 6px;border-radius:6px;margin-bottom:3px;background:#f9fafb;border:1px solid #e5e7eb;">
-            <div style="width:28px;height:28px;background:#fef3c7;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;font-weight:700;color:#b45309;">MF</div>
-            <div style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:11px;font-weight:600;color:#111827;">Martín Fernández</span><span style="font-size:9px;color:#9ca3af;">20m</span></div><div style="font-size:10px;color:#6b7280;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">📸 Mandame el dorso del DNI cuando puedas</div></div>
-            <span style="background:#fef3c7;color:#b45309;font-size:9px;padding:2px 6px;border-radius:8px;flex-shrink:0;font-weight:600;">Docs</span>
-          </div>
-          <div class="sc-conv-row" style="display:flex;align-items:center;gap:8px;padding:7px 6px;border-radius:6px;margin-bottom:3px;background:#fff7ed;border:1px solid #fed7aa;">
-            <div style="width:28px;height:28px;background:#fee2e2;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;font-weight:700;color:#b91c1c;">LS</div>
-            <div style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:11px;font-weight:600;color:#111827;">Lucas Soria</span><span style="font-size:9px;color:#ea580c;">45m</span></div><div style="font-size:10px;color:#6b7280;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">🙋 Esperando atención del staff</div></div>
-            <span style="background:#fee2e2;color:#b91c1c;font-size:9px;padding:2px 6px;border-radius:8px;flex-shrink:0;font-weight:600;">Urgente</span>
-          </div>
-          <div class="sc-conv-row" style="display:flex;align-items:center;gap:8px;padding:7px 6px;border-radius:6px;background:#f9fafb;border:1px solid #e5e7eb;">
-            <div style="width:28px;height:28px;background:#ede9fe;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;font-weight:700;color:#6d28d9;">AG</div>
-            <div style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:11px;font-weight:600;color:#111827;">Ana García</span><span style="font-size:9px;color:#9ca3af;">5m</span></div><div style="font-size:10px;color:#6b7280;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">👤 ¿Cómo te llamás?</div></div>
-            <span style="background:#ede9fe;color:#6d28d9;font-size:9px;padding:2px 6px;border-radius:8px;flex-shrink:0;font-weight:600;">Nuevo</span>
-          </div>
-        </div>
-
-        <!-- ── View 3: QA Report ── -->
-        <div id="sc-view-qa" style="display:none;padding:8px 11px 10px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-            <span style="font-size:10px;font-weight:700;color:#1f2937;">Reporte de Calidad — Hoy</span>
-            <span style="font-size:10px;color:#16a34a;font-weight:700;">▲ 92% promedio</span>
-          </div>
-          <div class="sc-qa-item" style="padding:8px;background:white;border-radius:6px;margin-bottom:5px;border:1px solid #e5e7eb;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><span style="font-size:11px;font-weight:600;color:#1f2937;">Camila Rodríguez</span><span style="font-size:14px;font-weight:700;color:#16a34a;">97</span></div>
-            <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:linear-gradient(90deg,#22c55e,#16a34a);height:100%;width:97%;border-radius:4px;"></div></div>
-            <div style="font-size:9px;color:#6b7280;margin-top:3px;">Tono empático · Docs correctos · Alta exitosa</div>
-          </div>
-          <div class="sc-qa-item" style="padding:8px;background:white;border-radius:6px;margin-bottom:5px;border:1px solid #e5e7eb;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><span style="font-size:11px;font-weight:600;color:#1f2937;">Martín Fernández</span><span style="font-size:14px;font-weight:700;color:#ea580c;">84</span></div>
-            <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:linear-gradient(90deg,#f59e0b,#ea580c);height:100%;width:84%;border-radius:4px;"></div></div>
-            <div style="font-size:9px;color:#6b7280;margin-top:3px;">Buen tono · Falta REPROCANN · En progreso</div>
-          </div>
-          <div class="sc-qa-item" style="padding:8px;background:white;border-radius:6px;border:1px solid #e5e7eb;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><span style="font-size:11px;font-weight:600;color:#1f2937;">Lucas Soria</span><span style="font-size:14px;font-weight:700;color:#16a34a;">91</span></div>
-            <div style="background:#e5e7eb;border-radius:4px;height:5px;overflow:hidden;"><div style="background:linear-gradient(90deg,#22c55e,#16a34a);height:100%;width:91%;border-radius:4px;"></div></div>
-            <div style="font-size:9px;color:#6b7280;margin-top:3px;">Empatía alta · Derivó correctamente al staff</div>
-          </div>
-        </div>
-
-        <!-- ── View 4: Config ── -->
-        <div id="sc-view-cfg" style="display:none;padding:8px 11px 10px;">
-          <div style="font-size:10px;font-weight:700;color:#1f2937;margin-bottom:8px;">Configuración del Club</div>
-          <div class="sc-cfg-field" style="margin-bottom:6px;">
-            <div style="font-size:9px;font-weight:600;color:#6b7280;margin-bottom:2px;text-transform:uppercase;letter-spacing:.05em;">Nombre del club</div>
-            <div style="background:white;border:1px solid #d1d5db;border-radius:5px;padding:5px 9px;font-size:11px;color:#1f2937;font-weight:500;">Club Verde · Cannabicos Uruguay</div>
-          </div>
-          <div class="sc-cfg-field" style="margin-bottom:6px;">
-            <div style="font-size:9px;font-weight:600;color:#6b7280;margin-bottom:2px;text-transform:uppercase;letter-spacing:.05em;">Horario de atención</div>
-            <div style="background:white;border:1px solid #d1d5db;border-radius:5px;padding:5px 9px;font-size:11px;color:#1f2937;font-weight:500;">Lunes a Viernes · 9:00 – 18:00</div>
-          </div>
-          <div class="sc-cfg-field" style="margin-bottom:6px;">
-            <div style="font-size:9px;font-weight:600;color:#6b7280;margin-bottom:2px;text-transform:uppercase;letter-spacing:.05em;">Número de WhatsApp</div>
-            <div style="background:white;border:1px solid #d1d5db;border-radius:5px;padding:5px 9px;font-size:11px;color:#1f2937;font-weight:500;">+598 92 499 463</div>
-          </div>
-          <div class="sc-cfg-field">
-            <div style="font-size:9px;font-weight:600;color:#6b7280;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Modo del bot</div>
-            <div style="display:flex;gap:6px;">
-              <div style="background:#dcfce7;border:2px solid #16a34a;border-radius:5px;padding:4px 10px;font-size:10px;color:#15803d;font-weight:700;">● Activo</div>
-              <div style="background:white;border:1px solid #e5e7eb;border-radius:5px;padding:4px 10px;font-size:10px;color:#9ca3af;">Pausado</div>
-              <div style="background:white;border:1px solid #e5e7eb;border-radius:5px;padding:4px 10px;font-size:10px;color:#9ca3af;">Solo lectura</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Chat modal overlay -->
-        <div class="sc-modal" id="sc-chat-modal">
-          <div class="sc-modal-inner">
-            <div class="sc-modal-hdr" style="display:flex;align-items:center;justify-content:space-between;">
-              <div><p style="color:white;font-weight:600;font-size:13px;">Camila Rodríguez</p><p style="color:#86efac;font-size:11px;">✅ Completado · DNI + REPROCANN</p></div>
-              <span style="color:rgba(255,255,255,.6);font-size:20px;cursor:default;">×</span>
-            </div>
-            <div class="sc-modal-body">
-              <div class="sc-msg in">Hola, quiero inscribirme al club</div>
-              <div class="sc-msg out">¡Hola! Perfecto, te guío. ¿Cómo te llamás?</div>
-              <div class="sc-msg in">Camila</div>
-              <div class="sc-msg out">¡Genial Camila! Necesito tu DNI y REPROCANN. ¿Los tenés?</div>
-              <div class="sc-msg in" style="display:flex;align-items:center;gap:6px;"><svg width="11" height="11" fill="#9ca3af" viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/></svg> Audio 0:09 — "Sí, los tengo los dos"</div>
-              <div class="sc-msg out" style="max-width:88%"><span style="font-size:10px;color:#15803d;display:block;margin-bottom:3px;">📝 Entendí tu audio</span>¡Perfecto! Mandame las fotos cuando puedas.</div>
-            </div>
-          </div>
+        <div class="sc-slideshow">
+          <img class="sc-slide active" src="/images/ss-leads.png"         alt="Panel de Leads con métricas en tiempo real">
+          <img class="sc-slide"        src="/images/ss-chat.png"          alt="Conversación completa del lead">
+          <img class="sc-slide"        src="/images/ss-conversations.png" alt="Lista de conversaciones activas">
+          <img class="sc-slide"        src="/images/ss-qa.png"            alt="Reporte QA automático por conversación">
+          <img class="sc-slide"        src="/images/ss-config.png"        alt="Configuración del club sin código">
         </div>
       </div>
-    </div>
-
-    <!-- Description card -->
-    <div class="sc-desc" id="sc-desc-box">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <span style="background:rgba(34,197,94,.15);color:#4ade80;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;" id="sc-step-num">Paso 1 de 5</span>
-          <span style="color:white;font-weight:600;font-size:14px;" id="sc-step-title">Panel de Leads</span>
+      <!-- Step description panel -->
+      <div class="sc-step-panel" id="sc-desc-box">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <span class="sc-step-badge" id="sc-step-num">Paso 1 de 5</span>
+          <div style="display:flex;gap:5px;align-items:center;">
+            <span class="sc-nav-dot active"></span>
+            <span class="sc-nav-dot"></span>
+            <span class="sc-nav-dot"></span>
+            <span class="sc-nav-dot"></span>
+            <span class="sc-nav-dot"></span>
+          </div>
         </div>
-        <div style="display:flex;gap:5px;align-items:center;">
-          <span class="sc-nav-dot active"></span>
-          <span class="sc-nav-dot"></span>
-          <span class="sc-nav-dot"></span>
-          <span class="sc-nav-dot"></span>
-          <span class="sc-nav-dot"></span>
+        <h3 class="sc-step-title" id="sc-step-title">Panel de Leads</h3>
+        <p  class="sc-step-desc"  id="sc-step-desc">Todos tus contactos en tiempo real: en qué paso están, qué documentos llegaron y cuánto tiempo llevan sin actividad.</p>
+        <ul class="sc-step-bullets" id="sc-step-bullets">
+          <li>Estado de cada inscripción: completado, en proceso, esperando humano</li>
+          <li>Métricas instantáneas: total, OK, mismatch, esperando atención</li>
+          <li>Un click para ver la conversación completa de cualquier lead</li>
+        </ul>
+        <div class="sc-step-progress">
+          <div class="sc-step-bar" id="sc-step-bar"></div>
         </div>
       </div>
-      <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:0;" id="sc-step-desc">Todos tus leads en tiempo real. Ves el estado de cada inscripción, qué documentos faltan y cuándo fue la última actividad — sin abrir WhatsApp.</p>
     </div>
   </div>
 </section>
@@ -1452,108 +1374,104 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeLB();});
   if(window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const wrap=document.getElementById('sc-wrap');
   if(!wrap) return;
-  let started=false;
-  const obs=new IntersectionObserver(([e])=>{
-    if(e.isIntersecting&&!started){started=true;obs.disconnect();setTimeout(startTour,700);}
-  },{threshold:0.2});
-  obs.observe(wrap);
 
-  const delay=ms=>new Promise(r=>setTimeout(r,ms));
+  const DURATION=7000;
 
   const STEPS=[
-    {num:'1 de 5',title:'Panel de Leads',         desc:'Todos tus leads en tiempo real. Ves el estado de cada inscripción, qué documentos faltan y cuándo fue la última actividad — sin abrir WhatsApp.'},
-    {num:'2 de 5',title:'Conversación completa',  desc:'Un click y ves el historial completo del lead: cada mensaje, los documentos recibidos y si el bot escaló al staff.'},
-    {num:'3 de 5',title:'Conversaciones activas', desc:'Vista de todos los chats en curso con preview del último mensaje. Identificás al instante quién necesita tu atención.'},
-    {num:'4 de 5',title:'Reporte QA automático',  desc:'El sistema analiza cada conversación: tono, empatía, claridad y conversión. Sabés exactamente en qué mejorar.'},
-    {num:'5 de 5',title:'Configuración del club', desc:'Nombre, horarios, número de WhatsApp y modo del bot — todo editable sin tocar una línea de código.'},
+    {num:'1 de 5',title:'Panel de Leads',
+     desc:'Todos tus contactos en tiempo real: en qué paso están, qué documentos llegaron y cuánto tiempo llevan sin actividad.',
+     bullets:['Estado de cada inscripción: completado, en proceso, esperando humano','Métricas en tiempo real: total, OK, mismatch, esperando atención','Un click para ver la conversación completa de cualquier lead']},
+    {num:'2 de 5',title:'Conversación completa',
+     desc:'El historial íntegro de cualquier chat: mensajes, documentos adjuntos y si el bot derivó al staff.',
+     bullets:['Vista de mensajes estilo WhatsApp con timestamps','Documentos recibidos con estado de validación (DNI, REPROCANN)','Indicador si el bot escaló o completó el alta solo']},
+    {num:'3 de 5',title:'Todos los chats activos',
+     desc:'Lista completa de conversaciones en curso. Preview del último mensaje para saber quién necesita atención urgente.',
+     bullets:['Búsqueda y filtros por nombre o estado','Preview del último mensaje de cada chat','Identificación rápida de chats urgentes o sin actividad']},
+    {num:'4 de 5',title:'Reporte QA automático',
+     desc:'El sistema analiza cada conversación del bot y le asigna un puntaje. Sabés exactamente en qué estuvo bien y qué mejorar.',
+     bullets:['Puntaje por conversación: tono, empatía, claridad y conversión','Detalle de qué respuestas estuvieron bien y cuáles mejorar','Tendencia histórica para medir la evolución del bot']},
+    {num:'5 de 5',title:'Configuración del club',
+     desc:'Nombre, horarios, WhatsApp, genéticas disponibles. Todo editable sin tocar código, desde el panel.',
+     bullets:['Mensajes personalizados para cada etapa del proceso','Activar o pausar el bot con un click','Configuración de notificaciones automáticas y escalamiento']},
   ];
 
-  function setTab(id){
-    document.querySelectorAll('.sc-tab').forEach(t=>{t.classList.remove('on');t.classList.add('off');});
-    const el=document.getElementById(id);
-    if(el){el.classList.remove('off');el.classList.add('on');}
+  const slides   = document.querySelectorAll('.sc-slide');
+  const tabIds   = ['sc-tab-0','sc-tab-1','sc-tab-2','sc-tab-3','sc-tab-4'];
+  let current    = 0;
+  let started    = false;
+
+  function animateBar(){
+    const bar=document.getElementById('sc-step-bar');
+    if(!bar) return;
+    bar.style.transition='none';
+    bar.style.width='0%';
+    bar.offsetWidth;
+    bar.style.transition='width '+(DURATION/1000)+'s linear';
+    bar.style.width='100%';
   }
 
-  function showView(id){
-    ['sc-view-leads','sc-view-convs','sc-view-qa','sc-view-cfg'].forEach(vid=>{
-      const el=document.getElementById(vid);
-      if(el) el.style.display=vid===id?'block':'none';
+  function goTo(i){
+    slides.forEach((s,k)=>s.classList.toggle('active',k===i));
+    tabIds.forEach((id,k)=>{
+      const el=document.getElementById(id);
+      if(!el) return;
+      el.classList.toggle('on',k===i);
+      el.classList.toggle('off',k!==i);
     });
-  }
-
-  function updateDesc(i){
     const s=STEPS[i];
     const numEl=document.getElementById('sc-step-num');
     const titleEl=document.getElementById('sc-step-title');
     const descEl=document.getElementById('sc-step-desc');
-    gsap.to([numEl,titleEl,descEl],{opacity:0,duration:.15,onComplete:()=>{
-      if(numEl)  numEl.textContent='Paso '+s.num;
+    const bullEl=document.getElementById('sc-step-bullets');
+    const targets=[numEl,titleEl,descEl,bullEl].filter(Boolean);
+    gsap.to(targets,{opacity:0,duration:.2,onComplete:()=>{
+      if(numEl)   numEl.textContent='Paso '+s.num;
       if(titleEl) titleEl.textContent=s.title;
       if(descEl)  descEl.textContent=s.desc;
-      gsap.to([numEl,titleEl,descEl],{opacity:1,duration:.3});
+      if(bullEl)  bullEl.innerHTML=s.bullets.map(b=>`<li>${b}</li>`).join('');
+      gsap.to(targets,{opacity:1,duration:.4});
     }});
-    document.querySelectorAll('.sc-nav-dot').forEach((d,k)=>d.classList.toggle('active',k===i));
+    document.querySelectorAll('#sc-desc-box .sc-nav-dot').forEach((d,k)=>d.classList.toggle('active',k===i));
+    animateBar();
   }
 
-  async function startTour(){
-    while(true){
-      // ── 1. Leads ──
-      showView('sc-view-leads');
-      setTab('sc-tab-leads');
-      updateDesc(0);
-      gsap.set('#sc-metrics .sc-met',{opacity:0,y:8});
-      gsap.set('#sc-leads-tbl tbody tr',{opacity:0,x:-8});
-      gsap.set('#sc-chat-modal',{opacity:0,pointerEvents:'none'});
-      gsap.set('#sc-chat-modal .sc-msg',{opacity:0,y:5});
-      gsap.set('#sc-row-1,#sc-row-3',{backgroundColor:'transparent'});
-      await delay(300);
-      gsap.to('#sc-metrics .sc-met',{opacity:1,y:0,stagger:.1,duration:.35,ease:'power2.out'});
-      await delay(500);
-      gsap.to('#sc-leads-tbl tbody tr',{opacity:1,x:0,stagger:.1,duration:.3,ease:'power2.out'});
-      await delay(1800);
-      gsap.to('#sc-row-1',{backgroundColor:'rgba(22,163,74,.09)',duration:.3});
-      await delay(1000);
+  let timer=null;
+  function startLoop(){
+    goTo(0);
+    timer=setInterval(()=>{current=(current+1)%slides.length;goTo(current);},DURATION);
+  }
 
-      // ── 2. Chat modal ──
-      updateDesc(1);
-      gsap.to('#sc-chat-modal',{opacity:1,pointerEvents:'auto',duration:.35,ease:'back.out(1.4)'});
-      await delay(400);
-      gsap.to('#sc-chat-modal .sc-msg',{opacity:1,y:0,stagger:.3,duration:.3,ease:'power2.out'});
-      await delay(4000);
-      gsap.to('#sc-chat-modal',{opacity:0,pointerEvents:'none',duration:.25});
-      gsap.to('#sc-row-1',{backgroundColor:'transparent',duration:.2});
-      await delay(600);
+  const obs=new IntersectionObserver(([e])=>{
+    if(e.isIntersecting&&!started){started=true;obs.disconnect();setTimeout(startLoop,600);}
+  },{threshold:0.15});
+  obs.observe(wrap);
+})();
 
-      // ── 3. Conversations ──
-      showView('sc-view-convs');
-      setTab('sc-tab-convs');
-      updateDesc(2);
-      gsap.set('.sc-conv-row',{opacity:0,x:-8});
-      await delay(300);
-      gsap.to('.sc-conv-row',{opacity:1,x:0,stagger:.13,duration:.3,ease:'power2.out'});
-      await delay(3800);
-
-      // ── 4. QA ──
-      showView('sc-view-qa');
-      setTab('sc-tab-qa');
-      updateDesc(3);
-      gsap.set('.sc-qa-item',{opacity:0,y:10});
-      await delay(300);
-      gsap.to('.sc-qa-item',{opacity:1,y:0,stagger:.2,duration:.38,ease:'power2.out'});
-      await delay(3800);
-
-      // ── 5. Config ──
-      showView('sc-view-cfg');
-      setTab('sc-tab-cfg');
-      updateDesc(4);
-      gsap.set('.sc-cfg-field',{opacity:0,x:10});
-      await delay(300);
-      gsap.to('.sc-cfg-field',{opacity:1,x:0,stagger:.15,duration:.3,ease:'power2.out'});
-      await delay(3800);
-
-      await delay(800);
+// ── Agent Q&A Rotators ──
+(function(){
+  if(window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  function startRotator(prefix,dotsId,count,ms){
+    let cur=0;
+    setInterval(()=>{
+      document.getElementById(prefix+'-'+cur)?.classList.remove('active');
+      document.querySelectorAll('#'+dotsId+' .aq-dot')[cur]?.classList.remove('active');
+      cur=(cur+1)%count;
+      document.getElementById(prefix+'-'+cur)?.classList.add('active');
+      document.querySelectorAll('#'+dotsId+' .aq-dot')[cur]?.classList.add('active');
+    },ms);
+  }
+  const target=document.getElementById('aq1');
+  if(!target) return;
+  const obs=new IntersectionObserver(([e])=>{
+    if(e.isIntersecting){
+      obs.disconnect();
+      setTimeout(()=>{
+        startRotator('aq1','aq1-dots',3,5500);
+        setTimeout(()=>startRotator('aq2','aq2-dots',3,5500),2000);
+      },800);
     }
-  }
+  },{threshold:0.25});
+  obs.observe(target);
 })();
 
 // ── Mobile menu ──
