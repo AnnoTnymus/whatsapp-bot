@@ -11,6 +11,7 @@ import { runRouter, runGenerator, runEvaluator } from './src/agents/index.js'
 
 const app = express()
 app.use(express.static('public'))
+app.use('/presentacion', express.static('presentacion'))
 
 app.disable('x-powered-by')
 app.use(express.json({ limit: '1mb' }))
@@ -46,36 +47,92 @@ function detectLanguage(text) {
   if (!text || !text.trim()) return 'es'
   const lower = text.toLowerCase()
   
-  // High-weight unique words for each language (these are ONLY in that language)
-  const uniqueWords = {
-    // Spanish ONLY (not in EN or PT otherwise)
-    es: ['hola', 'gracias', 'buenos', 'días', 'cómo', 'qué', 'dónde', 'cuándo', 'estás', 'tienes', 'soy', 'genéricas', 'cepas', 'afiliar', 'quiero', 'necesito', 'ayuda', 'información', 'dónde', 'cuál'],
-    // English ONLY
-    en: ['hello', 'hi', 'hey', 'thanks', 'want', 'need', 'when', 'what', 'where', 'how', 'strains', 'genetics', 'menu', 'info', 'today', 'great', 'okay'],
-    // Portuguese ONLY
-    pt: ['olá', 'obrigado', 'obrigada', 'vocês', 'preciso', 'qual', 'onde', 'quando', 'váo']
+  // === PRIORITY 1: Portuguese "ola" vs Spanish "hola" ===
+  // Check standalone "ola" specifically (Portuguese) before Spanish catches "hola"
+  if (lower === 'ola' || lower === 'ola!' || lower === 'olaa' || lower.startsWith('ola ')) {
+    return 'pt'
   }
   
-  let esScore = 0, enScore = 0, ptScore = 0
+  // === PRIORITY 2: Mixed greetings - "hey hola" is Spanish ===
+  if (lower.includes('hey hola') || lower.includes('hey ola') || 
+      (lower.startsWith('hey') && lower.includes('hola'))) {
+    return 'es'
+  }
   
-  // Count unique word matches
-  for (const w of uniqueWords.es) if (lower.includes(w)) esScore += 3
-  for (const w of uniqueWords.en) if (lower.includes(w)) enScore += 3
-  for (const w of uniqueWords.pt) if (lower.includes(w)) ptScore += 3
+  // === PRIORITY 3: Very distinctive patterns (unique to each language) ===
   
-  // Strong signals override any scoring
-  if (lower.startsWith('hello') || lower.startsWith('hi ') || lower.startsWith('hey') || lower.startsWith('thanks')) return 'en'
-  if (lower.includes('olá') || lower.includes('obrigado') || lower.includes('vocês')) return 'pt'
-  if (lower.includes('hello') || lower.includes('thanks') || lower.includes('what ') || lower.includes('strains')) return 'en'
-  if (lower.includes('hola') || lower.includes('gracias') || lower.includes('genéricas')) return 'es'
+  // English - MUST check FIRST (includes common words that overlap with ES/PT)
+  if (/^(good\s|morning|afternoon|evening|night|day|hey|hello|hi|thanks|thank|what|where|when|how|need|want|have|there|can|could|would|should|please|great|okay|alright|appreciated)/i.test(lower) ||
+      /\b(good\s|morning|afternoon|evening|night|day|thanks|thx|please)\b/i.test(lower) ||
+      lower.includes('hello') || lower.includes('thank ') || lower.includes('thx') ||
+      lower.includes('what ') || lower.includes('where ') || lower.includes('when ') ||
+      lower.includes('strains') || lower.includes('genetics') || lower.includes('menu') ||
+      lower.includes('how are') || lower.includes('can i') || lower.includes('do you') ||
+      lower.includes(' i ') || lower.startsWith('i ') || lower.startsWith("i'") ||
+      lower.includes(' watsup') || lower.includes('watsup') ||
+      lower.includes('pls') || lower.includes('plz') ||
+      lower.includes('appreciated') || lower.includes('awesome')) {
+    return 'en'
+  }
   
-  // Spanish accent characters are very strong signals
+  // Portuguese - very distinctive patterns
+  if (/^(oi|olá|bom|boa|td bem|valeu)/i.test(lower) ||
+      lower.includes('obrigado') || lower.includes('obrigada') || 
+      lower.includes('vocês') || lower.includes('preciso') || 
+      lower.includes('vão') || lower.includes('quanto') || 
+      lower.includes('onde ') || lower.includes('quando') ||
+      lower.includes('posso') || lower.includes('voces tem')) {
+    return 'pt'
+  }
+  
+  // Spanish - fallback (most common)
+  if (lower.includes('hola') || lower.includes('gracias') ||
+      lower.includes('cómo') || lower.includes('qué ') || lower.includes('dónde') || 
+      lower.includes('cuándo') || lower.includes('genéticas') || 
+      lower.includes('cepas') || lower.includes('afiliar') ||
+      lower.includes('quiero') || lower.includes('necesito') ||
+      lower.includes('geneticas ')) {
+    return 'es'
+  }
+  
+  // Check for Spanish accent characters (very strong signal)
   if (/[áéíóúñ]/i.test(lower)) return 'es'
   
-  // Return highest scoring
-  if (ptScore > esScore && ptScore > enScore) return 'pt'
-  if (enScore > esScore && enScore > ptScore) return 'en'
+  // Default
   return 'es'
+}
+
+// Helper to parse language selection from user response
+// Accepts: 1, 2, 3 or any variation of Spanish/English/Portuguese with typos
+function parseLanguageSelection(text) {
+  if (!text) return null
+  const lower = text.toLowerCase().trim()
+  
+  // Number selection
+  if (lower === '1') return 'es'
+  if (lower === '2') return 'en'
+  if (lower === '3') return 'pt'
+  
+  // Spanish - starts with "es" or contains "span"/"esp"/"españ"
+  if (/^es|span|esp|españ/.test(lower)) return 'es'
+  
+  // English - starts with "en" or contains "ing"/"engl"
+  if (/^en|ing|engl/.test(lower)) return 'en'
+  
+  // Portuguese - starts with "port"
+  if (/^port|portug/.test(lower)) return 'pt'
+  
+  return null
+}
+
+// Get confirmation message for selected language
+function getLanguageConfirmation(lang) {
+  const msgs = {
+    es: '✅ Perfecto, ahora chateamos en español.',
+    en: '✅ Perfect, we will chat in English.',
+    pt: '✅ Perfeito, agora vamos conversar em português.'
+  }
+return msgs[lang] || msgs.es
 }
 
 // Supabase client (v4.0 — persistence)
@@ -93,7 +150,7 @@ const rateLimits = new Map()           // Still in-memory (reset hourly)
 const userState = new Map()            // ⚠️ Legacy: replaced by patient_state table
 const processedInboundMessages = new Map()  // chatId -> Map(messageId, seenAt)
 
-const RATE_LIMIT = 30
+const RATE_LIMIT = 100
 const RATE_WINDOW = 60 * 60 * 1000
 const PROCESSED_MESSAGE_TTL_MS = 6 * 60 * 60 * 1000
 const ADMIN_WHATSAPP = process.env.ADMIN_WHATSAPP
@@ -1767,8 +1824,50 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
         const state = await loadState(chatId)
         state.last_message_at = new Date().toISOString()
         
+        // Check if user explicitly wants to change language
+        const lowerMsg = message.toLowerCase()
+        const wantsToChangeLang = /(cambiar.*idioma|cambiar.*lenguaje|switch.*english|switch.*spanish|switch.*portuguese|cambiar a español|cambiar a inglés|quiero en inglés|quiero en español)/i.test(lowerMsg)
+        
         // Detect language on each message (user may switch languages mid-conversation)
         const detectedLang = detectLanguage(message)
+        
+        // NEVER auto-ask for language - only if explicitly requested
+        if (wantsToChangeLang) {
+          state.step = 'seleccionando_idioma'
+          const langPrompt = `🌍 ¿Qué idioma preferés?\n\n1️⃣ Español\n2️⃣ English\n3️⃣ Português\n\nResponde con el número.`
+          await sendWhatsAppMessage(chatId, langPrompt)
+          await saveState(chatId, state)
+          return
+        }
+        
+        // Update language if different
+        if (state.language !== detectedLang) {
+          state.language = detectedLang
+        }
+        
+        // Handle language selection response
+        if (state.step === 'seleccionando_idioma') {
+          const selectedLang = parseLanguageSelection(message)
+          if (selectedLang) {
+            state.language = selectedLang
+            state.step = state.nombre ? 'conversando' : 'solicitando_nombre'
+            const confirmMsg = getLanguageConfirmation(selectedLang)
+            await sendWhatsAppMessage(chatId, confirmMsg)
+            // Continue with normal flow
+            if (state.step === 'solicitando_nombre') {
+              await sendWhatsAppMessage(chatId, '¿Cómo te llamás?')
+            }
+            await saveState(chatId, state)
+            return
+          } else {
+            // Invalid response, ask again
+            await sendWhatsAppMessage(chatId, 'Por favor elegí 1, 2 o 3 (Español, English, Português)')
+            await saveState(chatId, state)
+            return
+          }
+        }
+        
+        // Update language if detected and different
         if (state.language !== detectedLang) {
           log('i18n', `Language: ${state.language} → ${detectedLang}`)
           state.language = detectedLang
@@ -2526,6 +2625,9 @@ app.get('/admin/verify', (req, res) => {
 // Backward-compat: redirige al dashboard unificado
 app.get('/admin/config-html', (req, res) => res.redirect('/dashboard.html'))
 app.get('/admin', (req, res) => res.redirect('/dashboard.html'))
+app.get('/dashboard.html', (req, res) => res.redirect('/dashboard.html'))
+app.get('/dashboard2.html', (req, res) => res.redirect('/dashboard2.html'))
+app.get('/', (req, res) => res.redirect('/dashboard.html'))
 
 app.get('/admin/config', async (req, res) => {
   const role = requireDashboardAccess(req, res)

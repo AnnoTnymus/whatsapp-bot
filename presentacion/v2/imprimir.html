@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Indajaus — Presentación</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    @media print {
+      body { background: white; color: black; }
+      section { page-break-after: always; min-height: auto; padding: 40px; display: block; }
+      .phone, .card, .bg-gradient { border: 1px solid #ccc; background: #f9f9f9 !important; }
+      .nav-dots, .scroll-hint { display: none; }
+    }
+    :root { --bg: #0c0a09; --card: #1c1917; --green: #16a34a; --text: #fafaf9; --muted: #a8a29e; }
+    * { margin: 0; padding: 0; }
+    html, body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); }
+    section { min-height: 100vh; padding: 60px 40px; display: flex; flex-direction: column; justify-content: center; }
+    h1 { font-size: 3rem; font-weight: 800; margin-bottom: 1rem; }
+    h2 { font-size: 2rem; font-weight: 700; color: var(--green); margin-bottom: 0.5rem; }
+    h3 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; }
+    p { color: var(--muted); font-size: 1.1rem; line-height: 1.6; }
+    .card { background: var(--card); border: 1px solid #333; border-radius: 1rem; padding: 1.5rem; }
+    .phone { width: 260px; background: #0a0a0a; border-radius: 2rem; padding: 0.75rem; margin: 20px auto; }
+    .phone-screen { background: #080808; border-radius: 1.5rem; overflow: hidden; }
+    .phone-header { background: #151515; padding: 2rem 1rem 1rem; display: flex; align-items: center; gap: 0.75rem; }
+    .phone-avatar { width: 2rem; height: 2rem; border-radius: 50%; background: var(--green); display: flex; align-items: center; justify-content: center; }
+    .phone-chat { padding: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; }
+    .bubble { max-width: 85%; padding: 0.5rem 0.75rem; border-radius: 0.75rem; font-size: 0.8rem; }
+    .bubble-in { background: #262626; align-self: flex-start; }
+    .bubble-out { background: #0d3d2e; align-self: flex-end; }
+    .nav-dots { position: fixed; right: 1.5rem; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 0.5rem; }
+    .nav-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: #444; cursor: pointer; }
+    .nav-dot.active { background: var(--green); }
+    .text-center { text-align: center; }
+    .text-gradient { background: linear-gradient(135deg, #22c55e, #fbbf24); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    li { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0; }
+    li::before { content: "✓"; color: #22c55e; }
+  </style>
+</head>
+<body>
+  <div class="nav-dots">
+    <div class="nav-dot active" onclick="document.getElementById('s1').scrollIntoView()"></div>
+    <div class="nav-dot" onclick="document.getElementById('s2').scrollIntoView()"></div>
+    <div class="nav-dot" onclick="document.getElementById('s3').scrollIntoView()"></div>
+    <div class="nav-dot" onclick="document.getElementById('s4').scrollIntoView()"></div>
+    <div class="nav-dot" onclick="document.getElementById('s5').scrollIntoView()"></div>
+    <div class="nav-dot" onclick="document.getElementById('s6').scrollIntoView()"></div>
+    <div class="nav-dot" onclick="document.getElementById('s7').scrollIntoView()"></div>
+    <div class="nav-dot" onclick="document.getElementById('s8').scrollIntoView()"></div>
+    <div class="nav-dot" onclick="document.getElementById('s9').scrollIntoView()"></div>
+    <div class="nav-dot" onclick="document.getElementById('s10').scrollIntoView()"></div>
+  </div>
+
+  <!-- S1 -->
+  <section id="s1">
+    <h1 class="text-center">🌿 Indajaus</h1>
+    <h2 class="text-center">Asistente Inteligente WhatsApp</h2>
+    <p class="text-center" style="max-width: 600px; margin: 1rem auto;">Atención 24/7 en español, inglés y portugués. Responde preguntas, valida documentos, guía afiliación y conecta con humano cuando lo necesites.</p>
+    <p class="text-center">🇪🇸 🇬🇧 🇧🇷 3 idiomas</p>
+  </section>
+
+  <!-- S2 -->
+  <section id="s2">
+    <h2 class="text-center">🌍 3 Idiomas</h2>
+    <p class="text-center">Detección automática + cambio instantáneo</p>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; max-width: 600px; margin: 2rem auto;">
+      <div class="card text-center">🇪🇸<h3>Español</h3><p class="text-sm">"Quiero info"</p></div>
+      <div class="card text-center">🇬🇧<h3>English</h3><p class="text-sm">"I want info"</p></div>
+      <div class="card text-center">🇧🇷<h3>Português</h3><p class="text-sm">"Quero info"</p></div>
+    </div>
+    <div class="phone">
+      <div class="phone-screen">
+        <div class="phone-header"><div class="phone-avatar">🌿</div><div><b>Indajaus</b></div></div>
+        <div class="phone-chat">
+          <div class="bubble bubble-in">quiero cambiar a inglés</div>
+          <div class="bubble bubble-out">Great! We'll chat in English now 🌿</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- S3 -->
+  <section id="s3">
+    <h2 class="text-center">⚖️ Experto Legal</h2>
+    <p class="text-center">Ley 27.350, REPROCANN, fallo Arriola</p>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; max-width: 700px; margin: 1rem auto;">
+      <div class="card"><h3>Marco Legal</h3><li>Ley 27.350</li><li>Decreto 883/2020</li><li>Fallo Arriola</li></div>
+      <div class="card"><h3>REPROCANN</h3><li>Trámite paso a paso</li><li>Requisitos</li><li>Tiempos</li></div>
+    </div>
+  </section>
+
+  <!-- S4 -->
+  <section id="s4">
+    <h2 class="text-center">💬 Entiende Todo</h2>
+    <p class="text-center">Audio, imágenes, stickers</p>
+    <div class="phone">
+      <div class="phone-screen">
+        <div class="phone-header"><div class="phone-avatar">🌿</div><div><b>Indajaus</b></div></div>
+        <div class="phone-chat">
+          <div class="bubble bubble-in">🎤 nota de voz</div>
+          <div class="bubble bubble-out">¡Hola! ¿Te interese el club?</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- S5 -->
+  <section id="s5">
+    <h2 class="text-center">🪪 Valida Documentos</h2>
+    <p class="text-center">DNI argentino + coincide con REPROCANN</p>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; max-width: 600px; margin: 1rem auto;">
+      <div class="card"><h3>DNI</h3><li>Argentino válido</li><li>No vencido</li></div>
+      <div class="card"><h3>REPROCANN</h3><li>DNI coincide</li><li>Vigente</li></div>
+    </div>
+  </section>
+
+  <!-- S6 -->
+  <section id="s6">
+    <h2 class="text-center">🔔 Seguimiento Automático</h2>
+    <p class="text-center">Sin REPROCANN, Tramitando, Incompleto, Inactivo</p>
+    <div class="card" style="max-width: 500px; margin: 1rem auto;">
+      <div style="display: flex; justify-content: space-between;"><span>Sin REPROCANN</span><span>2 recordatorios</span></div>
+      <div style="display: flex; justify-content: space-between;"><span>Tramitando</span><span>1 recordatorio</span></div>
+      <div style="display: flex; justify-content: space-between;"><span>Inactivo</span><span>1 recordatorio</span></div>
+    </div>
+  </section>
+
+  <!-- S7 -->
+  <section id="s7">
+    <h2 class="text-center">👤 Humano cuando quieras</h2>
+    <p class="text-center">Email al admin + registro completo</p>
+    <div class="phone">
+      <div class="phone-screen">
+        <div class="phone-header"><div class="phone-avatar">🌿</div><div><b>Indajaus</b></div></div>
+        <div class="phone-chat">
+          <div class="bubble bubble-in">quiero hablar con persona</div>
+          <div class="bubble bubble-out">¡Dale! Te paso a humano 👋</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- S8 -->
+  <section id="s8">
+    <h2 class="text-center">📊 Dashboard</h2>
+    <p class="text-center">Gestión + métricas</p>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; max-width: 500px; margin: 1rem auto;">
+      <div class="card text-center"><b style="font-size:2rem;">3</b><p class="text-sm">Idiomas</p></div>
+      <div class="card text-center"><b style="font-size:2rem;">12</b><p class="text-sm">Chats</p></div>
+      <div class="card text-center"><b style="font-size:2rem;">85%</b><p class="text-sm">Conversión</p></div>
+    </div>
+  </section>
+
+  <!-- S9 -->
+  <section id="s9">
+    <h2 class="text-center">🔍 Auto-evaluación</h2>
+    <p class="text-center">QA automático + entrenamiento</p>
+    <div class="card" style="max-width: 500px; margin: 1rem auto;">
+      <li>¿Tono correcto?</li>
+      <li>¿Info correcta?</li>
+      <li>Base de conocimiento editable</li>
+    </div>
+  </section>
+
+  <!-- S10 -->
+  <section id="s10">
+    <h2 class="text-center">💎 ¿Por qué Indajaus?</h2>
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; max-width: 600px; margin: 1rem auto;">
+      <div class="card"><b>⚡ 24/7</b><p class="text-sm">Sin descansos</p></div>
+      <div class="card"><b>🌍 3 idiomas</b><p class="text-sm">Auto-detección</p></div>
+      <div class="card"><b>💾 Persistencia</b><p class="text-sm">No pierde datos</p></div>
+      <div class="card"><b>💰 Bajo costo</b><p class="text-sm">Infra gratis</p></div>
+    </div>
+  </section>
+
+  <!-- S11 -->
+  <section id="s11">
+    <h1 class="text-center">🌿 Indajaus</h1>
+    <p class="text-center">Listo para usar</p>
+    <p class="text-center">Implementación en menos de 24 horas</p>
+    <p class="text-center" style="margin-top: 2rem;"><b>whatsapp: </b>+54 9 11 6174 9233</p>
+    <p class="text-center" style="margin-top: 1rem;">indajaus.com · Abril 2026</p>
+  </section>
+
+  <script>
+    window.addEventListener('scroll', () => {
+      const sections = document.querySelectorAll('section');
+      const scrollPos = window.scrollY + window.innerHeight / 2;
+      sections.forEach((s, i) => {
+        if (scrollPos >= s.offsetTop) {
+          document.querySelectorAll('.nav-dot').forEach(d => d.classList.remove('active'));
+          document.querySelectorAll('.nav-dot')[i].classList.add('active');
+        }
+      });
+    });
+  </script>
+</body>
+</html>
