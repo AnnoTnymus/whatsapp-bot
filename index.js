@@ -2,7 +2,7 @@ import 'dotenv/config.js'
 import { timingSafeEqual } from 'crypto'
 import express from 'express'
 import fetch from 'node-fetch'
-import { readFileSync } from 'fs'
+import { readFileSync, writeFileSync } from 'fs'
 import { Resend } from 'resend'
 import { createClient } from '@supabase/supabase-js'
 import { SKILL_NAMES, invokeSkill, parseSkillMarker } from './skills.js'
@@ -2716,6 +2716,40 @@ app.get('/admin/conversations', async (req, res) => {
     })
 
     res.json({ ok: true, count: conversations.length, conversations })
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message })
+  }
+})
+
+// Notificaciones config — lee/escribe knowledge/notificaciones.config.json
+const NOTIFICATIONS_PATH = './knowledge/notificaciones.config.json'
+
+app.get('/admin/notifications', (req, res) => {
+  if (!requireAdminAccess(req, res)) return
+  try {
+    const raw = readFileSync(NOTIFICATIONS_PATH, 'utf8')
+    res.json({ ok: true, config: JSON.parse(raw) })
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message })
+  }
+})
+
+app.post('/admin/notifications', (req, res) => {
+  if (!requireAdminAccess(req, res)) return
+  try {
+    const incoming = req.body
+    // Validación mínima: campos requeridos presentes
+    if (!incoming.modo || !incoming.intervalos_test_minutos || !incoming.intervalos_produccion_minutos || !incoming.max_intentos) {
+      return res.status(400).json({ ok: false, error: 'Faltan campos requeridos' })
+    }
+    // Preservar comentarios del archivo original
+    const existing = JSON.parse(readFileSync(NOTIFICATIONS_PATH, 'utf8'))
+    const merged = {
+      ...Object.fromEntries(Object.entries(existing).filter(([k]) => k.startsWith('_'))),
+      ...incoming,
+    }
+    writeFileSync(NOTIFICATIONS_PATH, JSON.stringify(merged, null, 2), 'utf8')
+    res.json({ ok: true, config: merged })
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message })
   }

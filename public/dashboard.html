@@ -88,11 +88,15 @@
 
     <!-- TAB: LEADS -->
     <div id="tab-leads" class="tab-content">
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
         <div class="bg-white rounded-lg shadow p-3"><p class="text-gray-600 text-xs">Total</p><p id="metricTotal" class="text-2xl font-bold">--</p></div>
         <div class="bg-white rounded-lg shadow p-3"><p class="text-gray-600 text-xs">✅ OK</p><p id="metricOk" class="text-2xl font-bold text-green-600">--</p></div>
         <div class="bg-white rounded-lg shadow p-3"><p class="text-gray-600 text-xs">🔴 Mismatch</p><p id="metricMismatch" class="text-2xl font-bold text-red-600">--</p></div>
         <div class="bg-white rounded-lg shadow p-3"><p class="text-gray-600 text-xs">⚪ Incompleto</p><p id="metricIncomplete" class="text-2xl font-bold text-purple-600">--</p></div>
+        <div class="bg-orange-50 border border-orange-200 rounded-lg shadow p-3 cursor-pointer" onclick="filterByHandover()" title="Click para filtrar">
+          <p class="text-orange-700 text-xs">🙋 Esperando humano</p>
+          <p id="metricHandover" class="text-2xl font-bold text-orange-600">--</p>
+        </div>
       </div>
 
       <div class="bg-white rounded-lg shadow p-3 mb-4 flex flex-wrap gap-3 items-end">
@@ -106,6 +110,7 @@
             <option value="completando_datos">Datos</option>
             <option value="conversando">Conversando</option>
             <option value="completado">Completado</option>
+            <option value="esperando_humano">🙋 Esperando humano</option>
           </select>
         </div>
         <div>
@@ -228,29 +233,102 @@
     </div>
 
     <!-- TAB: CONFIG -->
-    <div id="tab-config" class="tab-content hidden">
+    <div id="tab-config" class="tab-content hidden space-y-4">
+      <div id="configStatus" class="hidden p-3 rounded text-sm"></div>
+
+      <!-- Sección Club -->
       <div class="bg-white rounded-lg shadow p-6">
-        <h3 class="text-lg font-semibold mb-4">⚙️ Configuración del bot</h3>
-        <div id="configStatus" class="hidden p-3 rounded mb-4 text-sm"></div>
-        <form id="configForm" onsubmit="event.preventDefault(); saveConfig()">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><label class="block text-xs text-gray-600 mb-1">Nombre del Club</label><input type="text" id="cfg_club_nombre" class="w-full px-3 py-2 border rounded text-sm"></div>
-            <div><label class="block text-xs text-gray-600 mb-1">Modelo IA</label>
-              <select id="cfg_modelo_ia" class="w-full px-3 py-2 border rounded text-sm">
-                <option value="claude-opus-4-7">Opus 4.7</option>
-                <option value="claude-sonnet-4-6">Sonnet 4.6</option>
-                <option value="claude-haiku-4-5">Haiku 4.5</option>
-              </select>
-            </div>
-            <div class="md:col-span-2"><label class="block text-xs text-gray-600 mb-1">Ubicación</label><input type="text" id="cfg_club_ubicacion" class="w-full px-3 py-2 border rounded text-sm"></div>
-            <div class="md:col-span-2"><label class="block text-xs text-gray-600 mb-1">Horarios</label><input type="text" id="cfg_horarios" class="w-full px-3 py-2 border rounded text-sm"></div>
-            <div class="md:col-span-2"><label class="block text-xs text-gray-600 mb-1">Genéticas</label><input type="text" id="cfg_geneticas" class="w-full px-3 py-2 border rounded text-sm"></div>
-            <div class="md:col-span-2"><label class="block text-xs text-gray-600 mb-1">URL REPROCANN</label><input type="text" id="cfg_reprocann_url" class="w-full px-3 py-2 border rounded text-sm"></div>
-            <div class="md:col-span-2"><label class="block text-xs text-gray-600 mb-1">Saludo</label><textarea id="cfg_respuesta_saludo" class="w-full px-3 py-2 border rounded text-sm h-20"></textarea></div>
-            <div class="md:col-span-2"><label class="block text-xs text-gray-600 mb-1">Confirmación</label><textarea id="cfg_respuesta_confirmacion" class="w-full px-3 py-2 border rounded text-sm h-20"></textarea></div>
+        <h3 class="text-base font-semibold text-gray-800 mb-4">🏠 Club</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div><label class="block text-xs text-gray-600 mb-1">Nombre del Club</label><input type="text" id="cfg_club_nombre" class="w-full px-3 py-2 border rounded text-sm"></div>
+          <div><label class="block text-xs text-gray-600 mb-1">URL REPROCANN</label><input type="text" id="cfg_reprocann_url" class="w-full px-3 py-2 border rounded text-sm"></div>
+          <div class="md:col-span-2"><label class="block text-xs text-gray-600 mb-1">Ubicación</label><input type="text" id="cfg_club_ubicacion" class="w-full px-3 py-2 border rounded text-sm"></div>
+          <div class="md:col-span-2"><label class="block text-xs text-gray-600 mb-1">Horarios</label><input type="text" id="cfg_horarios" class="w-full px-3 py-2 border rounded text-sm"></div>
+          <div class="md:col-span-2"><label class="block text-xs text-gray-600 mb-1">Genéticas disponibles</label><input type="text" id="cfg_geneticas" class="w-full px-3 py-2 border rounded text-sm"></div>
+        </div>
+        <button onclick="saveConfig()" class="mt-4 bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded font-medium text-sm">Guardar Club</button>
+      </div>
+
+      <!-- Sección Bot -->
+      <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-base font-semibold text-gray-800 mb-4">🤖 Bot</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div><label class="block text-xs text-gray-600 mb-1">Modelo IA</label>
+            <select id="cfg_modelo_ia" class="w-full px-3 py-2 border rounded text-sm">
+              <option value="claude-opus-4-7">Opus 4.7 (recomendado)</option>
+              <option value="claude-sonnet-4-6">Sonnet 4.6</option>
+              <option value="claude-haiku-4-5-20251001">Haiku 4.5 (rápido, económico)</option>
+            </select>
           </div>
-          <button type="submit" class="mt-4 bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded font-medium">Guardar</button>
-        </form>
+          <div><label class="block text-xs text-gray-600 mb-1">Max tokens por respuesta</label><input type="number" id="cfg_max_tokens" min="100" max="2000" class="w-full px-3 py-2 border rounded text-sm"></div>
+          <div class="md:col-span-2"><label class="block text-xs text-gray-600 mb-1">Mensaje de saludo</label><textarea id="cfg_respuesta_saludo" class="w-full px-3 py-2 border rounded text-sm h-20"></textarea></div>
+          <div class="md:col-span-2"><label class="block text-xs text-gray-600 mb-1">Mensaje de confirmación (alta completada)</label><textarea id="cfg_respuesta_confirmacion" class="w-full px-3 py-2 border rounded text-sm h-20"></textarea></div>
+          <div class="md:col-span-2"><label class="block text-xs text-gray-600 mb-1">Mensaje de error técnico</label><textarea id="cfg_respuesta_error" class="w-full px-3 py-2 border rounded text-sm h-16"></textarea></div>
+        </div>
+        <button onclick="saveConfig()" class="mt-4 bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded font-medium text-sm">Guardar Bot</button>
+      </div>
+
+      <!-- Sección Notificaciones -->
+      <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-base font-semibold text-gray-800 mb-1">🔔 Notificaciones automáticas</h3>
+        <p class="text-xs text-gray-500 mb-4">Controla cuándo y cuántas veces el bot hace seguimiento automático a leads que no completaron el alta.</p>
+
+        <div class="mb-4">
+          <label class="block text-xs text-gray-600 mb-2">Modo</label>
+          <div class="flex gap-3">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="notif_modo" id="notif_modo_test" value="test" class="accent-green-600">
+              <span class="text-sm">🧪 Test (intervalos en minutos, para validar)</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="notif_modo" id="notif_modo_prod" value="produccion" class="accent-green-600">
+              <span class="text-sm">🚀 Producción (intervalos reales en días)</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label class="block text-xs text-gray-600 mb-1">Frecuencia del cron (minutos)</label>
+          <input type="number" id="notif_cron" min="1" max="60" class="px-3 py-2 border rounded text-sm w-32">
+          <span class="text-xs text-gray-500 ml-2">cada cuántos minutos corre el cron de seguimiento</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+          <!-- Intervalos TEST -->
+          <div>
+            <h4 class="text-sm font-medium text-gray-700 mb-2">Intervalos TEST (minutos)</h4>
+            <div class="space-y-2">
+              <div class="flex items-center gap-2"><label class="text-xs text-gray-600 w-48">Sin REPROCANN (intento 1)</label><input type="number" id="notif_t_sr0" min="1" class="px-2 py-1 border rounded text-sm w-20"></div>
+              <div class="flex items-center gap-2"><label class="text-xs text-gray-600 w-48">Sin REPROCANN (intento 2)</label><input type="number" id="notif_t_sr1" min="1" class="px-2 py-1 border rounded text-sm w-20"></div>
+              <div class="flex items-center gap-2"><label class="text-xs text-gray-600 w-48">Tramitando REPROCANN</label><input type="number" id="notif_t_tr" min="1" class="px-2 py-1 border rounded text-sm w-20"></div>
+              <div class="flex items-center gap-2"><label class="text-xs text-gray-600 w-48">Docs incompletos</label><input type="number" id="notif_t_di" min="1" class="px-2 py-1 border rounded text-sm w-20"></div>
+              <div class="flex items-center gap-2"><label class="text-xs text-gray-600 w-48">Inactivo</label><input type="number" id="notif_t_in" min="1" class="px-2 py-1 border rounded text-sm w-20"></div>
+            </div>
+          </div>
+          <!-- Intervalos PRODUCCIÓN -->
+          <div>
+            <h4 class="text-sm font-medium text-gray-700 mb-2">Intervalos PRODUCCIÓN (minutos) <span class="text-gray-400 font-normal">1 día = 1440</span></h4>
+            <div class="space-y-2">
+              <div class="flex items-center gap-2"><label class="text-xs text-gray-600 w-48">Sin REPROCANN (intento 1)</label><input type="number" id="notif_p_sr0" min="1" class="px-2 py-1 border rounded text-sm w-24"></div>
+              <div class="flex items-center gap-2"><label class="text-xs text-gray-600 w-48">Sin REPROCANN (intento 2)</label><input type="number" id="notif_p_sr1" min="1" class="px-2 py-1 border rounded text-sm w-24"></div>
+              <div class="flex items-center gap-2"><label class="text-xs text-gray-600 w-48">Tramitando REPROCANN</label><input type="number" id="notif_p_tr" min="1" class="px-2 py-1 border rounded text-sm w-24"></div>
+              <div class="flex items-center gap-2"><label class="text-xs text-gray-600 w-48">Docs incompletos</label><input type="number" id="notif_p_di" min="1" class="px-2 py-1 border rounded text-sm w-24"></div>
+              <div class="flex items-center gap-2"><label class="text-xs text-gray-600 w-48">Inactivo</label><input type="number" id="notif_p_in" min="1" class="px-2 py-1 border rounded text-sm w-24"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <h4 class="text-sm font-medium text-gray-700 mb-2">Máximo de intentos por tipo</h4>
+          <div class="flex flex-wrap gap-4">
+            <div><label class="block text-xs text-gray-600 mb-1">Sin REPROCANN</label><input type="number" id="notif_max_sr" min="0" max="10" class="px-2 py-1 border rounded text-sm w-20"></div>
+            <div><label class="block text-xs text-gray-600 mb-1">Tramitando</label><input type="number" id="notif_max_tr" min="0" max="10" class="px-2 py-1 border rounded text-sm w-20"></div>
+            <div><label class="block text-xs text-gray-600 mb-1">Docs incompletos</label><input type="number" id="notif_max_di" min="0" max="10" class="px-2 py-1 border rounded text-sm w-20"></div>
+            <div><label class="block text-xs text-gray-600 mb-1">Inactivo</label><input type="number" id="notif_max_in" min="0" max="10" class="px-2 py-1 border rounded text-sm w-20"></div>
+          </div>
+        </div>
+
+        <button onclick="saveNotifications()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded font-medium text-sm">Guardar Notificaciones</button>
       </div>
     </div>
 
@@ -374,6 +452,7 @@
       document.getElementById('metricOk').textContent = data.summary.validation.ok
       document.getElementById('metricMismatch').textContent = data.summary.validation.mismatch
       document.getElementById('metricIncomplete').textContent = data.summary.validation.incomplete
+      document.getElementById('metricHandover').textContent = data.summary.by_step?.esperando_humano ?? 0
 
       let leads = data.leads || []
       if (validation) leads = leads.filter(l => l.validation.status === validation)
@@ -388,7 +467,7 @@
         <tr class="border-b hover:bg-gray-50">
           <td class="px-3 py-2 font-mono text-xs">${escapeHtml(lead.chat_id)}</td>
           <td class="px-3 py-2">${escapeHtml(lead.nombre_usuario)}</td>
-          <td class="px-3 py-2"><span class="px-2 py-1 rounded text-xs bg-blue-100 text-blue-700">${formatStep(lead.step)}</span></td>
+          <td class="px-3 py-2"><span class="px-2 py-1 rounded text-xs ${lead.step === 'esperando_humano' ? 'bg-orange-100 text-orange-700 font-semibold' : 'bg-blue-100 text-blue-700'}">${formatStep(lead.step)}</span></td>
           <td class="px-3 py-2"><span class="px-2 py-1 rounded text-xs text-white ${
             lead.validation.status === 'ok' ? 'status-ok' : lead.validation.status === 'mismatch' ? 'status-mismatch' : 'status-incomplete'
           }">${lead.validation.status === 'ok' ? '✅' : lead.validation.status === 'mismatch' ? '🔴' : '⚪'} ${lead.validation.score ? lead.validation.score + '%' : ''}</span></td>
@@ -581,7 +660,10 @@
       document.getElementById('cfg_reprocann_url').value = c.reprocann_url || ''
       document.getElementById('cfg_respuesta_saludo').value = c.respuesta_saludo || ''
       document.getElementById('cfg_respuesta_confirmacion').value = c.respuesta_confirmacion || ''
+      document.getElementById('cfg_respuesta_error').value = c.respuesta_error || ''
       document.getElementById('cfg_modelo_ia').value = c.modelo_ia || 'claude-opus-4-7'
+      document.getElementById('cfg_max_tokens').value = c.max_tokens || 500
+      await loadNotifications()
     }
 
     async function saveConfig() {
@@ -593,17 +675,75 @@
         reprocann_url: document.getElementById('cfg_reprocann_url').value,
         respuesta_saludo: document.getElementById('cfg_respuesta_saludo').value,
         respuesta_confirmacion: document.getElementById('cfg_respuesta_confirmacion').value,
+        respuesta_error: document.getElementById('cfg_respuesta_error').value,
         modelo_ia: document.getElementById('cfg_modelo_ia').value,
+        max_tokens: parseInt(document.getElementById('cfg_max_tokens').value) || 500,
       }
       const data = await fetchAPI('/admin/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) })
       if (data && data.ok) showConfigStatus('Guardado ✓', false)
       else showConfigStatus('Error: ' + (data?.error || 'desconocido'), true)
     }
 
+    async function loadNotifications() {
+      const data = await fetchAPI('/admin/notifications')
+      if (!data || !data.ok) return
+      const c = data.config
+      document.querySelector(`input[name="notif_modo"][value="${c.modo || 'test'}"]`).checked = true
+      document.getElementById('notif_cron').value = c.cron_frecuencia_minutos ?? 2
+      const t = c.intervalos_test_minutos || {}
+      document.getElementById('notif_t_sr0').value = t.sin_reprocann_intento_0 ?? 3
+      document.getElementById('notif_t_sr1').value = t.sin_reprocann_intento_1 ?? 5
+      document.getElementById('notif_t_tr').value = t.tramitando ?? 4
+      document.getElementById('notif_t_di').value = t.docs_incompletos ?? 3
+      document.getElementById('notif_t_in').value = t.inactivo ?? 5
+      const p = c.intervalos_produccion_minutos || {}
+      document.getElementById('notif_p_sr0').value = p.sin_reprocann_intento_0 ?? 4320
+      document.getElementById('notif_p_sr1').value = p.sin_reprocann_intento_1 ?? 10080
+      document.getElementById('notif_p_tr').value = p.tramitando ?? 10080
+      document.getElementById('notif_p_di').value = p.docs_incompletos ?? 4320
+      document.getElementById('notif_p_in').value = p.inactivo ?? 10080
+      const m = c.max_intentos || {}
+      document.getElementById('notif_max_sr').value = m.sin_reprocann ?? 2
+      document.getElementById('notif_max_tr').value = m.tramitando ?? 1
+      document.getElementById('notif_max_di').value = m.docs_incompletos ?? 1
+      document.getElementById('notif_max_in').value = m.inactivo ?? 1
+    }
+
+    async function saveNotifications() {
+      const modo = document.querySelector('input[name="notif_modo"]:checked')?.value || 'test'
+      const updates = {
+        modo,
+        cron_frecuencia_minutos: parseInt(document.getElementById('notif_cron').value),
+        intervalos_test_minutos: {
+          sin_reprocann_intento_0: parseInt(document.getElementById('notif_t_sr0').value),
+          sin_reprocann_intento_1: parseInt(document.getElementById('notif_t_sr1').value),
+          tramitando: parseInt(document.getElementById('notif_t_tr').value),
+          docs_incompletos: parseInt(document.getElementById('notif_t_di').value),
+          inactivo: parseInt(document.getElementById('notif_t_in').value),
+        },
+        intervalos_produccion_minutos: {
+          sin_reprocann_intento_0: parseInt(document.getElementById('notif_p_sr0').value),
+          sin_reprocann_intento_1: parseInt(document.getElementById('notif_p_sr1').value),
+          tramitando: parseInt(document.getElementById('notif_p_tr').value),
+          docs_incompletos: parseInt(document.getElementById('notif_p_di').value),
+          inactivo: parseInt(document.getElementById('notif_p_in').value),
+        },
+        max_intentos: {
+          sin_reprocann: parseInt(document.getElementById('notif_max_sr').value),
+          tramitando: parseInt(document.getElementById('notif_max_tr').value),
+          docs_incompletos: parseInt(document.getElementById('notif_max_di').value),
+          inactivo: parseInt(document.getElementById('notif_max_in').value),
+        },
+      }
+      const data = await fetchAPI('/admin/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) })
+      if (data && data.ok) showConfigStatus('Notificaciones guardadas ✓', false)
+      else showConfigStatus('Error: ' + (data?.error || 'desconocido'), true)
+    }
+
     function showConfigStatus(msg, isError) {
       const el = document.getElementById('configStatus')
       el.textContent = msg
-      el.className = `p-3 rounded mb-4 text-sm ${isError ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`
+      el.className = `p-3 rounded text-sm ${isError ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`
       el.classList.remove('hidden')
       setTimeout(() => el.classList.add('hidden'), 3000)
     }
@@ -645,9 +785,14 @@
         'inicio': '🟡 Inicio', 'solicitando_nombre': '👤 Nombre',
         'aclarando_nombre': '👤 Aclarando', 'recibiendo_documentos': '📸 Documentos',
         'completando_datos': '✏️ Datos', 'conversando': '💬 Conversando',
-        'completado': '✅ Completado',
+        'completado': '✅ Completado', 'esperando_humano': '🙋 Esperando humano',
       }
       return map[step] || step || '--'
+    }
+
+    function filterByHandover() {
+      document.getElementById('filterStep').value = 'esperando_humano'
+      loadLeads()
     }
 
     function formatTime(iso) {
