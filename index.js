@@ -1432,20 +1432,16 @@ async function runNewPipeline(msg, chatId, state) {
   let finalReply = gen.reply
   let finalWants = gen.wants_affiliation
 
-  // 5. Evaluator (+1 retry si no pasa) - skip for simple greetings/offtopic
-  const isSimpleGreeting = ['greet', 'offtopic'].includes(routed.intent) && finalReply.length < 100
-  const evaluation = isSimpleGreeting 
-    ? { score: 80, passes: true, reasons: ['simple greeting bypass'] }
-    : await runEvaluator({ reply: finalReply, context: { chatId, history } })
+  // 5. Evaluator (+1 retry si no pasa)
+  const lang = state?.language || 'es'
+  const evaluation = await runEvaluator({ reply: finalReply, context: { chatId, history } }, { lang })
   log('pipeline', `evaluator score=${evaluation.score} passes=${evaluation.passes}`)
 
   let finalScore = evaluation.score
   let finalReasons = evaluation.reasons
   if (!evaluation.passes) {
     const retry = await runGenerator({ intent: routed.intent, knowledge, history, state, message: msg })
-    const retryEval = isSimpleGreeting
-      ? { score: 80, passes: true, reasons: ['simple greeting bypass'] }
-      : await runEvaluator({ reply: retry.reply, context: { chatId, history } })
+    const retryEval = await runEvaluator({ reply: retry.reply, context: { chatId, history } }, { lang })
     log('pipeline', `retry score=${retryEval.score} passes=${retryEval.passes}`)
     if (retryEval.passes || retryEval.score > evaluation.score) {
       finalReply = retry.reply

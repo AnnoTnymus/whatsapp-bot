@@ -13,7 +13,7 @@ import nodeFetch from 'node-fetch'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const EVALUATOR_PROMPT = readFileSync(join(__dirname, 'prompts', 'evaluator.md'), 'utf8')
 
-const PASS_THRESHOLD = 50  // Lowered from 70 to be more permissive
+const PASS_THRESHOLD = 70  // Standard threshold
 
 function clampScore(n) {
   const v = Number.isFinite(n) ? Math.round(n) : 0
@@ -68,8 +68,12 @@ export async function runEvaluator({ reply, context = {} }, opts = {}) {
   const trimmed = (reply || '').trim()
   if (!trimmed) return { score: 0, reasons: ['reply vacía o inválida'], passes: false }
 
+  const lang = opts.lang || 'es'
+  const userLabel = lang === 'en' ? 'User' : lang === 'pt' ? 'Usuário' : 'Usuario'
+  const botLabel = lang === 'en' ? 'Bot' : lang === 'pt' ? 'Bot' : 'Bot'
+  
   const anthropicKey = opts.anthropicKey || process.env.ANTHROPIC_API_KEY?.replace(/[^\x20-\x7E]/g, '').trim()
-  const model = opts.model || process.env.ANTHROPIC_MODEL_EVALUATOR || 'claude-haiku-4-5-20251001'
+  const model = opts.model || process.env.ANTHROPIC_MODEL_EVALUATOR || 'claude-haiku-4-5-20250514'
   const fetchImpl = opts.fetchImpl || nodeFetch
 
   if (!anthropicKey) {
@@ -79,7 +83,7 @@ export async function runEvaluator({ reply, context = {} }, opts = {}) {
 
   const history = Array.isArray(context.history) ? context.history.slice(-6) : []
   const historyBlock = history.length
-    ? history.map((m) => `${m.role === 'user' ? 'Usuario' : 'Bot'}: ${m.content}`).join('\n')
+    ? history.map((m) => `${m.role === 'user' ? userLabel : botLabel}: ${m.content}`).join('\n')
     : '(sin historial)'
 
   const userBlock = [
