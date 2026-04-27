@@ -314,6 +314,24 @@ import('fs').then(({ readFileSync }) => {
       assert(indexSrc.includes('Last-resort reply'), 'catch block: has last-resort reply comment')
 
       // ──────────────────────────────────────────────────────────────────────
+      // Suite 13 — Resend email fixes
+      // ──────────────────────────────────────────────────────────────────────
+      console.log('\n══ Suite 13: Resend email fixes ══')
+
+      // No literal 'DEFAULT_FROM_EMAIL' string — must be template literal with variable
+      const fromMatches = [...indexSrc.matchAll(/from:\s*['"`]([^'"`]+)['"`]/g)]
+      const badFroms = fromMatches.filter(m => m[1].includes('DEFAULT_FROM_EMAIL') && !m[0].includes('${'))
+      assert(badFroms.length === 0, 'no literal DEFAULT_FROM_EMAIL in any from: field')
+
+      // Resend v3: { data, error } destructuring in all send() calls
+      const sendCalls = [...indexSrc.matchAll(/resend\.emails\.send\(/g)]
+      const destructuredCalls = [...indexSrc.matchAll(/const \{ data[^}]+\} = await resend\.emails\.send/g)]
+      assert(sendCalls.length > 0, 'has resend.emails.send calls')
+      // All notification sends (not test route) should use v3 destructuring
+      assert(!indexSrc.includes("response.id"), 'no v1-style response.id check')
+      assert(!indexSrc.includes("result.error\n"), 'no v1-style result.error newline check')
+
+      // ──────────────────────────────────────────────────────────────────────
       // Final summary
       // ──────────────────────────────────────────────────────────────────────
       printSummary()

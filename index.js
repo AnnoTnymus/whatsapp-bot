@@ -651,7 +651,7 @@ async function notifyAdminQuotaExceeded(rawBody, rejectedChatId) {
   if (resend && ADMIN_EMAIL) {
     try {
       await resend.emails.send({
-        from: 'Bot Club <DEFAULT_FROM_EMAIL>',
+        from: `Bot Club <${DEFAULT_FROM_EMAIL}>`,
         to: ADMIN_EMAIL,
         subject,
         html: `<h2>${subject}</h2><pre>${body}</pre>`,
@@ -1146,22 +1146,20 @@ async function sendEmailNotification(chatId, nombre, dniData, reprocannData, col
 
   try {
     const emailParams = {
-      from: 'Bot Club <DEFAULT_FROM_EMAIL>',
+      from: `Bot Club <${DEFAULT_FROM_EMAIL}>`,
       to: ADMIN_EMAIL,
       subject: `Nuevo Lead: ${nombre} - Documentos Completos`,
       html: htmlContent,
     }
-    const response = await resend.emails.send(emailParams)
+    // Resend v3 returns { data: { id }, error } — not a direct { id } object
+    const { data, error } = await resend.emails.send(emailParams)
 
-    if (response && response.id) {
-      log('email', `✅ Email enviado exitosamente (id=${response.id}) a ${ADMIN_EMAIL} para ${nombre}`)
-      return response
-    } else if (response && response.error) {
-      log('email', `❌ Error de Resend: ${response.error}`)
-      return null
+    if (data?.id) {
+      log('email', `✅ Email enviado exitosamente (id=${data.id}) a ${ADMIN_EMAIL} para ${nombre}`)
+      return data
     } else {
-      log('email', `⚠️ Response inesperada de Resend: ${JSON.stringify(response).substring(0, 100)}`)
-      return response
+      log('email', `❌ Error de Resend: ${JSON.stringify(error)}`)
+      return null
     }
   } catch (e) {
     log('email', `❌ Exception enviando email: ${e.message}`)
@@ -1202,16 +1200,16 @@ async function notifyHumanHandover(chatId, nombre, userMessage) {
   `
 
   try {
-    const result = await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: `Bot Club <${DEFAULT_FROM_EMAIL}>`,
       to: ADMIN_EMAIL,
       subject: `📞 Atención humana solicitada — ${safeName} (+${phone})`,
       html,
     })
-    if (result.error) {
-      log('handover', `❌ Resend error: ${JSON.stringify(result.error)}`)
+    if (error) {
+      log('handover', `❌ Resend error: ${JSON.stringify(error)}`)
     } else {
-      log('handover', `📧 Email enviado: ${result.data?.id}`)
+      log('handover', `📧 Email enviado: ${data?.id}`)
     }
   } catch (e) {
     log('handover', `❌ Error enviando email de handover: ${e.message}`)
@@ -2380,8 +2378,8 @@ app.get('/test-handover-email', async (req, res) => {
 
   try {
     // Send test email
-    const result = await resend.emails.send({
-      from: 'Bot Club <DEFAULT_FROM_EMAIL>',
+    const { data: emailData, error: emailErr } = await resend.emails.send({
+      from: `Bot Club <${DEFAULT_FROM_EMAIL}>`,
       to: ADMIN_EMAIL,
       subject: '[TEST] Verificación de notificaciones de atención humana',
       html: `
@@ -2394,10 +2392,14 @@ app.get('/test-handover-email', async (req, res) => {
       `,
     })
 
+    if (emailErr) {
+      res.json({ ok: false, error: JSON.stringify(emailErr), diagnostics: diag })
+      return
+    }
     res.json({
       ok: true,
       message: 'Test email enviado',
-      emailId: result.id,
+      emailId: emailData?.id,
       diagnostics: diag
     })
   } catch (e) {
