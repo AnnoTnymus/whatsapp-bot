@@ -6,32 +6,80 @@
   <title>🌿 Indajaus — Admin Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    .tab-active { background-color: #059669; color: white; }
-    .tab-inactive { background-color: #f3f4f6; color: #374151; }
-    .tab-inactive:hover { background-color: #e5e7eb; }
+    :root {
+      --green-primary: #16a34a;
+      --green-dark: #14532d;
+      --green-light: #dcfce7;
+      --leaf-color: #15803d;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #f0fdf4;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='%2315803d' fill-opacity='0.055'%3E%3Cellipse cx='80' cy='42' rx='9' ry='36'/%3E%3Cellipse cx='56' cy='58' rx='7' ry='28' transform='rotate(-38 56 58)'/%3E%3Cellipse cx='104' cy='58' rx='7' ry='28' transform='rotate(38 104 58)'/%3E%3Cellipse cx='38' cy='80' rx='6' ry='22' transform='rotate(-60 38 80)'/%3E%3Cellipse cx='122' cy='80' rx='6' ry='22' transform='rotate(60 122 80)'/%3E%3Crect x='78' y='78' width='4' height='36' rx='2'/%3E%3C/g%3E%3C/svg%3E");
+    }
+    .tab-active { background-color: #15803d; color: white; box-shadow: 0 2px 8px rgba(21,128,61,0.3); }
+    .tab-inactive { background-color: rgba(255,255,255,0.85); color: #374151; border: 1px solid #e5e7eb; }
+    .tab-inactive:hover { background-color: #f0fdf4; border-color: #86efac; color: #15803d; }
     .status-ok { background-color: #10b981; }
     .status-mismatch { background-color: #ef4444; }
     .status-incomplete { background-color: #8b5cf6; }
     pre.report { white-space: pre-wrap; word-wrap: break-word; }
-    .modal-bg { background: rgba(0,0,0,0.6); }
+    .modal-bg { background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); }
     .chat-msg-user { background: #dbeafe; border-radius: 12px 12px 12px 0; }
     .chat-msg-bot { background: #d1fae5; border-radius: 12px 12px 0 12px; }
+    .card { background: white; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.07), 0 0 0 1px rgba(21,128,61,0.06); }
+    .dashboard-header {
+      background: linear-gradient(135deg, #14532d 0%, #166534 60%, #15803d 100%);
+      border-radius: 16px;
+      padding: 20px 24px 16px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 20px rgba(20,83,45,0.35);
+      position: relative;
+      overflow: hidden;
+    }
+    .dashboard-header::before {
+      content: '';
+      position: absolute;
+      right: -30px; top: -30px;
+      width: 180px; height: 180px;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cg fill='white' fill-opacity='0.07'%3E%3Cellipse cx='80' cy='42' rx='9' ry='36'/%3E%3Cellipse cx='56' cy='58' rx='7' ry='28' transform='rotate(-38 56 58)'/%3E%3Cellipse cx='104' cy='58' rx='7' ry='28' transform='rotate(38 104 58)'/%3E%3Cellipse cx='38' cy='80' rx='6' ry='22' transform='rotate(-60 38 80)'/%3E%3Cellipse cx='122' cy='80' rx='6' ry='22' transform='rotate(60 122 80)'/%3E%3Crect x='78' y='78' width='4' height='36' rx='2'/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat;
+    }
+    .dashboard-header::after {
+      content: '';
+      position: absolute;
+      left: -20px; bottom: -20px;
+      width: 130px; height: 130px;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cg fill='white' fill-opacity='0.05'%3E%3Cellipse cx='80' cy='42' rx='9' ry='36'/%3E%3Cellipse cx='56' cy='58' rx='7' ry='28' transform='rotate(-38 56 58)'/%3E%3Cellipse cx='104' cy='58' rx='7' ry='28' transform='rotate(38 104 58)'/%3E%3Cellipse cx='38' cy='80' rx='6' ry='22' transform='rotate(-60 38 80)'/%3E%3Cellipse cx='122' cy='80' rx='6' ry='22' transform='rotate(60 122 80)'/%3E%3Crect x='78' y='78' width='4' height='36' rx='2'/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat;
+      transform: rotate(170deg);
+    }
+    .metric-card { background: white; border-radius: 12px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); border-left: 3px solid #16a34a; }
+    .metric-card.orange { border-left-color: #f97316; }
+    .metric-card.red { border-left-color: #ef4444; }
+    .metric-card.purple { border-left-color: #8b5cf6; }
+    .metric-card.green { border-left-color: #10b981; }
   </style>
 </head>
-<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+<body class="min-h-screen">
   <!-- Auth Modal -->
   <div id="authModal" class="fixed inset-0 modal-bg flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-8 max-w-md w-full shadow-2xl">
-      <h1 class="text-2xl font-bold mb-2">🌿 Indajaus</h1>
-      <p class="text-gray-600 mb-6">Dashboard</p>
-      <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Token de acceso</label>
-        <input id="tokenInput" type="password" placeholder="Token"
-          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+    <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden">
+      <!-- Modal header -->
+      <div style="background: linear-gradient(135deg, #14532d 0%, #15803d 100%); padding: 28px 32px 24px; position: relative; overflow: hidden;">
+        <div style="position:absolute;right:-20px;top:-20px;width:120px;height:120px;background:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 160 160%27%3E%3Cg fill=%27white%27 fill-opacity=%270.1%27%3E%3Cellipse cx=%2780%27 cy=%2742%27 rx=%279%27 ry=%2736%27/%3E%3Cellipse cx=%2756%27 cy=%2758%27 rx=%277%27 ry=%2728%27 transform=%27rotate(-38 56 58)%27/%3E%3Cellipse cx=%27104%27 cy=%2758%27 rx=%277%27 ry=%2728%27 transform=%27rotate(38 104 58)%27/%3E%3C/g%3E%3C/svg%3E') center/contain no-repeat;"></div>
+        <h1 class="text-2xl font-bold text-white relative z-10">🌿 Indajaus</h1>
+        <p class="text-green-200 text-sm mt-1 relative z-10">Club cannábico · Dashboard</p>
       </div>
-      <p id="authError" class="text-red-600 text-sm mb-3 hidden">Token inválido</p>
-      <button onclick="initDashboard()" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg transition">Conectar</button>
+      <!-- Modal body -->
+      <div class="p-8">
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Token de acceso</label>
+          <input id="tokenInput" type="password" placeholder="Ingresá tu token"
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+            onkeydown="if(event.key==='Enter') initDashboard()" />
+        </div>
+        <p id="authError" class="text-red-600 text-sm mb-3 hidden">⚠️ Token inválido</p>
+        <button onclick="initDashboard()" class="w-full text-white font-medium py-2.5 rounded-lg transition text-sm" style="background: linear-gradient(135deg, #15803d, #16a34a);">Conectar</button>
+      </div>
     </div>
   </div>
 
@@ -53,28 +101,28 @@
   <div id="dashboard" style="display: none;" class="max-w-7xl mx-auto p-6">
     <!-- Header -->
     <div class="mb-6">
-      <div class="flex items-center justify-between mb-4">
-        <div>
-          <h1 id="dashTitle" class="text-3xl font-bold text-gray-900">🌿 Indajaus</h1>
-          <p id="dashSubtitle" class="text-gray-600 text-sm">Dashboard</p>
+      <div class="dashboard-header">
+        <div class="flex items-center justify-between relative z-10">
+          <div>
+            <h1 id="dashTitle" class="text-3xl font-bold text-white tracking-tight">🌿 Indajaus</h1>
+            <p id="dashSubtitle" class="text-green-200 text-sm mt-0.5">Dashboard</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <span id="roleBadge" class="hidden px-3 py-1 rounded-full text-xs font-semibold"></span>
+            <button onclick="logout()" class="bg-white/20 hover:bg-white/30 text-white border border-white/30 px-4 py-2 rounded-lg transition text-sm backdrop-blur-sm">Logout</button>
+          </div>
         </div>
-        <div class="flex items-center gap-3">
-          <span id="roleBadge" class="hidden px-3 py-1 rounded-full text-xs font-semibold"></span>
-          <button onclick="logout()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition text-sm">Logout</button>
-        </div>
-      </div>
 
-      <!-- Status bar (health + GreenAPI) -->
-      <div class="bg-white rounded-lg shadow p-3 mb-4">
-        <div class="flex flex-wrap gap-4 text-sm">
+        <!-- Status bar inside header -->
+        <div class="flex flex-wrap gap-4 text-sm mt-4 pt-3 border-t border-white/15 relative z-10">
           <span class="flex items-center gap-2">
-            <span id="healthDot" class="w-3 h-3 rounded-full bg-yellow-500"></span>
-            <span><span id="healthText" class="font-medium">conectando…</span></span>
+            <span id="healthDot" class="w-2.5 h-2.5 rounded-full bg-yellow-400"></span>
+            <span class="text-green-100"><span id="healthText" class="font-medium">conectando…</span></span>
           </span>
-          <span class="text-gray-600" id="uptime">Uptime: --</span>
-          <span class="text-gray-600" id="threads">Threads: --</span>
-          <span class="text-gray-600" id="greenapi">GreenAPI: --</span>
-          <span class="text-gray-500 ml-auto text-xs" id="lastRefresh">--</span>
+          <span class="text-green-200" id="uptime">Uptime: --</span>
+          <span class="text-green-200" id="threads">Threads: --</span>
+          <span class="text-green-200" id="greenapi">GreenAPI: --</span>
+          <span class="text-green-300 ml-auto text-xs opacity-70" id="lastRefresh">--</span>
         </div>
       </div>
 
@@ -93,13 +141,13 @@
     <!-- TAB: LEADS -->
     <div id="tab-leads" class="tab-content">
       <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
-        <div class="bg-white rounded-lg shadow p-3"><p class="text-gray-600 text-xs">Total</p><p id="metricTotal" class="text-2xl font-bold">--</p></div>
-        <div class="bg-white rounded-lg shadow p-3"><p class="text-gray-600 text-xs">✅ OK</p><p id="metricOk" class="text-2xl font-bold text-green-600">--</p></div>
-        <div class="bg-white rounded-lg shadow p-3"><p class="text-gray-600 text-xs">🔴 Mismatch</p><p id="metricMismatch" class="text-2xl font-bold text-red-600">--</p></div>
-        <div class="bg-white rounded-lg shadow p-3"><p class="text-gray-600 text-xs">⚪ Incompleto</p><p id="metricIncomplete" class="text-2xl font-bold text-purple-600">--</p></div>
-        <div class="bg-orange-50 border border-orange-200 rounded-lg shadow p-3 cursor-pointer" onclick="filterByHandover()" title="Click para filtrar">
-          <p class="text-orange-700 text-xs">🙋 Esperando humano</p>
-          <p id="metricHandover" class="text-2xl font-bold text-orange-600">--</p>
+        <div class="metric-card"><p class="text-gray-500 text-xs font-medium uppercase tracking-wide">Total</p><p id="metricTotal" class="text-2xl font-bold text-gray-800 mt-1">--</p></div>
+        <div class="metric-card green"><p class="text-gray-500 text-xs font-medium uppercase tracking-wide">✅ OK</p><p id="metricOk" class="text-2xl font-bold text-green-600 mt-1">--</p></div>
+        <div class="metric-card red"><p class="text-gray-500 text-xs font-medium uppercase tracking-wide">🔴 Mismatch</p><p id="metricMismatch" class="text-2xl font-bold text-red-600 mt-1">--</p></div>
+        <div class="metric-card purple"><p class="text-gray-500 text-xs font-medium uppercase tracking-wide">⚪ Incompleto</p><p id="metricIncomplete" class="text-2xl font-bold text-purple-600 mt-1">--</p></div>
+        <div class="metric-card orange cursor-pointer" onclick="filterByHandover()" title="Click para filtrar">
+          <p class="text-gray-500 text-xs font-medium uppercase tracking-wide">🙋 Esperando</p>
+          <p id="metricHandover" class="text-2xl font-bold text-orange-600 mt-1">--</p>
         </div>
       </div>
 
@@ -107,13 +155,14 @@
         <div>
           <label class="block text-xs text-gray-600 mb-1">Paso</label>
           <select id="filterStep" onchange="loadLeads()" class="px-3 py-2 border rounded text-sm">
-            <option value="">Todos</option>
-            <option value="inicio">Inicio</option>
-            <option value="solicitando_nombre">Pidiendo nombre</option>
-            <option value="recibiendo_documentos">Documentos</option>
-            <option value="completando_datos">Datos</option>
-            <option value="conversando">Conversando</option>
-            <option value="completado">Completado</option>
+            <option value="">🔍 Todos</option>
+            <option value="inicio">🟡 Inicio</option>
+            <option value="solicitando_nombre">👤 Pidiendo nombre</option>
+            <option value="aclarando_nombre">👤 Aclarando nombre</option>
+            <option value="recibiendo_documentos">📸 Documentos</option>
+            <option value="completando_datos">✏️ Completando datos</option>
+            <option value="conversando">💬 Conversando</option>
+            <option value="completado">✅ Completado</option>
             <option value="esperando_humano">🙋 Esperando humano</option>
           </select>
         </div>
@@ -597,11 +646,13 @@
           </div>
         `).join('')
 
-      const trainingHtml = training.length === 0 ? '' : `
+      // Filter out evaluator bypass records (score=70 with reason starting with 'evaluator')
+      const realTraining = training.filter(t => !String(t.reason || '').startsWith('evaluator '))
+      const trainingHtml = realTraining.length === 0 ? '' : `
         <div class="mt-6 pt-6 border-t">
           <h4 class="font-semibold mb-2 text-sm">📊 Últimos scores del evaluator</h4>
           <div class="space-y-2">
-            ${training.slice(0, 10).map(t => `
+            ${realTraining.slice(0, 10).map(t => `
               <div class="text-xs p-2 rounded ${t.score < 70 ? 'bg-red-50' : 'bg-green-50'}">
                 <span class="font-bold ${t.score < 70 ? 'text-red-700' : 'text-green-700'}">${t.score}/100</span>
                 <span class="text-gray-700"> — ${escapeHtml((t.reason || '').substring(0, 150))}</span>
