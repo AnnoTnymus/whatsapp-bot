@@ -95,6 +95,7 @@ const TOKEN_BUDGET = {
 }
 
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null
+const DEFAULT_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'DEFAULT_FROM_EMAIL'
 
 // Auth helpers added by Codex (GPT-5) on 2026-04-24 so admin/test routes and
 // public webhooks don't stay open in production.
@@ -612,7 +613,7 @@ async function notifyAdminQuotaExceeded(rawBody, rejectedChatId) {
   if (resend && ADMIN_EMAIL) {
     try {
       await resend.emails.send({
-        from: 'Bot Club <onboarding@resend.dev>',
+        from: 'Bot Club <DEFAULT_FROM_EMAIL>',
         to: ADMIN_EMAIL,
         subject,
         html: `<h2>${subject}</h2><pre>${body}</pre>`,
@@ -1107,7 +1108,7 @@ async function sendEmailNotification(chatId, nombre, dniData, reprocannData, col
 
   try {
     const emailParams = {
-      from: 'Bot Club <onboarding@resend.dev>',
+      from: 'Bot Club <DEFAULT_FROM_EMAIL>',
       to: ADMIN_EMAIL,
       subject: `Nuevo Lead: ${nombre} - Documentos Completos`,
       html: htmlContent,
@@ -1164,7 +1165,7 @@ async function notifyHumanHandover(chatId, nombre, userMessage) {
 
   try {
     await resend.emails.send({
-      from: 'Bot Club <onboarding@resend.dev>',
+      from: 'Bot Club <DEFAULT_FROM_EMAIL>',
       to: ADMIN_EMAIL,
       subject: `📞 Atención humana solicitada — ${safeName} (+${phone})`,
       html,
@@ -2190,7 +2191,7 @@ app.get('/test-handover-email', async (req, res) => {
   try {
     // Send test email
     const result = await resend.emails.send({
-      from: 'Bot Club <onboarding@resend.dev>',
+      from: 'Bot Club <DEFAULT_FROM_EMAIL>',
       to: ADMIN_EMAIL,
       subject: '[TEST] Verificación de notificaciones de atención humana',
       html: `
