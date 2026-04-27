@@ -1826,51 +1826,56 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
         
         // Check if user explicitly wants to change language
         const lowerMsg = message.toLowerCase()
-        const wantsToChangeLang = /(cambiar.*idioma|cambiar.*lenguaje|switch.*english|switch.*spanish|switch.*portuguese|cambiar a español|cambiar a inglés|quiero en inglés|quiero en español)/i.test(lowerMsg)
-        
-        // Detect language on each message (user may switch languages mid-conversation)
+        const wantsToChangeLang = /(cambiar.*idioma|cambiar.*lenguaje|cambiar.*idiom|change.*language|change.*english|change.*spanish|change.*portuguese|switch.*english|switch.*spanish|switch.*portuguese|cambiar a español|cambiar a inglés|quiero en inglés|quiero en español|mudar.*idioma|quero em português)/i.test(lowerMsg)
+
+        // Detect language from this message
         const detectedLang = detectLanguage(message)
-        
-        // NEVER auto-ask for language - only if explicitly requested
+
+        // Set language only on first contact — never auto-overwrite after that
+        if (!state.language) {
+          state.language = detectedLang
+        }
+
+        // Handle explicit language-change request
         if (wantsToChangeLang) {
           state.step = 'seleccionando_idioma'
-          const langPrompt = `🌍 ¿Qué idioma preferés?\n\n1️⃣ Español\n2️⃣ English\n3️⃣ Português\n\nResponde con el número.`
-          await sendWhatsAppMessage(chatId, langPrompt)
+          const langMenus = {
+            es: '🌍 ¿Qué idioma preferís?\n\n1️⃣ Español\n2️⃣ English\n3️⃣ Português\n\nRespondé con el número.',
+            en: '🌍 What language do you prefer?\n\n1️⃣ Español\n2️⃣ English\n3️⃣ Português\n\nReply with the number.',
+            pt: '🌍 Qual idioma você prefere?\n\n1️⃣ Español\n2️⃣ English\n3️⃣ Português\n\nResponda com o número.',
+          }
+          await sendWhatsAppMessage(chatId, langMenus[state.language] || langMenus.es)
           await saveState(chatId, state)
           return
         }
-        
-        // Update language if different
-        if (state.language !== detectedLang) {
-          state.language = detectedLang
-        }
-        
+
         // Handle language selection response
         if (state.step === 'seleccionando_idioma') {
           const selectedLang = parseLanguageSelection(message)
           if (selectedLang) {
             state.language = selectedLang
             state.step = state.nombre ? 'conversando' : 'solicitando_nombre'
-            const confirmMsg = getLanguageConfirmation(selectedLang)
-            await sendWhatsAppMessage(chatId, confirmMsg)
-            // Continue with normal flow
+            await sendWhatsAppMessage(chatId, getLanguageConfirmation(selectedLang))
             if (state.step === 'solicitando_nombre') {
-              await sendWhatsAppMessage(chatId, '¿Cómo te llamás?')
+              const namePrompts = {
+                es: '¿Cómo te llamás?',
+                en: "What's your name?",
+                pt: 'Como você se chama?',
+              }
+              await sendWhatsAppMessage(chatId, namePrompts[selectedLang] || namePrompts.es)
             }
             await saveState(chatId, state)
             return
           } else {
-            // Invalid response, ask again
-            await sendWhatsAppMessage(chatId, 'Por favor elegí 1, 2 o 3 (Español, English, Português)')
+            const retryPrompts = {
+              es: 'Por favor elegí 1, 2 o 3 (Español, English, Português)',
+              en: 'Please choose 1, 2 or 3 (Español, English, Português)',
+              pt: 'Por favor escolha 1, 2 ou 3 (Español, English, Português)',
+            }
+            await sendWhatsAppMessage(chatId, retryPrompts[state.language] || retryPrompts.es)
             await saveState(chatId, state)
             return
           }
-        }
-        
-        // Update language if detected and different
-        if (state.language !== detectedLang) {
-          log('i18n', `Language: ${state.language} → ${detectedLang}`)
-          state.language = detectedLang
         }
         
         log('webhook', `Texto recibido chat=${formatChatRef(chatId)} len=${message.length} step=${state.step}`)

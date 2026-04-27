@@ -89,17 +89,17 @@ export async function runRouter({ message, history = [], state = {} }, opts = {}
 
   const recentHistory = Array.isArray(history) ? history.slice(-6) : []
   const stateLine = state && state.nombre && state.nombre !== 'Amigo'
-    ? `Usuario identificado: ${state.nombre}. Paso: ${state.step || 'conversando'}.`
-    : `Usuario aún sin nombre.`
+    ? `Identified user: ${state.nombre}. Step: ${state.step || 'conversando'}.`
+    : `Unknown user (no name yet).`
 
   const userBlock = [
     stateLine,
-    recentHistory.length ? 'Historial reciente:' : '',
-    ...recentHistory.map((m) => `${m.role === 'user' ? 'Usuario' : 'Bot'}: ${m.content}`),
+    recentHistory.length ? 'Recent history:' : '',
+    ...recentHistory.map((m) => `${m.role === 'user' ? 'User' : 'Bot'}: ${m.content}`),
     '',
-    `Último mensaje del usuario: ${message}`,
+    `Latest user message: ${message}`,
     '',
-    'Devolvé el JSON del Router.',
+    'Return the Router JSON.',
   ].filter(Boolean).join('\n')
 
   try {

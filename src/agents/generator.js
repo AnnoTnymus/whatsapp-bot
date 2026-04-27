@@ -129,6 +129,7 @@ export async function runGenerator({ intent, knowledge = [], history = [], state
   const model = opts.model || process.env.ANTHROPIC_MODEL_GENERATOR || 'claude-opus-4-20250514'
   const fetchImpl = opts.fetchImpl || nodeFetch
   const maxTokens = opts.maxTokens || 400
+  const lang = state?.language || 'es'
 
   if (!anthropicKey) return { reply: getFallback(lang), wants_affiliation: false }
 
@@ -143,7 +144,6 @@ export async function runGenerator({ intent, knowledge = [], history = [], state
   let forcedReply = null
 
   // Check for greet intent with no history or greet with "hola" message
-  const lang = state?.language || 'es'
   if (intent === 'greet' && (!recentHistory.length || message.toLowerCase().match(/^hola+$/))) {
     forcedReply = getGreeting(lang)
   } else if (isInfoOptionsRequest(intent, currentStep, message, recentHistory, state)) {
