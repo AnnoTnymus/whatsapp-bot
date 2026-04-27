@@ -99,7 +99,7 @@ function isInfoOptionsRequest(intent, currentStep, message, recentHistory, state
 
 function renderSnippets(knowledge) {
   if (!Array.isArray(knowledge) || knowledge.length === 0) {
-    return '(sin snippets — si el intent requiere datos del club, decí que mejor se consulte con alguien del staff)'
+    return '(no snippets — if the intent requires club data, tell the user to check directly with staff)'
   }
   return knowledge
     .map((k, i) => `[${i + 1}] topic="${k.topic}" tags=${JSON.stringify(k.tags || [])}\n${k.content}`)
@@ -133,12 +133,12 @@ export async function runGenerator({ intent, knowledge = [], history = [], state
   } else if (isInfoOptionsRequest(intent, currentStep, message, recentHistory, state)) {
     forcedReply = getOptions(lang)
   } else if (currentStep === 'solicitando_nombre' || (intent === 'affiliate' && !state.nombre)) {
-    stepInstructions = '\n⚠️ ACCIÓN REQUERIDA: El usuario aún no tiene nombre. Pedir nombre directamente, no saludar genéricamente.'
+    stepInstructions = '\n⚠️ ACTION REQUIRED: User has no name yet. Ask for name directly — no generic greeting, no document requests.'
   } else if (currentStep === 'recibiendo_documentos') {
-    stepInstructions = '\n⚠️ ACCIÓN REQUERIDA: El usuario está en proceso de enviar documentos. Pedir DNI y REPROCANN.'
+    stepInstructions = '\n⚠️ ACTION REQUIRED: User is in document submission flow. Guide them to send ID (front+back) and REPROCANN.'
   } else if (currentStep === 'completando_datos' && state.pendingFields?.length > 0) {
     const field = state.pendingFields[0]
-    stepInstructions = `\n⚠️ ACCIÓN REQUERIDA: Falta completar "${field.label}". Pedir ese dato específico.`
+    stepInstructions = `\n⚠️ ACTION REQUIRED: Missing field "${field.label}" from ${field.source}. Ask for that specific piece of data.`
   }
 
   // Return forced reply for greet/info without history

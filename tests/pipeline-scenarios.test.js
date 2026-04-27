@@ -26,20 +26,21 @@ const DEFAULT_LANGUAGE = 'es'
 
 function detectLanguage(text) {
   if (!text || !text.trim()) return 'es'
-  const lower = text.toLowerCase()
-  if (lower === 'ola' || lower === 'ola!' || lower === 'olaa' || lower.startsWith('ola ')) return 'pt'
-  if (lower.includes('hey hola') || lower.includes('hey ola') || (lower.startsWith('hey') && lower.includes('hola'))) return 'es'
-  if (/^(good\s|morning|afternoon|evening|night|day|hey|hello|hi|thanks|thank|what|where|when|how|need|want|have|there|can|could|would|should|please|great|okay|alright|appreciated)/i.test(lower) ||
-      lower.includes('hello') || lower.includes('thank ') || lower.includes('thx') ||
-      lower.includes('what ') || lower.includes('where ') || lower.includes(' i ') || lower.startsWith('i ') ||
-      lower.includes('strains') || lower.includes('genetics') || lower.includes('how are') || lower.includes('can i')) return 'en'
-  if (/^(oi|olá|bom|boa|td bem|valeu)/i.test(lower) ||
-      lower.includes('obrigado') || lower.includes('obrigada') || lower.includes('vocês') ||
-      lower.includes('preciso') || lower.includes('posso') || lower.includes('quando')) return 'pt'
-  if (lower.includes('hola') || lower.includes('gracias') || lower.includes('cómo') ||
-      lower.includes('qué ') || lower.includes('quiero') || lower.includes('necesito') ||
-      lower.includes('cepas') || lower.includes('afiliar')) return 'es'
-  if (/[áéíóúñ]/i.test(lower)) return 'es'
+  const t = text.toLowerCase().trim()
+
+  if (/^(oi|olá|ola\b|ola!|bom dia|boa tarde|boa noite|td bem|tudo bem|valeu)/i.test(t) ||
+      /\b(obrigado|obrigada|preciso|posso|vocês|você|quando\b|também|não\b|está\b|ção\b)/i.test(t)) {
+    return 'pt'
+  }
+
+  if (/^(hello|hi\b|hey\b|good morning|good afternoon|good evening|good night)/i.test(t) ||
+      /\b(hello|thanks|thank you|please|strains|genetics|membership|i need|i want|i would|can i|do you|how are|what is|where is|when is)\b/i.test(t) ||
+      / i /i.test(t) || t.startsWith('i ') || t.startsWith("i'")) {
+    return 'en'
+  }
+
+  if (/[áéíóúñ]/i.test(t)) return 'es'
+
   return 'es'
 }
 
@@ -97,17 +98,25 @@ function stripAfiliarMarker(reply) {
 // Suite 1 — Language detection
 // ──────────────────────────────────────────────────────────────────────────────
 console.log('\n══ Suite 1: Language detection ══')
-assert(detectLanguage('hola') === 'es',        'hola → es')
-assert(detectLanguage('buenos días') === 'es', 'buenos días → es')
-assert(detectLanguage('hello') === 'en',       'hello → en')
-assert(detectLanguage('hi there') === 'en',    'hi there → en')
-assert(detectLanguage('can i join') === 'en',  'can i join → en')
-assert(detectLanguage('obrigado') === 'pt',    'obrigado → pt')
-assert(detectLanguage('oi tudo bem') === 'pt', 'oi tudo bem → pt')
-assert(detectLanguage('') === 'es',            'empty → es (default)')
-assert(detectLanguage('ok') === 'es',          'ok → es (neutral, defaults to es)')
-assert(detectLanguage('si') === 'es',          'si → es')
-assert(detectLanguage('I need info') === 'en', 'I need info → en')
+assert(detectLanguage('hola') === 'es',             'hola → es')
+assert(detectLanguage('buenos días') === 'es',      'buenos días → es')
+assert(detectLanguage('quiero inscribirme') === 'es','quiero inscribirme → es')
+assert(detectLanguage('cómo funciona') === 'es',    'cómo funciona → es (accent)')
+assert(detectLanguage('hello') === 'en',            'hello → en')
+assert(detectLanguage('hi there') === 'en',         'hi there → en')
+assert(detectLanguage('good morning') === 'en',     'good morning → en')
+assert(detectLanguage('can i join') === 'en',       'can i join → en')
+assert(detectLanguage('I need info') === 'en',      'I need info → en')
+assert(detectLanguage('i want to join') === 'en',   'i want to join → en')
+assert(detectLanguage('what is REPROCANN') === 'en','what is REPROCANN → en')
+assert(detectLanguage('obrigado') === 'pt',         'obrigado → pt')
+assert(detectLanguage('oi tudo bem') === 'pt',      'oi tudo bem → pt')
+assert(detectLanguage('ola') === 'pt',              'ola (standalone) → pt')
+assert(detectLanguage('bom dia') === 'pt',          'bom dia → pt')
+assert(detectLanguage('preciso me associar') === 'pt','preciso me associar → pt')
+assert(detectLanguage('') === 'es',                 'empty → es (default)')
+assert(detectLanguage('ok') === 'es',               'ok → es (neutral, defaults to es)')
+assert(detectLanguage('si') === 'es',               'si → es')
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Suite 2 — Language selection parsing
@@ -253,6 +262,33 @@ import('fs').then(({ readFileSync }) => {
       assert(indexSrc.includes('langMenus'), 'has localized language menu')
       assert(indexSrc.includes('RETURN_GREET'), 'has returning user greeting object')
       assert(indexSrc.includes('ACTIVE_STEPS'), 'has active steps guard')
+
+      // ──────────────────────────────────────────────────────────────────────
+      // Suite 11 — Document flow strings are now multilang
+      // ──────────────────────────────────────────────────────────────────────
+      console.log('\n══ Suite 11: Document flow multilang audit ══')
+
+      // These strings must not appear as direct sendWhatsAppMessage arguments (bypassing multilang map)
+      assert(!indexSrc.includes("sendWhatsAppMessage(chatId, `¡Impecaaa!"), 'completado: not passed bare to sendWhatsApp')
+      assert(!indexSrc.includes("sendWhatsAppMessage(chatId, `${analysis}\\n\\nAhora mandame"), 'doc-side-2: not passed bare to sendWhatsApp')
+      assert(!indexSrc.includes("sendWhatsAppMessage(chatId, `¡Joya! 🙌"), 'completando_datos: not passed bare to sendWhatsApp')
+      assert(!indexSrc.includes("sendWhatsAppMessage(chatId, `¡Ufff!"), 'missing-fields: not passed bare to sendWhatsApp')
+      assert(!indexSrc.includes("sendWhatsAppMessage(chatId, `¡Joya che!"), 'faltantes: not passed bare to sendWhatsApp')
+
+      // These multilang keys must exist
+      assert(indexSrc.includes('_imgDoneMsgs'), 'completado (image path): has multilang map')
+      assert(indexSrc.includes('_cdDoneMsgs'), 'completado (text path): has multilang map')
+      assert(indexSrc.includes('_rpDorsoMsgs'), 'REPROCANN dorso: has multilang map')
+      assert(indexSrc.includes('_dniDorsoMsgs'), 'DNI dorso: has multilang map')
+      assert(indexSrc.includes('_faltMsgs'), 'faltantes: has multilang map')
+      assert(indexSrc.includes('_mfMsgs'), 'missing-fields: has multilang map')
+      assert(indexSrc.includes('_cdNextMsgs'), 'completando_datos next-field: has multilang map')
+
+      // Generator step instructions must be in English
+      const genSrc = readFileSync(join(process.cwd(), 'src/agents/generator.js'), 'utf8')
+      assert(!genSrc.includes('ACCIÓN REQUERIDA'), 'generator: no Spanish ACCIÓN REQUERIDA')
+      assert(genSrc.includes('ACTION REQUIRED'), 'generator: stepInstructions in English')
+      assert(!genSrc.includes('sin snippets'), 'generator: no Spanish renderSnippets fallback')
 
       // ──────────────────────────────────────────────────────────────────────
       // Final summary

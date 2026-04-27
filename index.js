@@ -45,60 +45,25 @@ const DEFAULT_LANGUAGE = 'es'
 
 function detectLanguage(text) {
   if (!text || !text.trim()) return 'es'
-  const lower = text.toLowerCase()
-  
-  // === PRIORITY 1: Portuguese "ola" vs Spanish "hola" ===
-  // Check standalone "ola" specifically (Portuguese) before Spanish catches "hola"
-  if (lower === 'ola' || lower === 'ola!' || lower === 'olaa' || lower.startsWith('ola ')) {
+  const t = text.toLowerCase().trim()
+
+  // Portuguese — check before English ("oi", "ola" etc. are high-confidence)
+  if (/^(oi|olá|ola\b|ola!|bom dia|boa tarde|boa noite|td bem|tudo bem|valeu)/i.test(t) ||
+      /\b(obrigado|obrigada|preciso|posso|vocês|você|quando\b|também|não\b|está\b|ção\b)/i.test(t)) {
     return 'pt'
   }
-  
-  // === PRIORITY 2: Mixed greetings - "hey hola" is Spanish ===
-  if (lower.includes('hey hola') || lower.includes('hey ola') || 
-      (lower.startsWith('hey') && lower.includes('hola'))) {
-    return 'es'
-  }
-  
-  // === PRIORITY 3: Very distinctive patterns (unique to each language) ===
-  
-  // English - MUST check FIRST (includes common words that overlap with ES/PT)
-  if (/^(good\s|morning|afternoon|evening|night|day|hey|hello|hi|thanks|thank|what|where|when|how|need|want|have|there|can|could|would|should|please|great|okay|alright|appreciated)/i.test(lower) ||
-      /\b(good\s|morning|afternoon|evening|night|day|thanks|thx|please)\b/i.test(lower) ||
-      lower.includes('hello') || lower.includes('thank ') || lower.includes('thx') ||
-      lower.includes('what ') || lower.includes('where ') || lower.includes('when ') ||
-      lower.includes('strains') || lower.includes('genetics') || lower.includes('menu') ||
-      lower.includes('how are') || lower.includes('can i') || lower.includes('do you') ||
-      lower.includes(' i ') || lower.startsWith('i ') || lower.startsWith("i'") ||
-      lower.includes(' watsup') || lower.includes('watsup') ||
-      lower.includes('pls') || lower.includes('plz') ||
-      lower.includes('appreciated') || lower.includes('awesome')) {
+
+  // English — clear markers only (avoid false-positives on short ambiguous words)
+  if (/^(hello|hi\b|hey\b|good morning|good afternoon|good evening|good night)/i.test(t) ||
+      /\b(hello|thanks|thank you|please|strains|genetics|membership|i need|i want|i would|can i|do you|how are|what is|where is|when is)\b/i.test(t) ||
+      / i /i.test(t) || t.startsWith('i ') || t.startsWith("i'")) {
     return 'en'
   }
-  
-  // Portuguese - very distinctive patterns
-  if (/^(oi|olá|bom|boa|td bem|valeu)/i.test(lower) ||
-      lower.includes('obrigado') || lower.includes('obrigada') || 
-      lower.includes('vocês') || lower.includes('preciso') || 
-      lower.includes('vão') || lower.includes('quanto') || 
-      lower.includes('onde ') || lower.includes('quando') ||
-      lower.includes('posso') || lower.includes('voces tem')) {
-    return 'pt'
-  }
-  
-  // Spanish - fallback (most common)
-  if (lower.includes('hola') || lower.includes('gracias') ||
-      lower.includes('cómo') || lower.includes('qué ') || lower.includes('dónde') || 
-      lower.includes('cuándo') || lower.includes('genéticas') || 
-      lower.includes('cepas') || lower.includes('afiliar') ||
-      lower.includes('quiero') || lower.includes('necesito') ||
-      lower.includes('geneticas ')) {
-    return 'es'
-  }
-  
-  // Check for Spanish accent characters (very strong signal)
-  if (/[áéíóúñ]/i.test(lower)) return 'es'
-  
-  // Default
+
+  // Spanish accent characters are a strong signal
+  if (/[áéíóúñ]/i.test(t)) return 'es'
+
+  // Default — Spanish (99% of users are Argentine)
   return 'es'
 }
 
@@ -1994,13 +1959,27 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
 
           if (state.pendingFields.length > 0) {
             const nextField = state.pendingFields[0]
-            const sourceText = nextField.source === 'DNI' ? 'del DNI' : 'de tu REPROCANN'
-            await sendWhatsAppMessage(chatId, `¡Joya! 🙌 Ahora me falta tu ${nextField.label} ${sourceText}. ¿Me lo escribís?`)
+            const _cdLang = state.language || 'es'
+            const _cdSourceEs = nextField.source === 'DNI' ? 'del DNI' : 'de tu REPROCANN'
+            const _cdSourceEn = nextField.source === 'DNI' ? 'from your ID' : 'from your REPROCANN'
+            const _cdSourcePt = nextField.source === 'DNI' ? 'do seu RG' : 'do seu REPROCANN'
+            const _cdNextMsgs = {
+              es: `¡Joya! 🙌 Ahora me falta tu ${nextField.label} ${_cdSourceEs}. ¿Me lo escribís?`,
+              en: `Got it! 🙌 Now I need your ${nextField.label} ${_cdSourceEn}. Can you write it?`,
+              pt: `Ótimo! 🙌 Agora preciso do seu ${nextField.label} ${_cdSourcePt}. Pode escrever?`,
+            }
+            await sendWhatsAppMessage(chatId, _cdNextMsgs[_cdLang] || _cdNextMsgs.es)
             await saveState(chatId, state)
             return
           } else {
             state.step = 'completado'
-            await sendWhatsAppMessage(chatId, `¡Impecaaa! 🎉\n\nYa tenemos todo lo que necesitamos para que nuestro staff lo revise y se comunique contigo para finalizar la inscripción.\n\nPero ya tenés un pie adentro del mejor club cannábico en Argentina! 🌿\n\nNos vemos en breve, bienvenido/a a Indajaus.`)
+            const _cdDoneLang = state.language || 'es'
+            const _cdDoneMsgs = {
+              es: `¡Impecaaa! 🎉\n\nYa tenemos todo lo que necesitamos para que nuestro staff lo revise y se comunique contigo para finalizar la inscripción.\n\nPero ya tenés un pie adentro del mejor club cannábico en Argentina! 🌿\n\nNos vemos en breve, bienvenido/a a Indajaus.`,
+              en: `All done! 🎉\n\nWe have everything we need — our staff will review and reach out to finalize your membership.\n\nYou're one step away from Argentina's best cannabis club! 🌿\n\nSee you soon, welcome to Indajaus.`,
+              pt: `Perfeito! 🎉\n\nJá temos tudo o que precisamos — nossa equipe vai revisar e entrar em contato para finalizar sua associação.\n\nVocê já tem um pé dentro do melhor clube de cannabis da Argentina! 🌿\n\nAté logo, bem-vindo/a à Indajaus.`,
+            }
+            await sendWhatsAppMessage(chatId, _cdDoneMsgs[_cdDoneLang] || _cdDoneMsgs.es)
             await saveState(chatId, state)
             return
           }
@@ -2168,7 +2147,13 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
               const data = await extractReprocannData(imageUrl)
               state.documentos.reprocann.frente = { url: imageUrl, data }
               log('webhook', `REPROCANN frente para ${formatChatRef(chatId)}`)
-              await sendWhatsAppMessage(chatId, `${analysis}\n\nAhora mandame el dorso y vamos por el siguiente 📸`)
+              const _rpLang = state.language || 'es'
+              const _rpDorsoMsgs = {
+                es: `${analysis}\n\nAhora mandame el dorso y vamos por el siguiente 📸`,
+                en: `${analysis}\n\nNow send me the back side and we'll continue 📸`,
+                pt: `${analysis}\n\nAgora me manda o verso e continuamos 📸`,
+              }
+              await sendWhatsAppMessage(chatId, _rpDorsoMsgs[_rpLang] || _rpDorsoMsgs.es)
               await saveState(chatId, state)  // v4.0: persist to DB
               return
             } else if (!state.documentos.reprocann.dorso) {
@@ -2192,7 +2177,13 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
               const data = await extractDocumentData(imageUrl, 'DNI')
               state.documentos.dni.frente = { url: imageUrl, data }
               log('webhook', `DNI frente para ${formatChatRef(chatId)}`)
-              await sendWhatsAppMessage(chatId, `${analysis}\n\nAhora mandame el dorso y vamos por el siguiente 📸`)
+              const _dniLang = state.language || 'es'
+              const _dniDorsoMsgs = {
+                es: `${analysis}\n\nAhora mandame el dorso y vamos por el siguiente 📸`,
+                en: `${analysis}\n\nNow send me the back side and we'll continue 📸`,
+                pt: `${analysis}\n\nAgora me manda o verso e continuamos 📸`,
+              }
+              await sendWhatsAppMessage(chatId, _dniDorsoMsgs[_dniLang] || _dniDorsoMsgs.es)
               await saveState(chatId, state)  // v4.0: persist to DB
               return
             } else if (!state.documentos.dni.dorso) {
@@ -2218,7 +2209,13 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
         if (documentosFaltantes.length > 0) {
           log('webhook', `Documentos faltantes: ${documentosFaltantes.join(', ')}`)
           const listaFaltantes = documentosFaltantes.map(doc => `• ${doc}`).join('\n')
-          await sendWhatsAppMessage(chatId, `¡Joya che! 🔥 Se ven los datos perfectos.\n\nEstamos a un paso solamente. Me falta:\n${listaFaltantes}\n\nMandame el que te falta y listo.`)
+          const _faltLang = state.language || 'es'
+          const _faltMsgs = {
+            es: `¡Joya che! 🔥 Se ven los datos perfectos.\n\nEstamos a un paso solamente. Me falta:\n${listaFaltantes}\n\nMandame el que te falta y listo.`,
+            en: `Looking great! 🔥 Data looks perfect.\n\nAlmost there — still missing:\n${listaFaltantes}\n\nSend what's left and we're done.`,
+            pt: `Ótimo! 🔥 Os dados estão perfeitos.\n\nQuase lá — ainda falta:\n${listaFaltantes}\n\nManda o que falta e terminamos.`,
+          }
+          await sendWhatsAppMessage(chatId, _faltMsgs[_faltLang] || _faltMsgs.es)
           await saveState(chatId, state)
           return
         }
@@ -2234,15 +2231,31 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
           state.step = 'completando_datos'
           state.pendingFields = missing
           const firstField = missing[0]
-          const sourceText = firstField.source === 'DNI' ? 'del DNI' : 'de tu REPROCANN'
-          await sendWhatsAppMessage(chatId, `¡Ufff! 😅 Logré leer algunos datos nada más.\n\nMe falta tu ${firstField.label} ${sourceText}. ¿Me lo escribís?`)
+          const _mfLang = state.language || 'es'
+          const _mfSrc = {
+            es: firstField.source === 'DNI' ? 'del DNI' : 'de tu REPROCANN',
+            en: firstField.source === 'DNI' ? 'from your ID' : 'from your REPROCANN',
+            pt: firstField.source === 'DNI' ? 'do seu RG' : 'do seu REPROCANN',
+          }
+          const _mfMsgs = {
+            es: `¡Ufff! 😅 Logré leer algunos datos nada más.\n\nMe falta tu ${firstField.label} ${_mfSrc.es}. ¿Me lo escribís?`,
+            en: `Hmm 😅 I could only read some of the data.\n\nI'm missing your ${firstField.label} ${_mfSrc.en}. Can you write it?`,
+            pt: `Hmm 😅 Só consegui ler alguns dados.\n\nPreciso do seu ${firstField.label} ${_mfSrc.pt}. Pode escrever?`,
+          }
+          await sendWhatsAppMessage(chatId, _mfMsgs[_mfLang] || _mfMsgs.es)
           await saveState(chatId, state)
           return
         }
 
         // Todos los documentos y campos están completos!
         state.step = 'completado'
-        await sendWhatsAppMessage(chatId, `¡Impecaaa! 🎉\n\nYa tenemos todo lo que necesitamos para que nuestro staff lo revise y se comunique contigo para finalizar la inscripción.\n\nPero ya tenés un pie adentro del mejor club cannábico en Argentina! 🌿\n\nNos vemos en breve, bienvenido/a a Indajaus.`)
+        const _imgDoneLang = state.language || 'es'
+        const _imgDoneMsgs = {
+          es: `¡Impecaaa! 🎉\n\nYa tenemos todo lo que necesitamos para que nuestro staff lo revise y se comunique contigo para finalizar la inscripción.\n\nPero ya tenés un pie adentro del mejor club cannábico en Argentina! 🌿\n\nNos vemos en breve, bienvenido/a a Indajaus.`,
+          en: `All done! 🎉\n\nWe have everything we need — our staff will review and reach out to finalize your membership.\n\nYou're one step away from Argentina's best cannabis club! 🌿\n\nSee you soon, welcome to Indajaus.`,
+          pt: `Perfeito! 🎉\n\nJá temos tudo o que precisamos — nossa equipe vai revisar e entrar em contato para finalizar sua associação.\n\nVocê já tem um pé dentro do melhor clube de cannabis da Argentina! 🌿\n\nAté logo, bem-vindo/a à Indajaus.`,
+        }
+        await sendWhatsAppMessage(chatId, _imgDoneMsgs[_imgDoneLang] || _imgDoneMsgs.es)
 
         if (ADMIN_EMAIL) {
           log('webhook', `Enviando email de notificación para ${state.nombre}`)
