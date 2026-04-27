@@ -32,27 +32,9 @@ const FALLBACK = {
 }
 
 const GREET = {
-  es: `Bienvenido a Indajaus 🌿
-
-Te estás comunicando con nuestro club cannábico en Argentina. 
-Somos una empresa que viene desde Uruguay trayendo más de una década de experiencia en el sector del cannabis. 
-Estás en el lugar indicado.
-
-¿Cuál es tu nombre?`,
-  en: `Welcome to Indajaus 🌿
-
-You're reaching our cannabis club in Argentina. 
-We're a company from Uruguay with over a decade of experience in the cannabis sector. 
-You're in the right place.
-
-What's your name?`,
-  pt: `Bem-vindo à Indajaus 🌿
-
-Você está entrando em contato com nosso club de cannabis na Argentina. 
-Somos uma empresa do Uruguai com mais de uma década de experiência no setor. 
-Você está no lugar certo.
-
-Qual é o seu nome?`
+  es: `¡Hola! 👋 Soy el asistente de IA de *Indajaus*, un club cannábico en Argentina 🌿\n\n¿En qué te puedo ayudar?`,
+  en: `Hello! 👋 I'm *Indajaus*'s AI assistant, an Argentine cannabis club 🌿\n\nHow can I help you?`,
+  pt: `Olá! 👋 Sou o assistente de IA da *Indajaus*, um clube de cannabis argentino 🌿\n\nComo posso ajudar?`,
 }
 
 const OPTIONS = {
@@ -144,7 +126,9 @@ export async function runGenerator({ intent, knowledge = [], history = [], state
   let forcedReply = null
 
   // Check for greet intent with no history or greet with "hola" message
-  if (intent === 'greet' && (!recentHistory.length || message.toLowerCase().match(/^hola+$/))) {
+  // Guard: don't override with GREET when user already has a name (index.js handles that case)
+  const hasName = state?.nombre && state.nombre !== 'Amigo'
+  if (intent === 'greet' && !hasName && (!recentHistory.length || message.toLowerCase().match(/^hola+$/))) {
     forcedReply = getGreeting(lang)
   } else if (isInfoOptionsRequest(intent, currentStep, message, recentHistory, state)) {
     forcedReply = getOptions(lang)

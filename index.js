@@ -1885,18 +1885,34 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
         // Antes, si un estado quedaba con nombre='Amigo' de un fallback previo, el bot no volvía a preguntar.
         const nombreInvalido = !state.nombre || state.nombre === 'Amigo' || state.nombre.trim() === '' || state.nombre === chatId
         if (nombreInvalido && state.step !== 'solicitando_nombre' && state.step !== 'aclarando_nombre') {
-          // Si el primer mensaje ya trae intención de afiliación ("Hola quería inscribirme"),
-          // usá un saludo más cálido y contextual en vez del genérico.
           const lowerFirst = message.toLowerCase()
           const hasAffiliateIntent = /(inscrib|afili|asoci|anotar|sumar|unir|registr|hacerme socio|ser socio|hacerse socio)/i.test(lowerFirst)
             && !lowerFirst.endsWith('?') && !/^(c[oó]mo|qu[eé]|cu[aá]nto|d[oó]nde|cu[aá]ndo|por\s?qu[eé])\b/.test(lowerFirst)
-          const greeting = hasAffiliateIntent
-            ? `¡Genial que quieras sumarte! 🌿 Antes que nada, ¿cómo te llamás?`
-            : `¡Hola! 👋 Bienvenido al club. ¿Cómo te llamás así te puedo ayudar mejor?`
-          await sendWhatsAppMessage(chatId, greeting)
+          const lang = state.language || 'es'
+          const INTRO = {
+            es: (aff) => `¡Hola! 👋\n\nSoy el *asistente de IA* de *Indajaus*, un club cannábico en Argentina 🌿\n\nEstoy aquí para acompañarte en la inscripción, resolver dudas sobre cannabis medicinal y leyes, y entiendo *audios* 🎙️ e *imágenes* 📸. Hablo *español, inglés y portugués*.\n\n${aff ? '¡Genial que quieras sumarte! ' : ''}¿Cómo te llamás para empezar?`,
+            en: (aff) => `Hello! 👋\n\nI'm *Indajaus*'s *AI assistant*, an Argentine cannabis club 🌿\n\nI'm here to help you with membership, answer questions about medical cannabis and Argentine law, and I understand *voice notes* 🎙️ and *images* 📸. I speak *Spanish, English and Portuguese*.\n\n${aff ? 'Great that you want to join! ' : ''}What\'s your name to get started?`,
+            pt: (aff) => `Olá! 👋\n\nSou o *assistente de IA* da *Indajaus*, um clube de cannabis argentino 🌿\n\nEstou aqui para ajudar com a associação, responder dúvidas sobre cannabis medicinal e leis, e entendo *áudios* 🎙️ e *imagens* 📸. Falo *espanhol, inglês e português*.\n\n${aff ? 'Que bom que quer se associar! ' : ''}Como você se chama para começar?`,
+          }
+          await sendWhatsAppMessage(chatId, (INTRO[lang] || INTRO.es)(hasAffiliateIntent))
           state.step = 'solicitando_nombre'
           if (hasAffiliateIntent) state.wants_affiliation_pending = true
           state.last_greeting_at = new Date().toISOString()
+          await saveState(chatId, state)
+          return
+        }
+
+        // Usuario conocido que saluda → retomamos conversación sin pasar al pipeline
+        const isGreetMsg = /^(hola|hello|hi\b|hey\b|ola\b|oi\b|olá|buenas?|buen\s?d[íi]a|buenos\s?d[íi]as|bom\s|boa\s|good\s)/i.test(message.trim())
+        const ACTIVE_STEPS = ['recibiendo_documentos', 'completando_datos', 'solicitando_nombre', 'aclarando_nombre', 'seleccionando_idioma']
+        if (!nombreInvalido && isGreetMsg && !ACTIVE_STEPS.includes(state.step)) {
+          const lang = state.language || 'es'
+          const RETURN_GREET = {
+            es: `¡Hola de nuevo, *${state.nombre}*! 👋\n\n¿En qué te puedo ayudar hoy?`,
+            en: `Hey *${state.nombre}*, welcome back! 👋\n\nHow can I help you today?`,
+            pt: `Olá, *${state.nombre}*, que bom te ver! 👋\n\nComo posso ajudar hoje?`,
+          }
+          await sendWhatsAppMessage(chatId, RETURN_GREET[lang] || RETURN_GREET.es)
           await saveState(chatId, state)
           return
         }
@@ -1939,28 +1955,25 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
             state.step = 'recibiendo_documentos'
             state.documentos = state.documentos || { dni: { frente: null, dorso: null }, reprocann: { frente: null, dorso: null } }
             delete state.wants_affiliation_pending
-            await sendWhatsAppMessage(chatId, `¡Un gusto, ${state.nombre}! 🌿
-
-Para arrancar la inscripción necesito 2 cosas:
-• Tu DNI argentino (frente y dorso)
-• Tu certificado REPROCANN
-
-Mandame las fotos cuando puedas 📸`)
+            const lang = state.language || 'es'
+            const DOC_REQUEST = {
+              es: `¡Un gusto, *${state.nombre}*! 🌿\n\nPara arrancar la inscripción necesito 2 cosas:\n• Tu DNI argentino (frente y dorso)\n• Tu certificado REPROCANN\n\nMandame las fotos cuando puedas 📸`,
+              en: `Nice to meet you, *${state.nombre}*! 🌿\n\nTo start the membership process I need 2 things:\n• Your Argentine ID (front and back)\n• Your REPROCANN certificate\n\nSend the photos whenever you're ready 📸`,
+              pt: `Prazer, *${state.nombre}*! 🌿\n\nPara iniciar a associação preciso de 2 coisas:\n• Seu RG argentino (frente e verso)\n• Seu certificado REPROCANN\n\nEnvie as fotos quando puder 📸`,
+            }
+            await sendWhatsAppMessage(chatId, DOC_REQUEST[lang] || DOC_REQUEST.es)
             await saveState(chatId, state)
             log('webhook', `Saludo+afiliación combinados: ${formatChatRef(chatId)} → recibiendo_documentos directo`)
             return
           }
 
-          // [claude-opus-4.7] 2026-04-24: inscripción primero, consultas secundarias.
-          await sendWhatsAppMessage(chatId, `¡Un gusto, ${state.nombre}! 🌿
-
-Acá podemos ayudarte con:
-• 📝 Inscripción al club — es lo principal, te cuento qué necesitamos
-• 📚 Info sobre Indajaus — quiénes somos, cómo funciona, precios
-• 🌿 Dudas sobre cannabis — genéticas, REPROCANN, leyes
-• 👥 Hablar con alguien — si prefieres atención humana
-
-¿Con qué te podemos ayudar?`)
+          const lang = state.language || 'es'
+          const WELCOME_MENU = {
+            es: `¡Un gusto, *${state.nombre}*! 🌿\n\nAcá podemos ayudarte con:\n• 📝 Inscripción al club — es lo principal, te cuento qué necesitamos\n• 📚 Info sobre Indajaus — quiénes somos, cómo funciona, precios\n• 🌿 Dudas sobre cannabis — genéticas, REPROCANN, leyes\n• 👥 Hablar con alguien — si preferís atención humana\n\n¿Con qué te puedo ayudar?`,
+            en: `Nice to meet you, *${state.nombre}*! 🌿\n\nHere's how I can help:\n• 📝 Club membership — the main one, I'll tell you what we need\n• 📚 About Indajaus — who we are, how it works, prices\n• 🌿 Cannabis questions — genetics, REPROCANN, laws\n• 👥 Talk to someone — if you prefer a human\n\nWhat can I help you with?`,
+            pt: `Prazer, *${state.nombre}*! 🌿\n\nPosso ajudar com:\n• 📝 Associação ao clube — o principal, vou te explicar o que precisamos\n• 📚 Sobre Indajaus — quem somos, como funciona, preços\n• 🌿 Dúvidas sobre cannabis — genética, REPROCANN, leis\n• 👥 Falar com alguém — se preferir atendimento humano\n\nComo posso ajudar?`,
+          }
+          await sendWhatsAppMessage(chatId, WELCOME_MENU[lang] || WELCOME_MENU.es)
           await saveState(chatId, state)
           return
         }
