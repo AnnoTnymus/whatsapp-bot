@@ -25,6 +25,7 @@ const MODEL = 'claude-opus-4-7'
 const RESEND_API_KEY = process.env.RESEND_API_KEY
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL
 const ADMIN_API_TOKEN = process.env.ADMIN_API_TOKEN?.trim()
+const CLIENT_API_TOKEN = process.env.CLIENT_API_TOKEN?.trim()
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET?.trim()
 const REQUIRE_WEBHOOK_SECRET = process.env.REQUIRE_WEBHOOK_SECRET === 'true' || process.env.NODE_ENV === 'production'
 const ENABLE_TEST_ROUTES = process.env.ENABLE_TEST_ROUTES === 'true'
@@ -91,20 +92,44 @@ function tokenMatches(expected, ...candidates) {
   return candidates.some(candidate => safeCompare(expected, candidate))
 }
 
+// Returns 'admin', 'client', or null based on which token matches.
+function resolveRole(req) {
+  const incomingToken = req.get('x-admin-token')?.trim() || getBearerToken(req.get('authorization'))
+  if (!incomingToken) return null
+  if (ADMIN_API_TOKEN && safeCompare(ADMIN_API_TOKEN, incomingToken)) return 'admin'
+  if (CLIENT_API_TOKEN && safeCompare(CLIENT_API_TOKEN, incomingToken)) return 'client'
+  return null
+}
+
 function requireAdminAccess(req, res) {
   if (!ADMIN_API_TOKEN) {
     res.status(503).json({ ok: false, error: 'ADMIN_API_TOKEN no configurado' })
     return false
   }
-
-  const adminHeader = req.get('x-admin-token')?.trim()
-  const bearerToken = getBearerToken(req.get('authorization'))
-  if (!tokenMatches(ADMIN_API_TOKEN, adminHeader, bearerToken)) {
+  const role = resolveRole(req)
+  if (role === 'client') {
+    res.status(403).json({ ok: false, error: 'forbidden' })
+    return false
+  }
+  if (role !== 'admin') {
     res.status(401).json({ ok: false, error: 'unauthorized' })
     return false
   }
-
   return true
+}
+
+// Allows both admin and client tokens. Returns the resolved role, or null + sends 401/503.
+function requireDashboardAccess(req, res) {
+  if (!ADMIN_API_TOKEN) {
+    res.status(503).json({ ok: false, error: 'ADMIN_API_TOKEN no configurado' })
+    return null
+  }
+  const role = resolveRole(req)
+  if (!role) {
+    res.status(401).json({ ok: false, error: 'unauthorized' })
+    return null
+  }
+  return role
 }
 
 function isWebhookAuthorized(req) {
@@ -2306,7 +2331,7 @@ function validateNameMatch(nombreDni, nombreReprocann) {
 }
 
 app.get('/admin/qa-report', async (req, res) => {
-  if (!requireAdminAccess(req, res)) return
+  if (!requireDashboardAccess(req, res)) return
   if (!supabase) return res.status(500).json({ ok: false, error: 'Supabase no configurado' })
   if (!ANTHROPIC_KEY) return res.status(500).json({ ok: false, error: 'ANTHROPIC_KEY no configurada' })
 
@@ -2408,7 +2433,7 @@ No inventes datos. Si no hay suficiente material, decilo en vez de rellenar.`
 // ========== v4.2: GREENAPI STATUS ==========
 
 app.get('/admin/greenapi-status', (req, res) => {
-  if (!requireAdminAccess(req, res)) return
+  if (!requireDashboardAccess(req, res)) return
   res.json({
     ok: true,
     ...greenApiStats,
@@ -2422,12 +2447,20 @@ app.get('/admin/greenapi-status', (req, res) => {
 
 // ========== ADMIN CONFIG (OpenCode/Rolli 2026-04-24) ==========
 
+// Token verification — returns role so the dashboard can apply permissions.
+app.get('/admin/verify', (req, res) => {
+  const role = requireDashboardAccess(req, res)
+  if (!role) return
+  res.json({ ok: true, role })
+})
+
 // Backward-compat: redirige al dashboard unificado
 app.get('/admin/config-html', (req, res) => res.redirect('/dashboard.html'))
 app.get('/admin', (req, res) => res.redirect('/dashboard.html'))
 
 app.get('/admin/config', async (req, res) => {
-  if (!requireAdminAccess(req, res)) return
+  const role = requireDashboardAccess(req, res)
+  if (!role) return
   try {
     const { data, error } = await supabase
       .from('bot_config')
@@ -2435,6 +2468,11 @@ app.get('/admin/config', async (req, res) => {
       .eq('id', 'whatsapp_bot')
       .single()
     if (error) throw error
+    // Clients only receive club-public fields, not bot internals.
+    if (role === 'client') {
+      const { club_nombre, club_ubicacion, horarios, geneticas, reprocann_url } = data || {}
+      return res.json({ ok: true, config: { club_nombre, club_ubicacion, horarios, geneticas, reprocann_url } })
+    }
     res.json({ ok: true, config: data })
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message })
@@ -2473,7 +2511,7 @@ app.get('/admin/knowledge-stats', async (req, res) => {
 
 // Admin leads endpoint — para dashboard de validación de nombres + estado de flujo
 app.get('/admin/leads', async (req, res) => {
-  if (!requireAdminAccess(req, res)) return
+  if (!requireDashboardAccess(req, res)) return
   if (!supabase) return res.status(500).json({ ok: false, error: 'Supabase no configurado' })
 
   const limit = Math.min(parseInt(req.query.limit) || 100, 200)
@@ -2544,7 +2582,7 @@ app.get('/admin/leads', async (req, res) => {
 
 // Historial completo de una conversación (todos los mensajes user/bot)
 app.get('/admin/conversation/:chatId', async (req, res) => {
-  if (!requireAdminAccess(req, res)) return
+  if (!requireDashboardAccess(req, res)) return
   if (!supabase) return res.status(500).json({ ok: false, error: 'Supabase no configurado' })
 
   const chatId = decodeURIComponent(req.params.chatId)
@@ -2690,7 +2728,7 @@ app.get('/admin/skills/usage', async (req, res) => {
 
 // Lista de chat IDs únicos con resumen — para tabs de "todas las conversaciones"
 app.get('/admin/conversations', async (req, res) => {
-  if (!requireAdminAccess(req, res)) return
+  if (!requireDashboardAccess(req, res)) return
   if (!supabase) return res.status(500).json({ ok: false, error: 'Supabase no configurado' })
 
   const limit = Math.min(parseInt(req.query.limit) || 50, 200)
