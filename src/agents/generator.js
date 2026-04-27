@@ -93,6 +93,7 @@ O que te interessa?`
 
 function getGreeting(lang = 'es') { return GREET[lang] || GREET.es }
 function getOptions(lang = 'es') { return OPTIONS[lang] || OPTIONS.es }
+function getFallback(lang = 'es') { return FALLBACK[lang] || FALLBACK.es }
 
 const INFO_OPTIONS_KEYWORDS = ['menu', 'menú', 'opciones', 'qué puedes hacer', 'qué hacés', 'ayuda', 'help', 'que hace', 'que hace', 'informacion', 'informação', 'opções', 'ajuda', 'como funciona']
 
