@@ -1173,7 +1173,7 @@ async function notifyAdmin(chatId, nombre, dniData, reprocannData, collectedData
 }
 
 // v4.2: Notifica al admin por email cuando un usuario pide hablar con una persona
-async function notifyHumanHandover(chatId, nombre, userMessage) {
+async function notifyHumanHandover(chatId, nombre, userMessage, opts = {}) {
   if (!resend || !ADMIN_EMAIL) {
     log('handover', `⚠️ Usuario pidió humano pero resend/ADMIN_EMAIL no configurado — notificación NO enviada`)
     return
@@ -1203,7 +1203,7 @@ async function notifyHumanHandover(chatId, nombre, userMessage) {
     const { data, error } = await resend.emails.send({
       from: `Bot Club <${DEFAULT_FROM_EMAIL}>`,
       to: ADMIN_EMAIL,
-      subject: `📞 Atención humana solicitada — ${safeName} (+${phone})`,
+      subject: opts.subject || `📞 Atención humana solicitada — ${safeName} (+${phone})`,
       html,
     })
     if (error) {
@@ -1795,7 +1795,7 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
         
         // Check if user explicitly wants to change language
         const lowerMsg = message.toLowerCase()
-        const wantsToChangeLang = /(cambiar.*idioma|cambiar.*lenguaje|cambiar.*idiom|change.*language|change.*english|change.*spanish|change.*portuguese|switch.*english|switch.*spanish|switch.*portuguese|cambiar a español|cambiar a inglés|quiero en inglés|quiero en español|mudar.*idioma|quero em português)/i.test(lowerMsg)
+        const wantsToChangeLang = /(cambiar.*idioma|cambiar.*lenguaje|cambiar.*idiom|change.*language|change.*english|change.*spanish|change.*portuguese|switch.*english|switch.*spanish|switch.*portuguese|cambiar a español|cambiar a inglés|quiero en inglés|quiero en español|mudar.*idioma|quero em português|hablar.*idioma|hablar.*inglés|hablar.*ingles|hablar.*español|hablar.*portugues|otro idioma|other language|outra língua|outra lingua|speak.*english|speak.*spanish|speak.*portuguese|en inglés|en ingles|in english|em português|em portugues)/i.test(lowerMsg)
 
         // Detect language from this message
         const detectedLang = detectLanguage(message)
@@ -2049,7 +2049,12 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
         const _noContactMsg = /(no.*contact|todav[ií]a.*no|nadie.*llam|nadie.*escrib|sin.*noticias|no.*llamaron|no.*escribieron|still.*waiting|no one.*contact|haven't.*heard|no.*respond|sem.*contato|ninguém.*contact|ainda.*não)/i.test(lowerMsg)
         if (_noContactSteps.includes(state.step) && _noContactMsg) {
           log('webhook', `Re-notificando staff para ${formatChatRef(chatId)} (step=${state.step})`)
-          await notifyHumanHandover(chatId, state.nombre_completo || state.nombre, `[RE-AVISO] Sin contacto del staff — "${message}"`)
+          await notifyHumanHandover(
+            chatId,
+            state.nombre_completo || state.nombre,
+            `Sin contacto confirmado por el usuario: "${message}"`,
+            { subject: `🔔 Re-aviso: ${state.nombre_completo || state.nombre || 'usuario'} aún no fue contactado (+${(chatId || '').replace('@c.us', '')})` }
+          )
           const _rcLang = state.language || 'es'
           const _rcMsgs = {
             es: `Entendido *${state.nombre}* 🙏 Ya le avisé de nuevo al staff — te van a contactar pronto. ¿Necesitás algo más mientras tanto?`,

@@ -331,7 +331,18 @@ import('fs').then(({ readFileSync }) => {
       // Re-notification detector
       assert(indexSrc.includes('_noContactMsg'), 'has no-contact detector')
       assert(indexSrc.includes('_noContactSteps'), 'has no-contact steps array')
-      assert(indexSrc.includes('[RE-AVISO]'), 're-notification tagged for admin')
+      assert(indexSrc.includes('Re-aviso:'), 're-notification has distinct email subject')
+      assert(!indexSrc.includes('[RE-AVISO]'), 'old [RE-AVISO] tag replaced by proper subject')
+
+      // Language change regex covers natural phrases
+      const langChangeRegex = indexSrc.match(/const wantsToChangeLang = (.+)/)?.[1] || ''
+      assert(langChangeRegex.includes('hablar.*idioma'), 'wantsToChangeLang: covers "hablar en otro idioma"')
+      assert(langChangeRegex.includes('otro idioma'), 'wantsToChangeLang: covers "otro idioma"')
+      assert(langChangeRegex.includes('speak.*english'), 'wantsToChangeLang: covers "speak english"')
+      assert(langChangeRegex.includes('en inglés|en ingles'), 'wantsToChangeLang: covers "en inglés"')
+
+      // notifyHumanHandover accepts opts.subject
+      assert(indexSrc.includes('opts.subject ||'), 'notifyHumanHandover: subject override supported')
 
       // ──────────────────────────────────────────────────────────────────────
       // Suite 13 — Resend email fixes
