@@ -350,52 +350,6 @@
           <div class="w-px bg-green-900/30"></div>
           <div><p class="text-2xl font-bold text-white">0</p><p class="text-xs text-gray-500 mt-0.5">Leads perdidos</p></div>
         </div>
-
-        <!-- Club counter - loading style with spinner -->
-        <div class="mt-10 text-center">
-          <div class="inline-flex items-center gap-4 px-10 py-6 rounded-2xl bg-gradient-to-r from-green-900/40 to-emerald-900/40 border-2 border-green-500/40 shadow-lg shadow-green-900/20">
-            <div class="text-center">
-              <p class="text-5xl font-bold gt">5</p>
-              <p class="text-xs text-gray-400">clubes<br>usando el bot</p>
-            </div>
-            <div class="w-px h-16 bg-green-600/40"></div>
-            <div class="text-center">
-              <p class="text-5xl font-bold gt flex items-center gap-2">
-                <span class="animate-spin inline-block w-5 h-5 border-2 border-green-400 border-t-transparent rounded-full"></span>
-                +2
-              </p>
-              <p class="text-xs text-gray-400">en implementación</p>
-            </div>
-            <div class="w-px h-16 bg-green-600/40"></div>
-            <div class="text-center">
-              <p class="text-5xl font-bold text-green-400">5</p>
-              <p class="text-xs text-gray-400">clientes<br>satisfechos</p>
-            </div>
-            <div class="w-px h-16 bg-green-600/40"></div>
-            <div class="text-center">
-              <p class="text-5xl font-bold text-white" id="web-visitors">15</p>
-              <p class="text-xs text-gray-400">personas<br>activas ahora</p>
-            </div>
-            <div class="w-px h-16 bg-green-600/40"></div>
-            <div class="text-center">
-              <p class="text-5xl font-bold text-green-300">2.4K+</p>
-              <p class="text-xs text-gray-400">mensajes<br>respondidos</p>
-            </div>
-          </div>
-          <p class="text-lg text-gray-200 mt-5 font-medium">🌿 ¿Tu club es el próximo en sumarse?</p>
-          <p class="text-sm text-gray-500">¡Competí por la mejor tecnología del mercado!</p>
-        </div>
-        
-        <script>
-        (function(){
-          var base = 15;
-          var el = document.getElementById('web-visitors');
-          if(el && Math.random() > 0.3) {
-            var extra = Math.floor(Math.random() * 10);
-            el.textContent = base + extra;
-          }
-        })();
-        </script>
       </div>
 
       <!-- Hero preview: the email that arrives automatically -->
@@ -435,6 +389,55 @@
     </div>
   </div>
   <div class="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-[#030b05] to-transparent pointer-events-none"></div>
+</section>
+
+<!-- ═══════ CLUB COUNTER (moved to after hero) ═══════ -->
+<section class="py-16" style="background:linear-gradient(180deg,#030b05,#040c07);">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="text-center">
+      <div class="inline-flex items-center gap-4 px-10 py-6 rounded-2xl bg-gradient-to-r from-green-900/40 to-emerald-900/40 border-2 border-green-500/40 shadow-lg shadow-green-900/20">
+        <div class="text-center">
+          <p class="text-5xl font-bold gt">5</p>
+          <p class="text-xs text-gray-400">clubes<br>usando el bot</p>
+        </div>
+        <div class="w-px h-16 bg-green-600/40"></div>
+        <div class="text-center">
+          <p class="text-5xl font-bold gt flex items-center gap-2">
+            <span class="animate-spin inline-block w-5 h-5 border-2 border-green-400 border-t-transparent rounded-full"></span>
+            +2
+          </p>
+          <p class="text-xs text-gray-400">en implementación</p>
+        </div>
+        <div class="w-px h-16 bg-green-600/40"></div>
+        <div class="text-center">
+          <p class="text-5xl font-bold text-green-400">5</p>
+          <p class="text-xs text-gray-400">clientes<br>satisfechos</p>
+        </div>
+        <div class="w-px h-16 bg-green-600/40"></div>
+        <div class="text-center">
+          <p class="text-5xl font-bold text-white" id="web-visitors">15</p>
+          <p class="text-xs text-gray-400">personas<br>activas ahora</p>
+        </div>
+        <div class="w-px h-16 bg-green-600/40"></div>
+        <div class="text-center">
+          <p class="text-5xl font-bold text-green-300">2.4K+</p>
+          <p class="text-xs text-gray-400">mensajes<br>respondidos</p>
+        </div>
+      </div>
+      <p class="text-lg text-gray-200 mt-5 font-medium">🌿 ¿Tu club es el próximo en sumarse?</p>
+      <p class="text-sm text-gray-500">¡Competí por la mejor tecnología del mercado!</p>
+    </div>
+  </div>
+  <script>
+  (function(){
+    var base = 15;
+    var el = document.getElementById('web-visitors');
+    if(el && Math.random() > 0.3) {
+      var extra = Math.floor(Math.random() * 10);
+      el.textContent = base + extra;
+    }
+  })();
+  </script>
 </section>
 
 <!-- ═══════ CAPABILITIES DEMO ═══════ -->
