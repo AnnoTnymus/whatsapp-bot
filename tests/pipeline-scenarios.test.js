@@ -345,6 +345,24 @@ import('fs').then(({ readFileSync }) => {
       assert(indexSrc.includes('opts.subject ||'), 'notifyHumanHandover: subject override supported')
 
       // ──────────────────────────────────────────────────────────────────────
+      // Suite 15 — Language menu + completado handover
+      // ──────────────────────────────────────────────────────────────────────
+      console.log('\n══ Suite 15: Language menu + completado-aware handover ══')
+
+      // Language menu: new text with flags
+      assert(indexSrc.includes('🇪🇸'), 'language menu: Spain flag')
+      assert(indexSrc.includes('🇺🇸'), 'language menu: US flag')
+      assert(indexSrc.includes('🇧🇷'), 'language menu: Brazil flag')
+      assert(indexSrc.includes('Soy trilingüe') || indexSrc.includes('trilíngue'), 'language menu: trilingual intro')
+      assert(indexSrc.includes('número o escribí el nombre') || indexSrc.includes('number or type the language'), 'language menu: says can type name too')
+
+      // Handover: step-aware (completado/inscripto don't offer inscription)
+      assert(indexSrc.includes('_hoAlreadyDone'), 'pipeline handover: step-aware inscription guard')
+      assert(indexSrc.includes('_legHoAlreadyDone'), 'legacy handover: step-aware inscription guard')
+      assert(indexSrc.includes("['completado', 'inscripto'].includes(state?.step)"), 'pipeline handover: checks completado+inscripto')
+      assert(indexSrc.includes("['completado', 'inscripto'].includes(state?.step)"), 'legacy handover: checks completado+inscripto')
+
+      // ──────────────────────────────────────────────────────────────────────
       // Suite 13 — Resend email fixes
       // ──────────────────────────────────────────────────────────────────────
       console.log('\n══ Suite 13: Resend email fixes ══')

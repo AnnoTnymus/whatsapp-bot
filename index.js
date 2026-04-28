@@ -1429,10 +1429,15 @@ async function runNewPipeline(msg, chatId, state) {
     // Respuesta coherente al usuario
     const nombreSaludo = state?.nombre && state.nombre !== 'Amigo' ? `, ${state.nombre}` : ''
     const _hoLang = state?.language || 'es'
-    const _hoMsgs = {
+    const _hoAlreadyDone = ['completado', 'inscripto'].includes(state?.step)
+    const _hoMsgs = _hoAlreadyDone ? {
+      es: `Listo${nombreSaludo} 👋 Ya notifiqué al staff y te van a contactar apenas puedan.\n\nMientras tanto podemos charlar de lo que necesites 🌿`,
+      en: `Got it${nombreSaludo} 👋 I've notified the staff and they'll reach out soon.\n\nMeanwhile feel free to ask me anything 🌿`,
+      pt: `Feito${nombreSaludo} 👋 Notifiquei o staff e eles entrarão em contato em breve.\n\nEnquanto isso pode me perguntar qualquer coisa 🌿`,
+    } : {
       es: `Listo${nombreSaludo} 👋 Ya notifiqué al staff y te van a contactar apenas puedan.\n\nMientras tanto puedo contarte sobre el club, las genéticas disponibles, cómo funciona el REPROCANN, o arrancar con la inscripción si preferís ir avanzando. ¿Te interesa alguna?`,
-      en: `Got it${nombreSaludo} 👋 I've notified the staff and they'll reach out as soon as they can.\n\nMeanwhile I can tell you about the club, available genetics, how REPROCANN works, or we can start the membership process if you'd like to move forward. Interested?`,
-      pt: `Feito${nombreSaludo} 👋 Notifiquei o staff e eles vão entrar em contato assim que puderem.\n\nEnquanto isso posso te contar sobre o clube, as genéticas disponíveis, como funciona o REPROCANN, ou podemos iniciar o processo de associação se preferir avançar. Tem interesse?`,
+      en: `Got it${nombreSaludo} 👋 I've notified the staff and they'll reach out as soon as they can.\n\nMeanwhile I can tell you about the club, available genetics, how REPROCANN works, or we can start the membership process if you'd like. Interested?`,
+      pt: `Feito${nombreSaludo} 👋 Notifiquei o staff e eles vão entrar em contato assim que puderem.\n\nEnquanto isso posso te contar sobre o clube, as genéticas disponíveis, como funciona o REPROCANN, ou iniciar o processo de associação. Tem interesse?`,
     }
     const handoverReply = _hoMsgs[_hoLang] || _hoMsgs.es
 
@@ -1809,9 +1814,9 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
         if (wantsToChangeLang) {
           state.step = 'seleccionando_idioma'
           const langMenus = {
-            es: '🌍 ¿Qué idioma preferís?\n\n1️⃣ Español\n2️⃣ English\n3️⃣ Português\n\nRespondé con el número.',
-            en: '🌍 What language do you prefer?\n\n1️⃣ Español\n2️⃣ English\n3️⃣ Português\n\nReply with the number.',
-            pt: '🌍 Qual idioma você prefere?\n\n1️⃣ Español\n2️⃣ English\n3️⃣ Português\n\nResponda com o número.',
+            es: `¡Sí, obvio! Soy trilingüe jaja 😄\n\n¿En cuál idioma preferís conversar?\n\n🇪🇸 1 — Español\n🇺🇸 2 — English\n🇧🇷 3 — Português\n\nRespondé con el número o escribí el nombre del idioma.`,
+            en: `Of course! I'm trilingual haha 😄\n\nWhich language would you like to chat in?\n\n🇪🇸 1 — Español\n🇺🇸 2 — English\n🇧🇷 3 — Português\n\nReply with the number or type the language name.`,
+            pt: `Claro que sim! Sou trilíngue haha 😄\n\nEm qual idioma você prefere conversar?\n\n🇪🇸 1 — Español\n🇺🇸 2 — English\n🇧🇷 3 — Português\n\nResponda com o número ou escreva o nome do idioma.`,
           }
           await sendWhatsAppMessage(chatId, langMenus[state.language] || langMenus.es)
           await saveState(chatId, state)
@@ -2032,7 +2037,12 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
           // mientras espera al humano — objetivo primario sigue siendo la inscripción.
           const nombreSaludo = state.nombre && state.nombre !== 'Amigo' ? `, ${state.nombre}` : ''
           const _legHoLang = state?.language || 'es'
-          const _legHoMsgs = {
+          const _legHoAlreadyDone = ['completado', 'inscripto'].includes(state?.step)
+          const _legHoMsgs = _legHoAlreadyDone ? {
+            es: `Listo${nombreSaludo} 👋 Ya notifiqué al staff y te van a contactar apenas puedan.\n\nMientras tanto podemos charlar de lo que necesites 🌿`,
+            en: `Got it${nombreSaludo} 👋 I've notified the staff and they'll reach out soon.\n\nMeanwhile feel free to ask me anything 🌿`,
+            pt: `Feito${nombreSaludo} 👋 Notifiquei o staff e eles entrarão em contato em breve.\n\nEnquanto isso pode me perguntar qualquer coisa 🌿`,
+          } : {
             es: `Listo${nombreSaludo} 👋 Ya notifiqué al staff y te van a contactar apenas puedan.\n\nMientras tanto puedo contarte sobre el club, las genéticas disponibles, cómo funciona el REPROCANN, o arrancar con la inscripción si preferís. ¿Te interesa?`,
             en: `Got it${nombreSaludo} 👋 I've notified the staff and they'll reach out soon.\n\nMeanwhile I can tell you about the club, available genetics, how REPROCANN works, or we can start your membership. Interested?`,
             pt: `Feito${nombreSaludo} 👋 Notifiquei o staff e eles entrarão em contato em breve.\n\nEnquanto isso posso te contar sobre o clube, genéticas disponíveis, como funciona o REPROCANN, ou iniciar sua associação. Tem interesse?`,
