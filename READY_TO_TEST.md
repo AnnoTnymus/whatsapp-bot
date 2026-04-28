@@ -147,7 +147,8 @@ Antes de empezar a testear:
 - [ ] Supabase tables existen (patient_state, members) ✅
 - [ ] Bot está respondiendo en WhatsApp ✅
 - [ ] SUPABASE_URL en env vars ✅
-- [ ] SUPABASE_ANON_KEY en env vars ✅
+- [ ] SUPABASE_SERVICE_ROLE_KEY en env vars ✅
+- [ ] SUPABASE_ANON_KEY en env vars si audio/STT está habilitado ✅
 - [ ] UptimeRobot pinging /health ✅
 
 ---

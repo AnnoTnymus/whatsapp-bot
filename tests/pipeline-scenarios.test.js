@@ -181,10 +181,25 @@ assert(!shouldShowReturnGreet(knownUser, 'necesito info'), 'known+info msg → N
 // ──────────────────────────────────────────────────────────────────────────────
 console.log('\n══ Suite 6: Language first-contact assignment ══')
 
+function getLanguageSignal(text, detectedLang = detectLanguage(text)) {
+  if (!text || !text.trim()) return { language: 'es', clear: false }
+  const t = text.toLowerCase().trim()
+  if (/^(ok|okay|dale|listo|si|sí|sim|yes|no|jaja|haha|jeje|👍|👌|🙏|\.{1,3}|!+|\?+|\d+)$/i.test(t)) {
+    return { language: detectedLang || 'es', clear: false }
+  }
+  const clearPatterns = {
+    es: /^(hola|hol[aa]+|buenas?|buen\s?d[ií]a|buenos\s?d[ií]as|buenas\s?tardes|buenas\s?noches)\b|\b(gracias|quiero|necesito|puedo|consulta|consultar|afiliar|asociar|inscribir|documentos?|reprocann|cuota|prueba)\b|[áéíóúñ]/i,
+    en: /^(hello|hi\b|hey\b|good morning|good afternoon|good evening|good night)\b|\b(thanks|thank you|please|i need|i want|i would|can i|do you|how are|what is|where is|when is|strains|genetics|membership)\b/i,
+    pt: /^(oi|olá|ola\b|bom dia|boa tarde|boa noite|td bem|tudo bem|valeu)\b|\b(obrigado|obrigada|preciso|posso|vocês|voces|você|voce|quero me|portugu[eê]s)\b/i,
+  }
+  return { language: detectedLang || 'es', clear: Boolean(clearPatterns[detectedLang]?.test(t)) }
+}
+
 function simulateLanguageAssignment(state, message) {
   const detectedLang = detectLanguage(message)
-  if (!state.language) state.language = detectedLang
-  return state.language
+  const signal = getLanguageSignal(message, detectedLang)
+  if (signal.clear) state.language = signal.language
+  return state.language || 'es'
 }
 
 const stateNoLang = { language: null }
@@ -193,9 +208,24 @@ const stateEnLang = { language: 'en' }
 
 assert(simulateLanguageAssignment({ language: null }, 'hello') === 'en',    'no lang + english msg → en')
 assert(simulateLanguageAssignment({ language: null }, 'hola') === 'es',     'no lang + spanish msg → es')
-assert(simulateLanguageAssignment({ language: 'es' }, 'hello') === 'es',   'es set + english msg → stays es')
-assert(simulateLanguageAssignment({ language: 'en' }, 'hola') === 'en',    'en set + spanish msg → stays en')
-assert(simulateLanguageAssignment({ language: 'en' }, 'obrigado') === 'en','en set + portuguese msg → stays en')
+assert(simulateLanguageAssignment({ language: 'es' }, 'hello') === 'en',   'es set + clear english msg → switches en')
+assert(simulateLanguageAssignment({ language: 'en' }, 'hola') === 'es',    'en set + clear spanish msg → switches es')
+assert(simulateLanguageAssignment({ language: 'en' }, 'ok') === 'en',      'en set + ambiguous ok → stays en')
+assert(simulateLanguageAssignment({ language: null }, 'ok') === 'es',      'no lang + ambiguous ok → defaults es')
+
+function simulateReturnGreeting(state, message) {
+  const resolvedLang = simulateLanguageAssignment({ ...state }, message)
+  const RETURN_GREET = {
+    es: `¡Hola de nuevo, *${state.nombre}*! 👋\n\n¿En qué te puedo ayudar hoy?`,
+    en: `Hey *${state.nombre}*, welcome back! 👋\n\nHow can I help you today?`,
+    pt: `Olá, *${state.nombre}*, que bom te ver! 👋\n\nComo posso ajudar hoje?`,
+  }
+  return RETURN_GREET[resolvedLang] || RETURN_GREET.es
+}
+
+const staleEnglishGreeting = simulateReturnGreeting({ language: 'en', nombre: 'Martin' }, 'Hola prueba cuota')
+assert(staleEnglishGreeting.includes('¡Hola de nuevo'), 'stale en + "Hola prueba cuota" → Spanish return greeting')
+assert(!staleEnglishGreeting.includes('welcome back'), 'stale en + Spanish greeting does not return English copy')
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Suite 7 — [[AFILIAR]] marker
@@ -257,7 +287,7 @@ import('fs').then(({ readFileSync }) => {
 
       // Must still appear (correct strings in right places)
       assert(indexSrc.includes('detectedLang'), 'has detectedLang variable')
-      assert(indexSrc.includes("if (!state.language)"), 'language set only on first contact')
+      assert(indexSrc.includes('resolveConversationLanguage'), 'language uses centralized current-message resolver')
       assert(indexSrc.includes('seleccionando_idioma'), 'has language selection step')
       assert(indexSrc.includes('langMenus'), 'has localized language menu')
       assert(indexSrc.includes('RETURN_GREET'), 'has returning user greeting object')

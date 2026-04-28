@@ -67,6 +67,61 @@ function buildFollowUpMessage(followup) {
   return opciones[Math.min(followup.intentos, opciones.length - 1)] || null
 }
 
+const SUPPORTED_LANGUAGES = ['es', 'en', 'pt']
+const DEFAULT_LANGUAGE = 'es'
+
+function detectLanguage(text) {
+  if (!text || !text.trim()) return 'es'
+  const t = text.toLowerCase().trim()
+
+  if (/^(oi|olá|ola\b|ola!|bom dia|boa tarde|boa noite|td bem|tudo bem|valeu)/i.test(t) ||
+      /\b(obrigado|obrigada|preciso|posso|vocês|você|quando\b|também|não\b|está\b|ção\b)/i.test(t)) {
+    return 'pt'
+  }
+
+  if (/^(hello|hi\b|hey\b|good morning|good afternoon|good evening|good night)/i.test(t) ||
+      /\b(hello|thanks|thank you|please|strains|genetics|membership|i need|i want|i would|can i|do you|how are|what is|where is|when is)\b/i.test(t) ||
+      / i /i.test(t) || t.startsWith('i ') || t.startsWith("i'")) {
+    return 'en'
+  }
+
+  if (/[áéíóúñ]/i.test(t)) return 'es'
+
+  return 'es'
+}
+
+function getLanguageSignal(text, detectedLang = detectLanguage(text)) {
+  if (!text || !text.trim()) return { language: DEFAULT_LANGUAGE, clear: false }
+
+  const t = text.toLowerCase().trim()
+  const ambiguous = /^(ok|okay|dale|listo|si|sí|sim|yes|no|jaja|haha|jeje|👍|👌|🙏|\.{1,3}|!+|\?+|\d+)$/i
+  if (ambiguous.test(t)) {
+    return { language: detectedLang || DEFAULT_LANGUAGE, clear: false }
+  }
+
+  const clearPatterns = {
+    es: /^(hola|hol[aa]+|buenas?|buen\s?d[ií]a|buenos\s?d[ií]as|buenas\s?tardes|buenas\s?noches)\b|\b(gracias|quiero|necesito|puedo|consulta|consultar|afiliar|asociar|inscribir|documentos?|reprocann|cuota|prueba)\b|[áéíóúñ]/i,
+    en: /^(hello|hi\b|hey\b|good morning|good afternoon|good evening|good night)\b|\b(thanks|thank you|please|i need|i want|i would|can i|do you|how are|what is|where is|when is|strains|genetics|membership)\b/i,
+    pt: /^(oi|olá|ola\b|bom dia|boa tarde|boa noite|td bem|tudo bem|valeu)\b|\b(obrigado|obrigada|preciso|posso|vocês|voces|você|voce|quero me|portugu[eê]s)\b/i,
+  }
+
+  return {
+    language: detectedLang || DEFAULT_LANGUAGE,
+    clear: Boolean(clearPatterns[detectedLang]?.test(t)),
+  }
+}
+
+function resolveConversationLanguage(message, state, detectedLang = detectLanguage(message)) {
+  const signal = getLanguageSignal(message, detectedLang)
+  const currentLang = SUPPORTED_LANGUAGES.includes(state?.language) ? state.language : null
+
+  if (signal.clear && SUPPORTED_LANGUAGES.includes(signal.language)) {
+    return signal.language
+  }
+
+  return currentLang || DEFAULT_LANGUAGE
+}
+
 // ---------- SUITE 7: Respuestas fuera de flujo ----------
 console.log('🧪 WhatsApp Bot v4.0 — Test Suite (Lógica)')
 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
@@ -245,6 +300,25 @@ assert('TC12.4 recibiendo_documentos → completando_datos válido', () => isVal
 assert('TC12.5 completando_datos → completado válido', () => isValidTransition('completando_datos', 'completado'))
 assert('TC12.6 completado → cualquier otro NO válido', () => !isValidTransition('completado', 'inicio'))
 assert('TC12.7 recibiendo_documentos → completado (skip datos) válido', () => isValidTransition('recibiendo_documentos', 'completado'))
+
+// ---------- SUITE 13: Language resolution ----------
+console.log('\nLanguage Suite 13: stale-state language correction')
+
+assert('TC13.1 stale en + clear Spanish greeting switches to es', () => {
+  return resolveConversationLanguage('Hola prueba cuota', { language: 'en' }) === 'es'
+})
+assert('TC13.2 stale en + ambiguous ok stays en', () => {
+  return resolveConversationLanguage('ok', { language: 'en' }) === 'en'
+})
+assert('TC13.3 no state + ambiguous ok defaults to es', () => {
+  return resolveConversationLanguage('ok', {}) === 'es'
+})
+assert('TC13.4 no state + clear English switches to en', () => {
+  return resolveConversationLanguage('Hello, I need info', {}) === 'en'
+})
+assert('TC13.5 no state + clear Portuguese switches to pt', () => {
+  return resolveConversationLanguage('Oi tudo bem', {}) === 'pt'
+})
 
 // ---------- Resultado ----------
 console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')

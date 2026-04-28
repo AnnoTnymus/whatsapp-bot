@@ -91,7 +91,7 @@
           <h3 id="convModalTitle" class="text-lg font-bold">Conversación</h3>
           <p id="convModalSubtitle" class="text-sm text-gray-600"></p>
         </div>
-        <button onclick="closeConvModal()" class="text-gray-500 hover:text-gray-900 text-2xl leading-none">×</button>
+        <button onclick="closeConvModal()" aria-label="Cerrar modal" class="text-gray-500 hover:text-gray-900 text-2xl leading-none">×</button>
       </div>
       <div id="convModalBody" class="overflow-y-auto p-6 flex-1"></div>
     </div>
@@ -109,7 +109,7 @@
           </div>
           <div class="flex items-center gap-3">
             <span id="roleBadge" class="hidden px-3 py-1 rounded-full text-xs font-semibold"></span>
-            <button onclick="logout()" class="bg-white/20 hover:bg-white/30 text-white border border-white/30 px-4 py-2 rounded-lg transition text-sm backdrop-blur-sm">Logout</button>
+            <button onclick="logout()" class="bg-white/40 hover:bg-white/50 text-white border border-white/30 px-4 py-2 rounded-lg transition text-sm backdrop-blur-sm">Logout</button>
           </div>
         </div>
 
@@ -127,14 +127,14 @@
       </div>
 
       <!-- Tabs -->
-      <div class="flex flex-wrap gap-2">
-        <button onclick="switchTab('leads')" data-tab="leads" class="tab tab-active px-4 py-2 rounded-lg text-sm font-medium transition">📋 Leads</button>
-        <button onclick="switchTab('conversations')" data-tab="conversations" class="tab tab-inactive px-4 py-2 rounded-lg text-sm font-medium transition">💬 Conversaciones</button>
-        <button onclick="switchTab('training')" data-tab="training" class="tab tab-inactive px-4 py-2 rounded-lg text-sm font-medium transition">🎯 Training</button>
-        <button onclick="switchTab('skills')" data-tab="skills" class="tab tab-inactive px-4 py-2 rounded-lg text-sm font-medium transition">🛠️ Skills</button>
-        <button onclick="switchTab('knowledge')" data-tab="knowledge" class="tab tab-inactive px-4 py-2 rounded-lg text-sm font-medium transition">📚 Knowledge</button>
-        <button onclick="switchTab('config')" data-tab="config" class="tab tab-inactive px-4 py-2 rounded-lg text-sm font-medium transition">⚙️ Config</button>
-        <button onclick="switchTab('qa')" data-tab="qa" class="tab tab-inactive px-4 py-2 rounded-lg text-sm font-medium transition">🔍 QA Report</button>
+      <div class="flex flex-wrap gap-2" role="tablist">
+        <button onclick="switchTab('leads')" data-tab="leads" role="tab" id="tab-btn-leads" aria-controls="tab-leads" aria-selected="true" class="tab tab-active px-4 py-2 rounded-lg text-sm font-medium transition">📋 Leads</button>
+        <button onclick="switchTab('conversations')" data-tab="conversations" role="tab" id="tab-btn-conversations" aria-controls="tab-conversations" aria-selected="false" class="tab tab-inactive px-4 py-2 rounded-lg text-sm font-medium transition">💬 Conversaciones</button>
+        <button onclick="switchTab('training')" data-tab="training" role="tab" id="tab-btn-training" aria-controls="tab-training" aria-selected="false" class="tab tab-inactive px-4 py-2 rounded-lg text-sm font-medium transition">🎯 Training</button>
+        <button onclick="switchTab('skills')" data-tab="skills" role="tab" id="tab-btn-skills" aria-controls="tab-skills" aria-selected="false" class="tab tab-inactive px-4 py-2 rounded-lg text-sm font-medium transition">🛠️ Skills</button>
+        <button onclick="switchTab('knowledge')" data-tab="knowledge" role="tab" id="tab-btn-knowledge" aria-controls="tab-knowledge" aria-selected="false" class="tab tab-inactive px-4 py-2 rounded-lg text-sm font-medium transition">📚 Knowledge</button>
+        <button onclick="switchTab('config')" data-tab="config" role="tab" id="tab-btn-config" aria-controls="tab-config" aria-selected="false" class="tab tab-inactive px-4 py-2 rounded-lg text-sm font-medium transition">⚙️ Config</button>
+        <button onclick="switchTab('qa')" data-tab="qa" role="tab" id="tab-btn-qa" aria-controls="tab-qa" aria-selected="false" class="tab tab-inactive px-4 py-2 rounded-lg text-sm font-medium transition">🔍 QA Report</button>
       </div>
     </div>
 
@@ -186,13 +186,13 @@
         <table class="w-full text-sm">
           <thead class="border-b bg-gray-50">
             <tr>
-              <th class="px-3 py-2 text-left">Chat</th>
-              <th class="px-3 py-2 text-left">Nombre</th>
-              <th class="px-3 py-2 text-left">Paso</th>
-              <th class="px-3 py-2 text-left">Match</th>
-              <th class="px-3 py-2 text-left">Docs</th>
-              <th class="px-3 py-2 text-left">Última act.</th>
-              <th class="px-3 py-2"></th>
+              <th scope="col" class="px-3 py-2 text-left">Chat</th>
+              <th scope="col" class="px-3 py-2 text-left">Nombre</th>
+              <th scope="col" class="px-3 py-2 text-left">Paso</th>
+              <th scope="col" class="px-3 py-2 text-left">Match</th>
+              <th scope="col" class="px-3 py-2 text-left">Docs</th>
+              <th scope="col" class="px-3 py-2 text-left">Última act.</th>
+              <th scope="col" class="px-3 py-2"></th>
             </tr>
           </thead>
           <tbody id="leadsTable"><tr><td colspan="7" class="px-3 py-6 text-center text-gray-500">Cargando…</td></tr></tbody>
@@ -212,11 +212,11 @@
         <table class="w-full text-sm">
           <thead class="border-b bg-gray-50">
             <tr>
-              <th class="px-3 py-2 text-left">Chat</th>
-              <th class="px-3 py-2 text-left">Mensajes</th>
-              <th class="px-3 py-2 text-left">Último</th>
-              <th class="px-3 py-2 text-left">Preview</th>
-              <th class="px-3 py-2 text-left">Actualizado</th>
+              <th scope="col" class="px-3 py-2 text-left">Chat</th>
+              <th scope="col" class="px-3 py-2 text-left">Mensajes</th>
+              <th scope="col" class="px-3 py-2 text-left">Último</th>
+              <th scope="col" class="px-3 py-2 text-left">Preview</th>
+              <th scope="col" class="px-3 py-2 text-left">Actualizado</th>
             </tr>
           </thead>
           <tbody id="convTable"><tr><td colspan="5" class="px-3 py-6 text-center text-gray-500">Cargá la pestaña…</td></tr></tbody>
@@ -241,7 +241,7 @@
 
       <div class="bg-white rounded-lg shadow p-3 mb-4 flex flex-wrap gap-3 items-end">
         <div>
-          <label class="block text-xs text-gray-600 mb-1">Score máx</label>
+          <label class="block text-xs text-gray-600 mb-1">Score máximo a mostrar</label>
           <input id="trMaxScore" type="number" value="69" class="px-3 py-2 border rounded text-sm w-24" />
         </div>
         <div class="flex-1 min-w-[200px]">
@@ -255,12 +255,12 @@
         <table class="w-full text-sm">
           <thead class="border-b bg-gray-50">
             <tr>
-              <th class="px-3 py-2 text-left">Score</th>
-              <th class="px-3 py-2 text-left">Chat</th>
-              <th class="px-3 py-2 text-left">User</th>
-              <th class="px-3 py-2 text-left">Bot</th>
-              <th class="px-3 py-2 text-left">Razones</th>
-              <th class="px-3 py-2 text-left">Fecha</th>
+              <th scope="col" class="px-3 py-2 text-left">Score</th>
+              <th scope="col" class="px-3 py-2 text-left">Chat</th>
+              <th scope="col" class="px-3 py-2 text-left">User</th>
+              <th scope="col" class="px-3 py-2 text-left">Bot</th>
+              <th scope="col" class="px-3 py-2 text-left">Razones</th>
+              <th scope="col" class="px-3 py-2 text-left">Fecha</th>
             </tr>
           </thead>
           <tbody id="trainingTable"><tr><td colspan="6" class="px-3 py-6 text-center text-gray-500">Cargá la pestaña…</td></tr></tbody>
@@ -412,7 +412,7 @@
     let currentTab = 'leads'
 
     // Tab visibility per role. Admin sees everything; client sees these tabs only.
-    const CLIENT_TABS = new Set(['leads', 'conversations', 'qa', 'config'])
+    const CLIENT_TABS = new Set(['leads', 'conversations', 'config'])
 
     async function initDashboard() {
       const token = document.getElementById('tokenInput').value.trim()
@@ -456,6 +456,7 @@
       // Role badge
       const badge = document.getElementById('roleBadge')
       badge.classList.remove('hidden')
+      document.getElementById('greenapi').style.display = isAdmin ? '' : 'none'
       if (isAdmin) {
         badge.textContent = 'Admin'
         badge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800'
@@ -501,8 +502,10 @@
       document.querySelectorAll('.tab').forEach(b => {
         if (b.dataset.tab === tab) {
           b.classList.remove('tab-inactive'); b.classList.add('tab-active')
+          b.setAttribute('aria-selected', 'true')
         } else {
           b.classList.remove('tab-active'); b.classList.add('tab-inactive')
+          b.setAttribute('aria-selected', 'false')
         }
       })
       document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'))
@@ -531,15 +534,17 @@
       }
 
       // GreenAPI
-      try {
-        const ga = await fetchAPI('/admin/greenapi-status')
-        if (ga && ga.ok) {
-          const used = ga.uniqueChatsThisMonth || 0
-          const quota = ga.quotaExceeded ? '⚠️ EXCEDIDA' : 'OK'
-          document.getElementById('greenapi').textContent = `GreenAPI: ${used} chats — ${quota}`
-          document.getElementById('greenapi').className = ga.quotaExceeded ? 'text-red-600 font-medium' : 'text-gray-600'
-        }
-      } catch {}
+      if (userRole === 'admin') {
+        try {
+          const ga = await fetchAPI('/admin/greenapi-status')
+          if (ga && ga.ok) {
+            const used = ga.uniqueChatsThisMonth || 0
+            const quota = ga.quotaExceeded ? '⚠️ EXCEDIDA' : 'OK'
+            document.getElementById('greenapi').textContent = `GreenAPI: ${used} chats — ${quota}`
+            document.getElementById('greenapi').className = ga.quotaExceeded ? 'text-red-600 font-medium' : 'text-gray-600'
+          }
+        } catch {}
+      }
 
       document.getElementById('lastRefresh').textContent = `actualizado ${new Date().toLocaleTimeString('es-AR')}`
     }

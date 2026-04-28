@@ -67,6 +67,38 @@ function detectLanguage(text) {
   return 'es'
 }
 
+function getLanguageSignal(text, detectedLang = detectLanguage(text)) {
+  if (!text || !text.trim()) return { language: DEFAULT_LANGUAGE, clear: false }
+
+  const t = text.toLowerCase().trim()
+  const ambiguous = /^(ok|okay|dale|listo|si|sí|sim|yes|no|jaja|haha|jeje|👍|👌|🙏|\.{1,3}|!+|\?+|\d+)$/i
+  if (ambiguous.test(t)) {
+    return { language: detectedLang || DEFAULT_LANGUAGE, clear: false }
+  }
+
+  const clearPatterns = {
+    es: /^(hola|hol[aa]+|buenas?|buen\s?d[ií]a|buenos\s?d[ií]as|buenas\s?tardes|buenas\s?noches)\b|\b(gracias|quiero|necesito|puedo|consulta|consultar|afiliar|asociar|inscribir|documentos?|reprocann|cuota|prueba)\b|[áéíóúñ]/i,
+    en: /^(hello|hi\b|hey\b|good morning|good afternoon|good evening|good night)\b|\b(thanks|thank you|please|i need|i want|i would|can i|do you|how are|what is|where is|when is|strains|genetics|membership)\b/i,
+    pt: /^(oi|olá|ola\b|bom dia|boa tarde|boa noite|td bem|tudo bem|valeu)\b|\b(obrigado|obrigada|preciso|posso|vocês|voces|você|voce|quero me|portugu[eê]s)\b/i,
+  }
+
+  return {
+    language: detectedLang || DEFAULT_LANGUAGE,
+    clear: Boolean(clearPatterns[detectedLang]?.test(t)),
+  }
+}
+
+function resolveConversationLanguage(message, state, detectedLang = detectLanguage(message)) {
+  const signal = getLanguageSignal(message, detectedLang)
+  const currentLang = SUPPORTED_LANGUAGES.includes(state?.language) ? state.language : null
+
+  if (signal.clear && SUPPORTED_LANGUAGES.includes(signal.language)) {
+    return signal.language
+  }
+
+  return currentLang || DEFAULT_LANGUAGE
+}
+
 // Helper to parse language selection from user response
 // Accepts: 1, 2, 3 or any variation of Spanish/English/Portuguese with typos
 function parseLanguageSelection(text) {
@@ -1805,10 +1837,8 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
         // Detect language from this message
         const detectedLang = detectLanguage(message)
 
-        // Set language only on first contact — never auto-overwrite after that
-        if (!state.language) {
-          state.language = detectedLang
-        }
+        // Follow a clear current-language signal, but keep prior language for ambiguous replies.
+        state.language = resolveConversationLanguage(message, state, detectedLang)
 
         // Handle explicit language-change request
         if (wantsToChangeLang) {
@@ -1956,9 +1986,9 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
             delete state.wants_affiliation_pending
             const lang = state.language || 'es'
             const DOC_REQUEST = {
-              es: `¡Un gusto, *${state.nombre}*! 🌿\n\nPara arrancar la inscripción necesito 2 cosas:\n• Tu DNI argentino (frente y dorso)\n• Tu certificado REPROCANN\n\nMandame las fotos cuando puedas 📸`,
-              en: `Nice to meet you, *${state.nombre}*! 🌿\n\nTo start the membership process I need 2 things:\n• Your Argentine ID (front and back)\n• Your REPROCANN certificate\n\nSend the photos whenever you're ready 📸`,
-              pt: `Prazer, *${state.nombre}*! 🌿\n\nPara iniciar a associação preciso de 2 coisas:\n• Seu RG argentino (frente e verso)\n• Seu certificado REPROCANN\n\nEnvie as fotos quando puder 📸`,
+              es: `¡Un gusto, *${state.nombre}*! 🌿\n\nPara arrancar la inscripción necesito 2 cosas:\n• Tu DNI argentino (frente y dorso)\n• Tu certificado REPROCANN\n\nSi antes querés resolver dudas sobre temas legales o genéticas, también puedo ayudarte.\n\nMandame las fotos cuando puedas 📸`,
+              en: `Nice to meet you, *${state.nombre}*! 🌿\n\nTo start the membership process I need 2 things:\n• Your Argentine ID (front and back)\n• Your REPROCANN certificate\n\nIf you first want to ask about legal topics or genetics, I can help with that too.\n\nSend the photos whenever you're ready 📸`,
+              pt: `Prazer, *${state.nombre}*! 🌿\n\nPara iniciar a associação preciso de 2 coisas:\n• Seu RG argentino (frente e verso)\n• Seu certificado REPROCANN\n\nSe antes quiser tirar dúvidas legais ou sobre genéticas, também posso ajudar.\n\nEnvie as fotos quando puder 📸`,
             }
             await sendWhatsAppMessage(chatId, DOC_REQUEST[lang] || DOC_REQUEST.es)
             await saveState(chatId, state)
@@ -1968,9 +1998,9 @@ async function handleMessage(body, msgType, chatId, sender, messageId, t0) {
 
           const lang = state.language || 'es'
           const WELCOME_MENU = {
-            es: `¡Un gusto, *${state.nombre}*! 🌿\n\nAcá podemos ayudarte con:\n• 📝 Inscripción al club — es lo principal, te cuento qué necesitamos\n• 📚 Info sobre Indajaus — quiénes somos, cómo funciona, precios\n• 🌿 Dudas sobre cannabis — genéticas, REPROCANN, leyes\n• 👥 Hablar con alguien — si preferís atención humana\n\n¿Con qué te puedo ayudar?`,
-            en: `Nice to meet you, *${state.nombre}*! 🌿\n\nHere's how I can help:\n• 📝 Club membership — the main one, I'll tell you what we need\n• 📚 About Indajaus — who we are, how it works, prices\n• 🌿 Cannabis questions — genetics, REPROCANN, laws\n• 👥 Talk to someone — if you prefer a human\n\nWhat can I help you with?`,
-            pt: `Prazer, *${state.nombre}*! 🌿\n\nPosso ajudar com:\n• 📝 Associação ao clube — o principal, vou te explicar o que precisamos\n• 📚 Sobre Indajaus — quem somos, como funciona, preços\n• 🌿 Dúvidas sobre cannabis — genética, REPROCANN, leis\n• 👥 Falar com alguém — se preferir atendimento humano\n\nComo posso ajudar?`,
+            es: `¡Un gusto, *${state.nombre}*! 🌿\n\nAcá podemos ayudarte con:\n• 📝 Inscripción al club — es lo principal, te cuento qué necesitamos\n• 📚 Info sobre Indajaus — quiénes somos, cómo funciona, precios\n• 🌿 Dudas sobre cannabis — genéticas, REPROCANN, temas legales y leyes\n• 👥 Hablar con alguien — si preferís atención humana\n\n¿Con qué te puedo ayudar?`,
+            en: `Nice to meet you, *${state.nombre}*! 🌿\n\nHere's how I can help:\n• 📝 Club membership — the main one, I'll tell you what we need\n• 📚 About Indajaus — who we are, how it works, prices\n• 🌿 Cannabis questions — genetics, REPROCANN, legal topics and laws\n• 👥 Talk to someone — if you prefer a human\n\nWhat can I help you with?`,
+            pt: `Prazer, *${state.nombre}*! 🌿\n\nPosso ajudar com:\n• 📝 Associação ao clube — o principal, vou te explicar o que precisamos\n• 📚 Sobre Indajaus — quem somos, como funciona, preços\n• 🌿 Dúvidas sobre cannabis — genéticas, REPROCANN, temas legais e leis\n• 👥 Falar com alguém — se preferir atendimento humano\n\nComo posso ajudar?`,
           }
           await sendWhatsAppMessage(chatId, WELCOME_MENU[lang] || WELCOME_MENU.es)
           await saveState(chatId, state)
@@ -2629,7 +2659,7 @@ function validateNameMatch(nombreDni, nombreReprocann) {
 }
 
 app.get('/admin/qa-report', async (req, res) => {
-  if (!requireDashboardAccess(req, res)) return
+  if (!requireAdminAccess(req, res)) return
   if (!supabase) return res.status(500).json({ ok: false, error: 'Supabase no configurado' })
   if (!ANTHROPIC_KEY) return res.status(500).json({ ok: false, error: 'ANTHROPIC_KEY no configurada' })
 
@@ -2731,7 +2761,7 @@ No inventes datos. Si no hay suficiente material, decilo en vez de rellenar.`
 // ========== v4.2: GREENAPI STATUS ==========
 
 app.get('/admin/greenapi-status', (req, res) => {
-  if (!requireDashboardAccess(req, res)) return
+  if (!requireAdminAccess(req, res)) return
   res.json({
     ok: true,
     ...greenApiStats,

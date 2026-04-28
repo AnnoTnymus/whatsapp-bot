@@ -6,7 +6,12 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "node --watch index.js"
+    "dev": "node --watch index.js",
+    "test": "npm run test:static && npm run test:logic",
+    "test:static": "node --check index.js && node tests/run-v4.1.js && node tests/router-parse.test.js && node tests/evaluator-parse.test.js",
+    "test:logic": "node tests/run-logic.js && node tests/language-selection.test.js",
+    "test:db": "node tests/run-all.js",
+    "test:prod": "node tests/run-all.js"
   },
   "keywords": [
     "whatsapp",

@@ -113,10 +113,11 @@ assert('SYSTEM_PROMPT aclara cuándo usar "che"', () => {
 console.log('\n🧪 Suite 4: Primer contacto — pide nombre, no docs')
 
 assert('Primer contacto: pide nombre con tono cordial', () => {
-  const m = src.match(/Primer contacto.*?sendWhatsAppMessage\(chatId,\s*`([^`]+)`/s)
-  if (!m) throw new Error('no encontré mensaje de primer contacto')
+  const m = src.match(/const INTRO = \{([\s\S]*?)\n\s*\}/)
+  if (!m) throw new Error('no encontré mensajes INTRO de primer contacto')
   if (/boludo/i.test(m[1])) throw new Error(`mensaje inicial tiene "boludo": ${m[1]}`)
   if (/dni|reprocann|documentos/i.test(m[1])) throw new Error(`mensaje inicial pide docs: ${m[1]}`)
+  if (!/nombre|name|chama/i.test(m[1])) throw new Error('mensaje inicial no pide nombre')
   return true
 })
 
@@ -502,8 +503,8 @@ assert('State machine tiene paso aclarando_nombre', () => {
 })
 
 assert('solicitando_nombre invoca parseUserName en lugar de usar el mensaje crudo', () => {
-  // Tomamos el bloque del step solicitando_nombre
-  const block = src.match(/state\.step === 'solicitando_nombre'[\s\S]{0,1500}/)
+  // Tomamos el bloque real de Paso 2; antes hay otros checks de step para seleccion de idioma.
+  const block = src.match(/Paso 2: Parsear nombre[\s\S]{0,1500}/)
   if (!block) throw new Error('no encontré bloque solicitando_nombre')
   if (!/parseUserName\(message\)/.test(block[0]))
     throw new Error('no llama a parseUserName(message)')
@@ -521,7 +522,7 @@ assert('Si necesita_aclarar=true, se pasa a aclarando_nombre y se pregunta', () 
 })
 
 assert('Saludo usa state.nombre (apodo) no nombre_completo', () => {
-  const greet = src.match(/¡Un gusto, \$\{state\.nombre\}/)
+  const greet = src.match(/¡Un gusto,\s+\*?\$\{state\.nombre\}\*?/)
   if (!greet) throw new Error('saludo no usa ${state.nombre}')
   return true
 })

@@ -11,6 +11,8 @@ yarn.lock
 # IDE
 .vscode/
 .idea/
+.claude/skills/
+.opencode/
 *.swp
 *.swo
 *~
@@ -25,6 +27,8 @@ yarn-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+__pycache__/
+*.pyc
 
 # Scratch / debug scripts (ad-hoc, no versionar)
 test-*.mjs

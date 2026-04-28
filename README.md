@@ -29,6 +29,14 @@ cp .env.example .env
 Valores necesarios:
 - `ANTHROPIC_API_KEY`: Tu clave de API de Anthropic
 - `GREEN_API_*`: Credenciales de GreenAPI (instance ID y token)
+- `SUPABASE_URL`: URL del proyecto Supabase
+- `SUPABASE_SERVICE_ROLE_KEY`: clave server-only para persistencia del bot
+- `ADMIN_API_TOKEN`: token para dashboard/admin
+- `WEBHOOK_SECRET`: secreto del webhook en producción
+
+Opcional:
+- `SUPABASE_ANON_KEY`: requerida si está habilitada la transcripción de audios vía Supabase Edge Function
+- `RESEND_API_KEY` + `ADMIN_EMAIL`: requeridos para notificaciones por email
 
 ### 3. Arrancar localmente
 
@@ -40,14 +48,29 @@ npm run dev
 
 El servidor corre en `http://localhost:3000`
 
-### 4. Testear webhook localmente
+### 4. Ejecutar pruebas locales
+
+```bash
+npm test
+```
+
+Suites disponibles:
+
+```bash
+npm run test:static  # syntax + checks estáticos sin servicios externos
+npm run test:logic   # lógica local sin servicios externos
+npm run test:db      # requiere Supabase configurado y escribe datos de prueba
+npm run test:prod    # alias de test:db para readiness con ambiente configurado
+```
+
+### 5. Testear webhook localmente
 
 ```bash
 curl -X GET http://localhost:3000/health
 # → {"ok":true,"uptime":5,"conversationThreads":0,"model":"claude-3-5-haiku-20241022"}
 ```
 
-### 5. Testear webhook con datos
+### 6. Testear webhook con datos
 
 ```bash
 curl -X POST http://localhost:3000/webhook \

@@ -122,7 +122,8 @@
 
 **Si falla**: El servidor no está leyendo de Supabase. Check:
 - `SUPABASE_URL` en Render env vars
-- `SUPABASE_ANON_KEY` en Render env vars
+- `SUPABASE_SERVICE_ROLE_KEY` en Render env vars
+- `SUPABASE_ANON_KEY` solo si audio/STT está habilitado
 - Tablas existen en Supabase
 
 ---
@@ -185,7 +186,8 @@ WHERE nombre LIKE 'Juan%';
 1. ¿Corriste el SUPABASE_SCHEMA.sql? (Crear tablas)
 2. ¿Están las env vars en Render?
    - SUPABASE_URL
-   - SUPABASE_ANON_KEY
+   - SUPABASE_SERVICE_ROLE_KEY
+   - SUPABASE_ANON_KEY si audio/STT está habilitado
 3. Revisa los logs:
    - `[supabase] ⚠️ Supabase NOT CONFIGURED` = env vars faltando
    - `[supabase] ❌ ERROR` = tabla no existe o error de DB
